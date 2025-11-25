@@ -18,6 +18,7 @@ import Testing
 @Suite
 struct AsyncWriterAsyncReaderTests {
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func writeReaderToWriter() async {
         let reader = [1, 2, 3, 4, 5].asyncReader()
         var writer = TestWriter()
@@ -28,6 +29,7 @@ struct AsyncWriterAsyncReaderTests {
     }
 
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func writeEmptyReaderToWriter() async {
         let reader = [Int]().asyncReader()
         var writer = TestWriter()
@@ -38,6 +40,7 @@ struct AsyncWriterAsyncReaderTests {
     }
 
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func writeLargeReaderToWriter() async {
         let data = Array(1...100)
         let reader = data.asyncReader()
@@ -49,6 +52,7 @@ struct AsyncWriterAsyncReaderTests {
     }
 
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func writeReaderStreamingBehavior() async {
         // Create a reader that will produce multiple spans
         struct ChunkedReader: AsyncReader {
@@ -78,7 +82,7 @@ struct AsyncWriterAsyncReaderTests {
             }
         }
 
-        var reader = ChunkedReader(data: [1, 2, 3, 4, 5, 6], position: 0, chunkSize: 2)
+        let reader = ChunkedReader(data: [1, 2, 3, 4, 5, 6], position: 0, chunkSize: 2)
         var writer = TestWriter()
 
         try! await writer.write(reader)
@@ -87,6 +91,7 @@ struct AsyncWriterAsyncReaderTests {
     }
 
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func writeTransformedReaderToWriter() async {
         let reader = [1, 2, 3, 4, 5].asyncReader().map { $0 * 2 }
         var writer = TestWriter()
@@ -97,6 +102,7 @@ struct AsyncWriterAsyncReaderTests {
     }
 
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func writeMultipleReadersToSameWriter() async {
         let reader1 = [1, 2, 3].asyncReader()
         let reader2 = [4, 5, 6].asyncReader()
@@ -109,6 +115,7 @@ struct AsyncWriterAsyncReaderTests {
     }
 
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func pipingDataBetweenReaderAndWriter() async {
         // This test simulates a typical use case: reading from one source
         // and writing to another destination

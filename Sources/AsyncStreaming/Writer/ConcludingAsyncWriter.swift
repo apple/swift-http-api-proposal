@@ -48,6 +48,7 @@ public protocol ConcludingAsyncWriter<Underlying, FinalElement>: ~Copyable, ~Esc
     ) async throws -> Return
 }
 
+@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
 extension ConcludingAsyncWriter where Self: ~Copyable {
     /// Produces a final element using the underlying async writer without returning a separate value.
     ///
@@ -79,6 +80,7 @@ extension ConcludingAsyncWriter where Self: ~Copyable {
     }
 }
 
+@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
 extension ConcludingAsyncWriter where Self: ~Copyable {
     /// Writes a single element to the underlying writer and concludes with a final element.
     ///

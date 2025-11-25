@@ -14,14 +14,15 @@
 
 import AsyncStreaming
 
+@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
 struct TestConcludingReader: ConcludingAsyncReader {
     struct UnderlyingReader: AsyncReader {
         typealias ReadElement = Int
         typealias ReadFailure = Never
-        
+
         var data: [Int]
         var position: Int = 0
-        
+
         mutating func read<Return, Failure: Error>(
             maximumCount: Int?,
             body: (consuming Span<Int>) async throws(Failure) -> Return
@@ -30,14 +31,14 @@ struct TestConcludingReader: ConcludingAsyncReader {
                 guard position < data.count else {
                     return try await body([Int]().span)
                 }
-                
+
                 let count: Int
                 if let maximumCount {
                     count = min(maximumCount, data.count - position)
                 } else {
                     count = data.count - position
                 }
-                
+
                 let endIndex = position + count
                 defer { position = endIndex }
                 return try await body(data[position..<endIndex].span)
@@ -46,12 +47,12 @@ struct TestConcludingReader: ConcludingAsyncReader {
             }
         }
     }
-    
+
     typealias Underlying = UnderlyingReader
     typealias FinalElement = Int
-    
+
     let data: [Int]
-    
+
     consuming func consumeAndConclude<Return, Failure: Error>(
         body: (consuming sending Underlying) async throws(Failure) -> Return
     ) async throws(Failure) -> (Return, Int) {

@@ -19,6 +19,7 @@ import Testing
 @Suite
 struct AsyncReaderTests {
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func readWithMaximumCount() async {
         var reader = SimpleReader(data: [1, 2, 3, 4, 5])
 
@@ -30,6 +31,7 @@ struct AsyncReaderTests {
     }
 
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func readWithoutMaximumCount() async {
         var reader = SimpleReader(data: [1, 2, 3, 4, 5])
 
@@ -41,6 +43,7 @@ struct AsyncReaderTests {
     }
 
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func readEmptySpanAtEnd() async {
         var reader = SimpleReader(data: [1, 2, 3])
 
@@ -58,6 +61,7 @@ struct AsyncReaderTests {
     }
 
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func readMultipleChunks() async {
         var reader = SimpleReader(data: [1, 2, 3, 4, 5, 6])
         var chunks: [[Int]] = []
@@ -76,6 +80,7 @@ struct AsyncReaderTests {
     }
 
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func readIntoCopyableElements() async {
         var reader = SimpleReader(data: [1, 2, 3, 4, 5])
         var buffer = RigidArray<Int>()
