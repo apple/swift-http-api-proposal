@@ -18,12 +18,13 @@ import Testing
 @Suite
 struct AsyncReaderMapTests {
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func mapTransformsElements() async throws {
         let reader = [1, 2, 3, 4, 5].asyncReader()
         let mappedReader = reader.map { $0 * 2 }
 
         var results: [Int] = []
-        try await mappedReader.forEach { span in
+        await mappedReader.forEach { span in
             for i in span.indices {
                 results.append(span[i])
             }
@@ -33,12 +34,13 @@ struct AsyncReaderMapTests {
     }
 
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func mapWithTypeConversion() async throws {
         let reader = [1, 2, 3].asyncReader()
         let mappedReader = reader.map { String($0) }
 
         var results: [String] = []
-        try await mappedReader.forEach { span in
+        await mappedReader.forEach { span in
             for i in span.indices {
                 results.append(span[i])
             }
@@ -48,12 +50,13 @@ struct AsyncReaderMapTests {
     }
 
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func mapEmptyReader() async throws {
         let reader = [Int]().asyncReader()
         let mappedReader = reader.map { $0 * 2 }
 
         var count = 0
-        try await mappedReader.forEach { span in
+        await mappedReader.forEach { span in
             count += span.count
         }
 
@@ -61,6 +64,7 @@ struct AsyncReaderMapTests {
     }
 
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func mapWithAsyncTransformation() async throws {
         let reader = [1, 2, 3].asyncReader()
         let mappedReader = reader.map { value in
@@ -70,7 +74,7 @@ struct AsyncReaderMapTests {
         }
 
         var results: [Int] = []
-        try await mappedReader.forEach { span in
+        await mappedReader.forEach { span in
             for i in span.indices {
                 results.append(span[i])
             }
@@ -80,6 +84,7 @@ struct AsyncReaderMapTests {
     }
 
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func mapPreservesChunking() async {
         let reader = [1, 2, 3, 4, 5, 6].asyncReader()
         var mappedReader = reader.map { $0 + 100 }
@@ -100,6 +105,7 @@ struct AsyncReaderMapTests {
     }
 
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func mapChaining() async throws {
         let reader = [1, 2, 3].asyncReader()
         let mappedReader =
@@ -108,7 +114,7 @@ struct AsyncReaderMapTests {
             .map { $0 + 10 }
 
         var results: [Int] = []
-        try await mappedReader.forEach { span in
+        await mappedReader.forEach { span in
             for i in span.indices {
                 results.append(span[i])
             }

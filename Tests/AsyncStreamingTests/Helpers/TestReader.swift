@@ -15,6 +15,7 @@
 import AsyncStreaming
 import BasicContainers
 
+@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
 struct SimpleReader: AsyncReader {
     typealias ReadElement = Int
     typealias ReadFailure = Never

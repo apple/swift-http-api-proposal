@@ -16,18 +16,11 @@ let extraSettings: [SwiftSetting] = [
 ]
 let package = Package(
     name: "HTTPAPIProposal",
-    platforms: [
-        .macOS("26"),
-        .iOS("26"),
-        .watchOS("26"),
-        .tvOS("26"),
-        .visionOS("26"),
-    ],
     dependencies: [
         .package(
             url: "https://github.com/FranzBusch/swift-collections.git",
             branch: "fb-async"
-        ),
+        )
     ],
     targets: [
         .target(

@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+// swift-format-ignore: AmbiguousTrailingClosureOverload
 @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
 extension AsyncReader where Self: ~Copyable, Self: ~Escapable {
     /// Iterates over all elements from the reader, executing the provided body for each span.
@@ -78,16 +79,25 @@ extension AsyncReader where Self: ~Copyable, Self: ~Escapable {
     /// ```
     public consuming func forEach<Failure: Error>(
         body: (consuming Span<ReadElement>) async throws(Failure) -> Void
-    ) async throws(EitherError<ReadFailure, Failure>) where ReadFailure == Never {
+    ) async throws(Failure) where ReadFailure == Never {
         var shouldContinue = true
         while shouldContinue {
-            try await self.read(maximumCount: nil) { (next) throws(Failure) -> Void in
-                guard next.count > 0 else {
-                    shouldContinue = false
-                    return
-                }
+            do {
+                try await self.read(maximumCount: nil) { (next) throws(Failure) -> Void in
+                    guard next.count > 0 else {
+                        shouldContinue = false
+                        return
+                    }
 
-                try await body(next)
+                    try await body(next)
+                }
+            } catch {
+                switch error {
+                case .first:
+                    fatalError()
+                case .second(let error):
+                    throw error
+                }
             }
         }
     }

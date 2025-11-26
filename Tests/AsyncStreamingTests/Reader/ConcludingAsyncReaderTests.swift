@@ -18,13 +18,14 @@ import Testing
 @Suite
 struct ConcludingAsyncReaderTests {
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func consumeAndConcludeReturnsResult() async throws {
         let reader = TestConcludingReader(data: [1, 2, 3, 4, 5])
 
-        let (result, finalElement) = try await reader.consumeAndConclude { reader in
+        let (result, finalElement) = await reader.consumeAndConclude { reader in
             let reader = reader
             var sum = 0
-            try await reader.forEach { span in
+            await reader.forEach { span in
                 for i in span.indices {
                     sum += span[i]
                 }
@@ -37,13 +38,14 @@ struct ConcludingAsyncReaderTests {
     }
 
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func consumeAndConcludeWithEmptyReader() async throws {
         let reader = TestConcludingReader(data: [])
 
-        let (result, finalElement) = try await reader.consumeAndConclude { reader in
+        let (result, finalElement) = await reader.consumeAndConclude { reader in
             let reader = reader
             var count = 0
-            try await reader.forEach { span in
+            await reader.forEach { span in
                 count += span.count
             }
             return count
@@ -54,6 +56,7 @@ struct ConcludingAsyncReaderTests {
     }
 
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func collectReturnsResultAndFinal() async {
         let reader = TestConcludingReader(data: [10, 20, 30])
 
@@ -66,6 +69,7 @@ struct ConcludingAsyncReaderTests {
     }
 
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func collectEmptyConcludingReader() async {
         let reader = TestConcludingReader(data: [])
 
@@ -78,6 +82,7 @@ struct ConcludingAsyncReaderTests {
     }
 
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func collectProcessesAllElements() async {
         let reader = TestConcludingReader(data: [1, 2, 3, 4])
 

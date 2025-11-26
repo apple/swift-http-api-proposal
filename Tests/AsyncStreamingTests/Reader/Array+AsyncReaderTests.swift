@@ -18,10 +18,11 @@ import Testing
 @Suite
 struct ArrayAsyncReaderTests {
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func oneSpan() async throws {
         let array = [1, 2, 3].asyncReader()
         var counter = 0
-        try await array.forEach { span in
+        await array.forEach { span in
             counter += 1
             #expect(span.count == 3)
         }
@@ -29,6 +30,7 @@ struct ArrayAsyncReaderTests {
     }
 
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func multipleSpans() async throws {
         var array = [1, 2, 3].asyncReader()
         var counter = 0

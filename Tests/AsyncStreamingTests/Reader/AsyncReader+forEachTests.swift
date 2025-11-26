@@ -18,11 +18,12 @@ import Testing
 @Suite
 struct AsyncReaderForEachTests {
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func forEachIteratesAllSpans() async throws {
         let reader = [1, 2, 3, 4, 5].asyncReader()
         var elementCount = 0
 
-        try await reader.forEach { span in
+        await reader.forEach { span in
             elementCount += span.count
         }
 
@@ -30,11 +31,12 @@ struct AsyncReaderForEachTests {
     }
 
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func forEachProcessesElements() async throws {
         let reader = [10, 20, 30].asyncReader()
         var sum = 0
 
-        try await reader.forEach { span in
+        await reader.forEach { span in
             for i in span.indices {
                 sum += span[i]
             }
@@ -44,11 +46,12 @@ struct AsyncReaderForEachTests {
     }
 
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func forEachWithEmptyReader() async throws {
         let reader = [Int]().asyncReader()
         var callCount = 0
 
-        try await reader.forEach { span in
+        await reader.forEach { span in
             callCount += 1
         }
 
@@ -56,6 +59,7 @@ struct AsyncReaderForEachTests {
     }
 
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func forEachWithThrowingBody() async {
         enum TestError: Error {
             case failed
@@ -69,16 +73,12 @@ struct AsyncReaderForEachTests {
             }
             Issue.record("Expected error to be thrown")
         } catch {
-            switch error {
-            case .first:
-                Issue.record("Expected second error variant")
-            case .second(let err):
-                #expect(err == TestError.failed)
-            }
+            #expect(error == TestError.failed)
         }
     }
 
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func forEachWithNeverFailingReader() async {
         enum TestError: Error {
             case failed
@@ -99,11 +99,12 @@ struct AsyncReaderForEachTests {
     }
 
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func forEachWithAsyncWork() async throws {
         let reader = [1, 2, 3].asyncReader()
         var results: [Int] = []
 
-        try await reader.forEach { span in
+        await reader.forEach { span in
             await Task.yield()
             for i in span.indices {
                 results.append(span[i])
@@ -114,6 +115,7 @@ struct AsyncReaderForEachTests {
     }
 
     @Test
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
     func forEachMultipleSpans() async {
         var reader = [1, 2, 3, 4, 5, 6].asyncReader()
         var spanCounts: [Int] = []
