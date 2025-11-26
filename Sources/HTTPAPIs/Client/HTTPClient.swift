@@ -22,14 +22,14 @@
 /// ``HTTPClient`` provides asynchronous request execution with streaming request
 /// and response bodies.
 @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
-public protocol HTTPClient<RequestWriter, ResponseReader>: ~Copyable {
-    /// The type used to write request body data.
-    associatedtype RequestWriter: ConcludingAsyncWriter, ~Copyable, SendableMetatype
-    where RequestWriter.Underlying.WriteElement == UInt8, RequestWriter.FinalElement == HTTPFields?
+public protocol HTTPClient<RequestConcludingWriter, ResponseConcludingReader>: ~Copyable {
+    /// The type used to write request body data and trailers.
+    associatedtype RequestConcludingWriter: ConcludingAsyncWriter, ~Copyable, SendableMetatype
+    where RequestConcludingWriter.Underlying.WriteElement == UInt8, RequestConcludingWriter.FinalElement == HTTPFields?
 
-    /// The type used to read response body data.
-    associatedtype ResponseReader: ConcludingAsyncReader, ~Copyable, SendableMetatype
-    where ResponseReader.Underlying.ReadElement == UInt8, ResponseReader.FinalElement == HTTPFields?
+    /// The type used to read response body data and trailers.
+    associatedtype ResponseConcludingReader: ConcludingAsyncReader, ~Copyable, SendableMetatype
+    where ResponseConcludingReader.Underlying.ReadElement == UInt8, ResponseConcludingReader.FinalElement == HTTPFields?
 
     /// Performs an HTTP request and processes the response.
     ///
@@ -50,10 +50,10 @@ public protocol HTTPClient<RequestWriter, ResponseReader>: ~Copyable {
     /// - Throws: An error if the request fails or if the response handler throws.
     mutating func perform<Return>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<RequestWriter>?,
+        body: consuming HTTPClientRequestBody<RequestConcludingWriter>?,
         configuration: HTTPClientConfiguration,
         eventHandler: borrowing some HTTPClientEventHandler & ~Escapable & ~Copyable,
-        responseHandler: (HTTPResponse, consuming ResponseReader) async throws -> Return
+        responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return
     ) async throws -> Return
 }
 
@@ -78,11 +78,11 @@ extension HTTPClient {
     /// - Throws: An error if the request fails or if the response handler throws.
     public mutating func perform<Return>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<RequestWriter>? = nil,
+        body: consuming HTTPClientRequestBody<RequestConcludingWriter>? = nil,
         configuration: HTTPClientConfiguration = .init(),
         eventHandler: consuming some HTTPClientEventHandler & ~Escapable & ~Copyable =
             DefaultHTTPClientEventHandler(),
-        responseHandler: (HTTPResponse, consuming ResponseReader) async throws -> Return,
+        responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return,
     ) async throws -> Return {
         try await self.perform(
             request: request,
