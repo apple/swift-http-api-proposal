@@ -20,13 +20,36 @@ let package = Package(
         .package(
             url: "https://github.com/FranzBusch/swift-collections.git",
             branch: "fb-async"
-        )
+        ),
+        .package(url: "https://github.com/apple/swift-http-types.git", from: "1.5.1"),
     ],
     targets: [
+        .target(
+            name: "HTTPAPIs",
+            dependencies: [
+                "AsyncStreaming",
+                "NetworkTypes",
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+            ],
+            swiftSettings: extraSettings
+        ),
+        .target(
+            name: "NetworkTypes",
+            swiftSettings: extraSettings
+        ),
         .target(
             name: "AsyncStreaming",
             dependencies: [
                 .product(name: "BasicContainers", package: "swift-collections")
+            ],
+            swiftSettings: extraSettings
+        ),
+
+        // MARK: Tests
+        .testTarget(
+            name: "NetworkTypesTests",
+            dependencies: [
+                "NetworkTypes"
             ],
             swiftSettings: extraSettings
         ),
