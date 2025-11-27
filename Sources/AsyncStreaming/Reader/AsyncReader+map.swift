@@ -76,7 +76,7 @@ struct AsyncMapReader<Base: AsyncReader & ~Copyable & ~Escapable, MappedElement:
     #endif
     mutating func read<Return, Failure>(
         maximumCount: Int?,
-        body: nonisolated(nonsending) (consuming Span<MappedElement>) async throws(Failure) -> Return
+        body: (consuming Span<MappedElement>) async throws(Failure) -> Return
     ) async throws(EitherError<Base.ReadFailure, Failure>) -> Return {
         var buffer = RigidArray<MappedElement>()
         return try await self.base

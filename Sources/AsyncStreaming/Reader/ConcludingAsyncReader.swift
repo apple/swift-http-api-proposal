@@ -19,7 +19,7 @@
 /// for streams that have meaningful completion states beyond just terminating, such as
 /// HTTP responses that include headers after the body is fully read.
 @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
-public protocol ConcludingAsyncReader<Underlying, FinalElement>: ~Copyable {
+public protocol ConcludingAsyncReader<Underlying, FinalElement>: ~Copyable, ~Escapable {
     /// The underlying asynchronous reader type that produces elements.
     associatedtype Underlying: AsyncReader, ~Copyable, ~Escapable
 

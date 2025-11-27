@@ -44,7 +44,7 @@ extension RigidArray: AsyncWriter {
     /// }
     /// ```
     public mutating func write<Result, Failure: Error>(
-        _ body: nonisolated(nonsending) (inout OutputSpan<Element>) async throws(Failure) -> Result
+        _ body: (inout OutputSpan<Element>) async throws(Failure) -> Result
     ) async throws(EitherError<Never, Failure>) -> Result {
         do {
             // TODO: Reconsider adding count to AsyncWriter

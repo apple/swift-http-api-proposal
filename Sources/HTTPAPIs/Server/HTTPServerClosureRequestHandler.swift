@@ -50,7 +50,7 @@ where
 {
     /// The underlying closure that handles HTTP requests.
     private let _handler:
-        nonisolated(nonsending) @Sendable (
+        @Sendable (
             HTTPRequest,
             HTTPRequestContext,
             consuming sending RequestReader,
@@ -64,7 +64,7 @@ where
     ///   ``HTTPServerRequestHandler/handle(request:requestContext:requestBodyAndTrailers:responseSender:)`` method.
     public init(
         handler:
-            nonisolated(nonsending) @Sendable @escaping (
+            @Sendable @escaping (
                 HTTPRequest,
                 HTTPRequestContext,
                 consuming sending RequestReader,

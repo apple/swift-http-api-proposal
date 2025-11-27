@@ -56,10 +56,7 @@ struct ArrayAsyncReader<Element>: AsyncReader {
 
     mutating func read<Return, Failure: Error>(
         maximumCount: Int?,
-        body:
-            nonisolated(nonsending) (
-                consuming Span<Element>
-            ) async throws(Failure) -> Return
+        body: (consuming Span<Element>) async throws(Failure) -> Return
     ) async throws(EitherError<Never, Failure>) -> Return {
         do {
             guard self.index < self.array.endIndex else {

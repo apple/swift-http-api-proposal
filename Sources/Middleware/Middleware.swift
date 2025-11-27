@@ -25,11 +25,11 @@
 ///   `MiddlewareChainBuilder` to easily construct middleware chains.
 public protocol Middleware<Input, NextInput>: Sendable {
     /// The input type that this middleware accepts.
-    associatedtype Input: ~Copyable
+    associatedtype Input: ~Copyable, ~Escapable
 
     /// The type passed to the next middleware in the chain.
     /// Defaults to the same type as `Input` if not specified.
-    associatedtype NextInput: ~Copyable = Input
+    associatedtype NextInput: ~Copyable, ~Escapable = Input
 
     /// Intercepts and processes the input, then calls the next middleware or handler.
     ///

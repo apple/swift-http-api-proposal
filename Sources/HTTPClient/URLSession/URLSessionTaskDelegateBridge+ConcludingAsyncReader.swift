@@ -19,7 +19,7 @@ import Foundation
 @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
 extension URLSessionTaskDelegateBridge: ConcludingAsyncReader {
     func consumeAndConclude<Return, Failure: Error>(
-        body: nonisolated(nonsending) (consuming sending URLSessionTaskDelegateBridge) async throws(Failure) -> Return
+        body: (consuming sending URLSessionTaskDelegateBridge) async throws(Failure) -> Return
     ) async throws(Failure) -> (Return, HTTPFields?) {
         try await (body(self), nil)
     }
@@ -29,7 +29,7 @@ extension URLSessionTaskDelegateBridge: ConcludingAsyncReader {
 extension URLSessionTaskDelegateBridge: AsyncReader {
     func read<Return, Failure: Error>(
         maximumCount: Int?,
-        body: nonisolated(nonsending) (consuming Span<UInt8>) async throws(Failure) -> Return
+        body: (consuming Span<UInt8>) async throws(Failure) -> Return
     ) async throws(EitherError<any Error, Failure>) -> Return {
         let data: Data?
         do {

@@ -103,7 +103,7 @@ final class URLSessionRequestStreamBridge: NSObject, StreamDelegate, @unchecked 
 extension URLSessionRequestStreamBridge: ConcludingAsyncWriter {
     func produceAndConclude<Return>(
         body:
-            nonisolated(nonsending) (consuming sending URLSessionRequestStreamBridge) async throws -> (Return, HTTPFields?)
+            (consuming sending URLSessionRequestStreamBridge) async throws -> (Return, HTTPFields?)
     ) async throws -> Return {
         let result: Result<Return, any Error>
         do {
@@ -119,7 +119,7 @@ extension URLSessionRequestStreamBridge: ConcludingAsyncWriter {
 @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
 extension URLSessionRequestStreamBridge: AsyncWriter {
     func write<Result, Failure: Error>(
-        _ body: nonisolated(nonsending) (inout OutputSpan<UInt8>) async throws(Failure) -> Result
+        _ body: (inout OutputSpan<UInt8>) async throws(Failure) -> Result
     ) async throws(EitherError<any Error, Failure>) -> Result {
         // TODO: Either this needs to be inline or configurable
         var array = RigidArray<UInt8>(capacity: 1024)
