@@ -16,6 +16,12 @@ let extraSettings: [SwiftSetting] = [
 ]
 let package = Package(
     name: "HTTPAPIProposal",
+    products: [
+        .library(name: "HTTPAPIs", targets: ["HTTPAPIs"]),
+        .library(name: "HTTPClient", targets: ["HTTPClient"]),
+        .library(name: "AsyncStreaming", targets: ["AsyncStreaming"]),
+        .library(name: "NetworkTypes", targets: ["NetworkTypes"]),
+    ],
     dependencies: [
         .package(
             url: "https://github.com/FranzBusch/swift-collections.git",
@@ -30,6 +36,17 @@ let package = Package(
                 "AsyncStreaming",
                 "NetworkTypes",
                 .product(name: "HTTPTypes", package: "swift-http-types"),
+            ],
+            swiftSettings: extraSettings
+        ),
+        .target(
+            name: "HTTPClient",
+            dependencies: [
+                "HTTPAPIs",
+                "AsyncStreaming",
+                "NetworkTypes",
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "HTTPTypesFoundation", package: "swift-http-types"),
             ],
             swiftSettings: extraSettings
         ),
@@ -57,6 +74,13 @@ let package = Package(
             name: "AsyncStreamingTests",
             dependencies: [
                 "AsyncStreaming"
+            ],
+            swiftSettings: extraSettings
+        ),
+        .testTarget(
+            name: "HTTPClientTests",
+            dependencies: [
+                "HTTPClient"
             ],
             swiftSettings: extraSettings
         ),

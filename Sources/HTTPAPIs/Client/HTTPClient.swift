@@ -48,7 +48,7 @@ public protocol HTTPClient<RequestConcludingWriter, ResponseConcludingReader>: ~
     /// - Returns: The value returned by the response handler closure.
     ///
     /// - Throws: An error if the request fails or if the response handler throws.
-    mutating func perform<Return>(
+    func perform<Return>(
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<RequestConcludingWriter>?,
         configuration: HTTPClientConfiguration,
@@ -76,7 +76,7 @@ extension HTTPClient where Self: ~Copyable {
     /// - Returns: The value returned by the response handler closure.
     ///
     /// - Throws: An error if the request fails or if the response handler throws.
-    public mutating func perform<Return>(
+    public func perform<Return>(
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<RequestConcludingWriter>? = nil,
         configuration: HTTPClientConfiguration = .init(),

@@ -22,7 +22,9 @@ public struct DefaultHTTPClientEventHandler: ~Copyable {
 }
 
 @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
-struct HTTPClientEventHandlerDefaultImplementationError: Error {
+// TODO: Evaluate if this type should be public and if the default implementations
+// should really throw an error
+public struct HTTPClientEventHandlerDefaultImplementationError: Error {
     init() {}
 }
 
