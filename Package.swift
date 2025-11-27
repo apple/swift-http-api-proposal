@@ -61,6 +61,10 @@ let package = Package(
             ],
             swiftSettings: extraSettings
         ),
+        .target(
+            name: "Middleware",
+            swiftSettings: extraSettings
+        ),
 
         // MARK: Tests
         .testTarget(
@@ -81,6 +85,13 @@ let package = Package(
             name: "HTTPClientTests",
             dependencies: [
                 "HTTPClient"
+            ],
+            swiftSettings: extraSettings
+        ),
+        .testTarget(
+            name: "MiddlewareTests",
+            dependencies: [
+                "Middleware"
             ],
             swiftSettings: extraSettings
         ),
