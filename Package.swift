@@ -46,6 +46,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-configuration", from: "1.0.0"),
     ],
     targets: [
+        // MARK: Libraries
         .target(
             name: "HTTPAPIs",
             dependencies: [
@@ -162,6 +163,24 @@ let package = Package(
             dependencies: [
                 "Middleware"
             ],
+            swiftSettings: extraSettings
+        ),
+
+        // MARK: Examples
+        .executableTarget(
+            name: "EchoServer",
+            dependencies: [
+                "HTTPAPIs"
+            ],
+            path: "Examples/EchoServer",
+            swiftSettings: extraSettings
+        ),
+        .executableTarget(
+            name: "ProxyServer",
+            dependencies: [
+                "HTTPAPIs"
+            ],
+            path: "Examples/ProxyServer",
             swiftSettings: extraSettings
         ),
     ]
