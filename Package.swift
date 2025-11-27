@@ -32,6 +32,10 @@ let package = Package(
             url: "https://github.com/FranzBusch/swift-collections.git",
             branch: "fb-async"
         ),
+        .package(
+            url: "https://github.com/FranzBusch/swift-async-algorithms.git",
+            branch: "fb-nonisolated-nonsending"
+        ),
         .package(url: "https://github.com/apple/swift-http-types.git", from: "1.5.1"),
         .package(url: "https://github.com/apple/swift-certificates.git", from: "1.16.0"),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
@@ -79,7 +83,10 @@ let package = Package(
         .target(
             name: "AsyncStreaming",
             dependencies: [
-                .product(name: "BasicContainers", package: "swift-collections")
+                .product(
+                    name: "BasicContainers",
+                    package: "swift-collections"
+                )
             ],
             swiftSettings: extraSettings
         ),
@@ -128,6 +135,16 @@ let package = Package(
             name: "AsyncStreamingTests",
             dependencies: [
                 "AsyncStreaming"
+            ],
+            swiftSettings: extraSettings
+        ),
+        .testTarget(
+            name: "HTTPAPIsTests",
+            dependencies: [
+                "HTTPAPIs",
+                "AsyncStreaming",
+                "NetworkTypes",
+                .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
             ],
             swiftSettings: extraSettings
         ),
