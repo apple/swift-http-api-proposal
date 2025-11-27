@@ -58,7 +58,7 @@ public protocol HTTPClient<RequestConcludingWriter, ResponseConcludingReader>: ~
 }
 
 @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
-extension HTTPClient {
+extension HTTPClient where Self: ~Copyable {
     /// Performs an HTTP request and processes the response.
     ///
     /// This method executes the HTTP request with the specified configuration and event
