@@ -37,4 +37,16 @@ struct EchoServer {
             }
         }
     }
+
+    static func foo<Server: HTTPServer>(server: Server) async throws {
+        try await server.serve { request, requestContext, requestBodyAndTrailers, responseSender in
+            let responseWriter = try await responseSender.send(.init(status: .ok)) { writer in
+            }
+            try await responseWriter.produceAndConclude { writer in
+                var writer = writer
+                try await writer.write(1)
+                return .init(dictionaryLiteral: (HTTPField.Name.accept, "foo"))
+            }
+        }
+    }
 }
