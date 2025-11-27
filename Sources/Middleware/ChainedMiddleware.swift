@@ -46,10 +46,10 @@ struct ChainedMiddleware<First: Middleware, Second: Middleware>: Middleware wher
     ///   - next: The next handler function to call after both middlewares have processed the input.
     ///
     /// - Throws: Any error that occurs during processing in either middleware.
-    func intercept(
+    func intercept<Return: ~Copyable>(
         input: consuming First.Input,
-        next: (consuming Second.NextInput) async throws -> Void
-    ) async throws {
+        next: (consuming Second.NextInput) async throws -> Return
+    ) async throws -> Return{
         try await first.intercept(input: input) { middleInput in
             try await second.intercept(input: middleInput, next: next)
         }
