@@ -13,7 +13,7 @@ before committing to separate package boundaries.
 
 We're exploring several interconnected pieces:
 
-- **AsyncStreaming** - Modern streaming primitives that integrate with the latest Swift concepts such as `~Copyabe`, `~Escapable` and structured concurrency. Checkout the [module's README](AsyncStreaming/README.md) for more details.
+- **AsyncStreaming** - Modern streaming primitives that integrate with the latest Swift concepts such as `~Copyabe`, `~Escapable` and structured concurrency. Checkout the [module's README](Sources/AsyncStreaming/README.md) for more details.
 - **NetworkTypes** - Basic cross-platform network configuration types.
 - **HTTPAPIs** - Protocol definitions for HTTP clients and servers.
 - **HTTPClient** - A default platform HTTP client.
