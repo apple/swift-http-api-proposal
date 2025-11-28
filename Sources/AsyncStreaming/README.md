@@ -27,14 +27,6 @@ that for asynchronous sequences they aren't a good fit. This is due to two
 reasons. First, most asynchronous sequences do not support multiple iterators.
 Secondly, most asynchronous sequences are not replayable.
 
-### Seeking
-
-Some asynchronous sequences allow seeking the current position forward or
-backwards such as asynchronous sequences that represent an array or a file.
-However there is currently no protocol to express this. APIs such as resumable
-HTTP uploads could leverage such a protocol by seeking forward the asynchronous
-sequence to the position where the upload last stopped.
-
 ### Final elements
 
 Some asynchronous sequences can finish with a special last element. A common
@@ -168,28 +160,6 @@ try await httpRequestConcludingWriter.consumeAndConclude { bodyWriter in
 }
 ```
 
-### `Seekable`
-
-`Seekable` is a protocol that types can conform to indicate that their position
-in a stream can be moved.
-
-```swift
-var fileReader = ...
-// Seeks to the 5th position of the front of the stream.
-fileReader.seek(to: .front(5))
-```
-
-### `Runnable`
-
-// TODO
-
-```swift
-try await merge(reader1, reader)
-  .forEach { element in
-    print(element)
-  }
-```
-
 ## Detailed design
 
 ### `AsyncReader`
@@ -199,7 +169,6 @@ try await merge(reader1, reader)
 ///
 /// ``AsyncReader`` defines an interface for types that can asynchronously read elements
 /// of a specified type from a source.
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
 public protocol AsyncReader<ReadElement, ReadFailure>: ~Copyable, ~Escapable {
     /// The type of elements that can be read by this reader.
     associatedtype ReadElement: ~Copyable
@@ -207,21 +176,21 @@ public protocol AsyncReader<ReadElement, ReadFailure>: ~Copyable, ~Escapable {
     /// The type of error that can be thrown during reading operations.
     associatedtype ReadFailure: Error
 
-    /// Reads elements from the underlying source and processes them with the provided body function.
+    /// Reads elements from the underlying source and processes them with the provided body closure.
     ///
     /// This method asynchronously reads a span of elements from whatever source the reader
-    /// represents, then passes them to the provided body function. The operation may complete immediately
+    /// represents, then passes them to the provided body closure. The operation may complete immediately
     /// or may await resources or processing time.
     ///
     /// - Parameter maximumCount: The maximum count of items the caller is ready
     ///   to process, or nil if the caller is prepared to accept an arbitrarily
     ///   large span. If non-nil, the maximum must be greater than zero.
     ///
-    /// - Parameter body: A function that consumes a span of read elements and performs some operation
+    /// - Parameter body: A closure that consumes a span of read elements and performs some operation
     ///   on them, returning a value of type `Return`. When the span is empty, it indicates
     ///   the end of the reading operation or stream.
     ///
-    /// - Returns: The value returned by the body function after processing the read elements.
+    /// - Returns: The value returned by the body closure after processing the read elements.
     ///
     /// - Throws: An `EitherError` containing either a `ReadFailure` from the read operation
     ///   or a `Failure` from the body closure.
@@ -239,24 +208,24 @@ public protocol AsyncReader<ReadElement, ReadFailure>: ~Copyable, ~Escapable {
     ///     return data
     /// }
     /// ```
-    @_lifetime(&self)
     mutating func read<Return, Failure: Error>(
         maximumCount: Int?,
         body: (consuming Span<ReadElement>) async throws(Failure) -> Return
     ) async throws(EitherError<ReadFailure, Failure>) -> Return
+
 }
 ```
 
 ### `ConcludingAsyncReader`
 
 ```swift
-/// A protocol that provides access to an asynchronous reader and concludes with a final value.
+/// A protocol that represents an asynchronous reader that produces elements and concludes with a final value.
 ///
 /// ``ConcludingAsyncReader`` adds functionality to asynchronous readers that need to
 /// provide a conclusive element after all reads are completed. This is particularly useful
 /// for streams that have meaningful completion states beyond just terminating, such as
 /// HTTP responses that include headers after the body is fully read.
-public protocol ConcludingAsyncReader<Underlying, FinalElement>: ~Copyable {
+public protocol ConcludingAsyncReader<Underlying, FinalElement>: ~Copyable, ~Escapable {
     /// The underlying asynchronous reader type that produces elements.
     associatedtype Underlying: AsyncReader, ~Copyable, ~Escapable
 
@@ -284,10 +253,11 @@ public protocol ConcludingAsyncReader<Underlying, FinalElement>: ~Copyable {
     ///     return collectedData
     /// }
     /// ```
-    consuming func consumeAndConclude<Return>(
-        body: (consuming sending Underlying) async throws -> Return
-    ) async throws -> (Return, FinalElement)
+    consuming func consumeAndConclude<Return, Failure: Error>(
+        body: (consuming sending Underlying) async throws(Failure) -> Return
+    ) async throws(Failure) -> (Return, FinalElement)
 }
+
 ```
 
 ### `AsyncWriter`
@@ -330,10 +300,34 @@ public protocol AsyncWriter<WriteElement, WriteFailure>: ~Copyable, ~Escapable {
     ///     return outputSpan.count
     /// }
     /// ```
-    @_lifetime(self: copy self)
     mutating func write<Result, Failure: Error>(
         _ body: (inout OutputSpan<WriteElement>) async throws(Failure) -> Result
     ) async throws(EitherError<WriteFailure, Failure>) -> Result
+
+    /// Writes a span of elements to the underlying destination.
+    ///
+    /// This method asynchronously writes all elements from the provided span to whatever destination
+    /// the writer represents. The operation may require multiple write calls to complete if the
+    /// writer cannot accept all elements at once.
+    ///
+    /// - Parameter span: The span of elements to write.
+    ///
+    /// - Throws: An `EitherError` containing either a `WriteFailure` from the write operation
+    ///   or an `AsyncWriterWroteShortError` if the writer cannot accept any more data before
+    ///   all elements are written.
+    ///
+    /// ## Example
+    ///
+    /// ```swift
+    /// var fileWriter: FileAsyncWriter = ...
+    /// let dataBuffer: [UInt8] = [1, 2, 3, 4, 5]
+    ///
+    /// // Write the entire span to a file asynchronously
+    /// try await fileWriter.write(dataBuffer.span)
+    /// ```
+    mutating func write(
+        _ span: Span<WriteElement>
+    ) async throws(EitherError<WriteFailure, AsyncWriterWroteShortError>)
 }
 ```
 
@@ -346,7 +340,7 @@ public protocol AsyncWriter<WriteElement, WriteFailure>: ~Copyable, ~Escapable {
 /// provide a conclusive element after writing is complete. This is particularly useful
 /// for streams that have meaningful completion states, such as HTTP response that need
 /// to finalize with optional trailers.
-public protocol ConcludingAsyncWriter<Underlying, FinalElement>: ~Copyable {
+public protocol ConcludingAsyncWriter<Underlying, FinalElement>: ~Copyable, ~Escapable {
     /// The underlying asynchronous writer type.
     associatedtype Underlying: AsyncWriter, ~Copyable, ~Escapable
 
