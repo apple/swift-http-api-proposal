@@ -16,13 +16,9 @@
 // to have to import both this module and the HTTPAPIs module.
 @_exported public import HTTPAPIs
 
-/// This is the default shared HTTP client.
-// TODO: Evaluate merging with the HTTPServer module https://github.com/apple/swift-http-api-proposal/issues/14
+/// This is the default HTTP server.
+// TODO: Evaluate merging with the HTTPClient module https://github.com/apple/swift-http-api-proposal/issues/14
 @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
-public var httpClient: some HTTPClient {
-    #if canImport(Darwin)
-    HTTPClientURLSession.shared
-    #else
-    UnsupportedPlatformHTTPClient()
-    #endif
+public var httpServer: some HTTPServer {
+    UnsupportedPlatformHTTPServer()
 }

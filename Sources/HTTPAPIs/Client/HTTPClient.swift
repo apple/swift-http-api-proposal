@@ -24,10 +24,12 @@
 @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
 public protocol HTTPClient<RequestConcludingWriter, ResponseConcludingReader>: ~Copyable {
     /// The type used to write request body data and trailers.
+    // TODO: Check if we should allow ~Escapable readers https://github.com/apple/swift-http-api-proposal/issues/13
     associatedtype RequestConcludingWriter: ConcludingAsyncWriter, ~Copyable, SendableMetatype
     where RequestConcludingWriter.Underlying.WriteElement == UInt8, RequestConcludingWriter.FinalElement == HTTPFields?
 
     /// The type used to read response body data and trailers.
+    // TODO: Check if we should allow ~Escapable writers https://github.com/apple/swift-http-api-proposal/issues/13
     associatedtype ResponseConcludingReader: ConcludingAsyncReader, ~Copyable, SendableMetatype
     where ResponseConcludingReader.Underlying.ReadElement == UInt8, ResponseConcludingReader.FinalElement == HTTPFields?
 
