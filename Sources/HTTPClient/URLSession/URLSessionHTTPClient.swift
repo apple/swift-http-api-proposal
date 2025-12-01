@@ -85,10 +85,10 @@ final class HTTPClientURLSession: HTTPClient, Sendable {
         let delegateBridge: URLSessionTaskDelegateBridge
         if let body {
             task = session.uploadTask(withStreamedRequest: request)
-            delegateBridge = URLSessionTaskDelegateBridge(body: body)
+            delegateBridge = URLSessionTaskDelegateBridge(task: task, body: body)
         } else {
             task = session.dataTask(with: request)
-            delegateBridge = URLSessionTaskDelegateBridge(body: nil)
+            delegateBridge = URLSessionTaskDelegateBridge(task: task, body: nil)
         }
         task.delegate = delegateBridge
         task.resume()
