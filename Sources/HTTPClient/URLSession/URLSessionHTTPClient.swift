@@ -20,11 +20,11 @@ import NetworkTypes
 import Synchronization
 
 @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
-final class HTTPClientURLSession: HTTPClient, Sendable {
-    static let shared = HTTPClientURLSession()
+final class URLSessionHTTPClient: HTTPClient, Sendable {
+    static let shared = URLSessionHTTPClient()
 
-    typealias RequestWriter = URLSessionRequestStreamBridge
-    typealias ResponseReader = URLSessionTaskDelegateBridge
+    typealias RequestConcludingWriter = URLSessionRequestStreamBridge
+    typealias ResponseConcludingReader = URLSessionTaskDelegateBridge
 
     struct SessionConfiguration: Hashable {
         var minimumTLSVersion: TLSVersion
@@ -74,10 +74,10 @@ final class HTTPClientURLSession: HTTPClient, Sendable {
 
     func perform<Return>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<RequestWriter>?,
+        body: consuming HTTPClientRequestBody<RequestConcludingWriter>?,
         configuration: HTTPClientConfiguration,
         eventHandler: borrowing some HTTPClientEventHandler & ~Escapable & ~Copyable,
-        responseHandler: (HTTPResponse, consuming ResponseReader) async throws -> Return
+        responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return
     ) async throws -> Return {
         let request = try self.request(for: request, configuration: configuration)
         let session = self.session(for: configuration)
