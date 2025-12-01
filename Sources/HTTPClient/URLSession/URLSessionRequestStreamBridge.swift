@@ -25,13 +25,15 @@ import Foundation
 @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
 @RequestBodyActor
 final class URLSessionRequestStreamBridge: NSObject, StreamDelegate, @unchecked Sendable {
+    weak let task: URLSessionTask?
     let inputStream: InputStream
     private let outputStream: OutputStream
-    private var spaceContinuation: CheckedContinuation<Void, Never>?
+    private var spaceContinuation: CheckedContinuation<Void, any Error>?
     private var outputStreamOpened: Bool = false
     var writeFailed: Bool = false
 
-    override init() {
+    init(task: URLSessionTask) {
+        self.task = task
         var inputStream: InputStream? = nil
         var outputStream: OutputStream? = nil
         unsafe Stream.getBoundStreams(
@@ -58,7 +60,7 @@ final class URLSessionRequestStreamBridge: NSObject, StreamDelegate, @unchecked 
         var remaining = span
         while !remaining.isEmpty {
             try Task.checkCancellation()
-            await self.waitForSpace()
+            try await self.waitForSpace()
             let written = unsafe remaining.withUnsafeBufferPointer { buffer in
                 unsafe self.outputStream.write(buffer.baseAddress!, maxLength: buffer.count)
             }
@@ -70,14 +72,22 @@ final class URLSessionRequestStreamBridge: NSObject, StreamDelegate, @unchecked 
         }
     }
 
-    private func waitForSpace() async {
+    private func waitForSpace() async throws {
         if self.outputStream.hasSpaceAvailable {
             return
         }
         while !self.outputStream.hasSpaceAvailable {
-            // TODO: This is not handling cancellation appropriately
-            await withCheckedContinuation { continuation in
-                self.spaceContinuation = continuation
+            try await withTaskCancellationHandler {
+                try await withCheckedThrowingContinuation { continuation in
+                    self.spaceContinuation = continuation
+                }
+            } onCancel: {
+                self.task?.cancel()
+                Task.immediate { @RequestBodyActor in
+                    let continuation = self.spaceContinuation
+                    self.spaceContinuation = nil
+                    continuation?.resume(throwing: CancellationError())
+                }
             }
         }
     }
@@ -88,12 +98,17 @@ final class URLSessionRequestStreamBridge: NSObject, StreamDelegate, @unchecked 
 
     func stream(_ aStream: Stream, handle eventCode: Stream.Event) {
         if eventCode.contains(.hasSpaceAvailable) {
-            // TODO: Can we get rid of this task and instead use one task group
-            // for the entire client
             Task.immediate {
                 let continuation = self.spaceContinuation
                 self.spaceContinuation = nil
                 continuation?.resume()
+            }
+        }
+        if eventCode.contains(.errorOccurred) || eventCode.contains(.endEncountered) {
+            Task.immediate {
+                let continuation = self.spaceContinuation
+                self.spaceContinuation = nil
+                continuation?.resume(throwing: aStream.streamError ?? CancellationError())
             }
         }
     }

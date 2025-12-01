@@ -233,7 +233,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                 fatalError()
             case .restartable(let producer):
                 self.requestBodyTask = Task.immediate { @RequestBodyActor in
-                    let bridge = URLSessionRequestStreamBridge()
+                    let bridge = URLSessionRequestStreamBridge(task: task)
                     completionHandler(bridge.inputStream)
                     do {
                         try await producer(bridge)
@@ -247,7 +247,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                 }
             case .seekable(let producer):
                 self.requestBodyTask = Task.immediate { @RequestBodyActor in
-                    let bridge = URLSessionRequestStreamBridge()
+                    let bridge = URLSessionRequestStreamBridge(task: task)
                     completionHandler(bridge.inputStream)
                     do {
                         try await producer(0, bridge)
@@ -278,7 +278,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                 fatalError()
             case .seekable(let producer):
                 self.requestBodyTask = Task.immediate { @RequestBodyActor in
-                    let bridge = URLSessionRequestStreamBridge()
+                    let bridge = URLSessionRequestStreamBridge(task: task)
                     completionHandler(bridge.inputStream)
                     do {
                         try await producer(offset, bridge)
