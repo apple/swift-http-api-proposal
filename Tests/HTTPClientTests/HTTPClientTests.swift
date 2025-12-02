@@ -27,7 +27,7 @@ let testsEnabled: Bool = {
 struct HTTPClientTests {
     @Test(.enabled(if: testsEnabled))
     @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
-    func testHTTPBin() async throws {
+    func httpBin() async throws {
         let request = HTTPRequest(
             method: .get,
             scheme: "https",
@@ -35,8 +35,7 @@ struct HTTPClientTests {
             path: "/get"
         )
         try await httpClient.perform(
-            request: request,
-            body: nil
+            request: request
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
             let (_, trailers) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
@@ -46,4 +45,53 @@ struct HTTPClientTests {
             #expect(trailers == nil)
         }
     }
+
+    @Test(.enabled(if: testsEnabled))
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    func httpBinWithDefaultEventHandler() async throws {
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "https",
+            authority: "httpbin.org",
+            path: "/get"
+        )
+        try await httpClient.perform(
+            request: request,
+            eventHandler: .default
+        ) { response, responseBodyAndTrailers in
+            #expect(response.status == .ok)
+            let (_, trailers) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                let isEmpty = span.isEmpty
+                #expect(!isEmpty)
+            }
+            #expect(trailers == nil)
+        }
+    }
+
+    #if canImport(Security)
+    @Test(.enabled(if: testsEnabled))
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    func httpBinWithCustomEventHandler() async throws {
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "https",
+            authority: "httpbin.org",
+            path: "/get"
+        )
+        try await httpClient.perform(
+            request: request,
+            eventHandler: .custom(
+                handleRedicretion: { .follow($1) },
+                handleServerTrust: { _ in .default }
+            )
+        ) { response, responseBodyAndTrailers in
+            #expect(response.status == .ok)
+            let (_, trailers) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                let isEmpty = span.isEmpty
+                #expect(!isEmpty)
+            }
+            #expect(trailers == nil)
+        }
+    }
+    #endif
 }

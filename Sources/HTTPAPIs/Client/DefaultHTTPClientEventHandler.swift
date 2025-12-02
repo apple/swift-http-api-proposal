@@ -16,30 +16,34 @@
 public import Security
 #endif
 
+/// A default HTTP client event handler that follows redirects and uses system trust evaluation.
+///
+/// `DefaultHTTPClientEventHandler` provides standard behavior for HTTP client events by
+/// automatically following all redirects and using the system's default TLS trust evaluation.
+/// Use this handler when you don't need custom redirection or trust evaluation logic.
+///
+/// ## Example
+///
+/// ```swift
+/// let configuration = HTTPClientConfiguration(
+///     eventHandler: .default()
+/// )
+/// ```
 @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
-public struct DefaultHTTPClientEventHandler: ~Copyable {
+public struct DefaultHTTPClientEventHandler: HTTPClientEventHandler, ~Copyable {
+    /// Creates a default HTTP client event handler.
     public init() {}
 }
 
 @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
-// TODO: Evaluate if this type should be public and if the default implementations
-// should really throw an error
-public struct HTTPClientEventHandlerDefaultImplementationError: Error {
-    init() {}
-}
-
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
-extension DefaultHTTPClientEventHandler: HTTPClientEventHandler {
-    public func handleRedirection(
-        response: HTTPResponse,
-        newRequest: HTTPRequest
-    ) async throws -> HTTPClientRedirectionAction {
-        throw HTTPClientEventHandlerDefaultImplementationError()
+extension HTTPClientEventHandler where Self == DefaultHTTPClientEventHandler {
+    /// Creates a default HTTP client event handler.
+    ///
+    /// This convenience factory method provides a clean API for configuring HTTP clients
+    /// with standard event handling behavior that follows redirects and uses system trust evaluation.
+    ///
+    /// - Returns: A default HTTP client event handler.
+    public static var `default`: DefaultHTTPClientEventHandler {
+        return DefaultHTTPClientEventHandler()
     }
-
-    #if canImport(Security)
-    public func handleServerTrust(_ trust: SecTrust) async throws -> HTTPClientTrustResult {
-        throw HTTPClientEventHandlerDefaultImplementationError()
-    }
-    #endif
 }

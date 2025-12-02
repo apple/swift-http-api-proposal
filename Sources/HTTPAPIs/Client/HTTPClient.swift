@@ -82,8 +82,7 @@ extension HTTPClient where Self: ~Copyable {
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<RequestConcludingWriter>? = nil,
         configuration: HTTPClientConfiguration = .init(),
-        eventHandler: consuming some HTTPClientEventHandler & ~Escapable & ~Copyable =
-            DefaultHTTPClientEventHandler(),
+        eventHandler: consuming some HTTPClientEventHandler & ~Escapable & ~Copyable = .default,
         responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return,
     ) async throws -> Return {
         try await self.perform(

@@ -59,3 +59,19 @@ public protocol HTTPClientEventHandler: ~Escapable, ~Copyable {
     func handleServerTrust(_ trust: SecTrust) async throws -> HTTPClientTrustResult
     #endif
 }
+
+@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+extension HTTPClientEventHandler where Self: ~Copyable, Self: ~Escapable {
+    public func handleRedirection(
+        response: HTTPResponse,
+        newRequest: HTTPRequest
+    ) async throws -> HTTPClientRedirectionAction {
+        .follow(newRequest)
+    }
+
+    #if canImport(Darwin)
+    public func handleServerTrust(_ trust: SecTrust) async throws -> HTTPClientTrustResult {
+        .default
+    }
+    #endif
+}
