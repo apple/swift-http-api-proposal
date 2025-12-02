@@ -360,8 +360,6 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                     case .deliverRedirectionResponse:
                         completionHandler(nil)
                     }
-                } catch is HTTPClientEventHandlerDefaultImplementationError {
-                    completionHandler(request)
                 } catch {
                     completionHandler(nil)
                     throw error
@@ -380,8 +378,6 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                     } else {
                         completionHandler(.performDefaultHandling, nil)
                     }
-                } catch is HTTPClientEventHandlerDefaultImplementationError {
-                    completionHandler(.performDefaultHandling, nil)
                 } catch {
                     completionHandler(.cancelAuthenticationChallenge, nil)
                     throw error

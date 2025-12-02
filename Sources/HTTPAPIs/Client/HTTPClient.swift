@@ -93,10 +93,12 @@ extension HTTPClient {
         eventHandler: consuming some HTTPClientEventHandler & ~Escapable & ~Copyable =
             DefaultHTTPClientEventHandler(),
         responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return,
-        onRedirection: @escaping (_ response: HTTPResponse, _ newRequest: HTTPRequest) async throws ->
-            HTTPClientRedirectionAction = { _, _ in throw HTTPClientEventHandlerDefaultImplementationError() },
-        onServerTrust: @escaping (_ trust: SecTrust) async throws -> HTTPClientTrustResult = { _ in
-            throw HTTPClientEventHandlerDefaultImplementationError()
+        onRedirection: (
+            (_ response: HTTPResponse, _ newRequest: HTTPRequest) async throws ->
+                HTTPClientRedirectionAction
+        )? = { .follow($1) },
+        onServerTrust: ((_ trust: SecTrust) async throws -> HTTPClientTrustResult)? = { _ in
+            .default
         },
     ) async throws -> Return {
         // Since the element is ~Copyable but we don't have call-once closures
@@ -144,8 +146,10 @@ extension HTTPClient {
         eventHandler: consuming some HTTPClientEventHandler & ~Escapable & ~Copyable =
             DefaultHTTPClientEventHandler(),
         responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return,
-        onRedirection: @escaping (_ response: HTTPResponse, _ newRequest: HTTPRequest) async throws ->
-            HTTPClientRedirectionAction = { _, _ in throw HTTPClientEventHandlerDefaultImplementationError() },
+        onRedirection: (
+            (_ response: HTTPResponse, _ newRequest: HTTPRequest) async throws ->
+                HTTPClientRedirectionAction
+        )? = { .follow($1) },
     ) async throws -> Return {
         // Since the element is ~Copyable but we don't have call-once closures
         // we need to move it into an Optional and then take it out once

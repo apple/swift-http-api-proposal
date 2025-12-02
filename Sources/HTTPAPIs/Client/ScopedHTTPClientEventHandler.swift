@@ -45,13 +45,9 @@ struct ScopedHTTPClientEventHandler<NextHandler: HTTPClientEventHandler & ~Escap
         newRequest: HTTPRequest
     ) async throws -> HTTPClientRedirectionAction {
         if let handler = self.redirectionHandler {
-            do {
-                return try await handler(response, newRequest)
-            } catch is HTTPClientEventHandlerDefaultImplementationError {
-                return try await self.nextHandler.handleRedirection(response: response, newRequest: newRequest)
-            }
+            try await handler(response, newRequest)
         } else {
-            return try await self.nextHandler.handleRedirection(response: response, newRequest: newRequest)
+            try await self.nextHandler.handleRedirection(response: response, newRequest: newRequest)
         }
     }
 
@@ -59,13 +55,9 @@ struct ScopedHTTPClientEventHandler<NextHandler: HTTPClientEventHandler & ~Escap
     @usableFromInline
     func handleServerTrust(_ trust: SecTrust) async throws -> HTTPClientTrustResult {
         if let handler = self.serverTrustHandler {
-            do {
-                return try await handler(trust)
-            } catch is HTTPClientEventHandlerDefaultImplementationError {
-                return try await self.nextHandler.handleServerTrust(trust)
-            }
+            try await handler(trust)
         } else {
-            return try await self.nextHandler.handleServerTrust(trust)
+            try await self.nextHandler.handleServerTrust(trust)
         }
     }
     #endif
@@ -75,9 +67,11 @@ struct ScopedHTTPClientEventHandler<NextHandler: HTTPClientEventHandler & ~Escap
     static func withEventHandler<Return>(
         nextHandler: consuming NextHandler,
         operation: (inout ScopedHTTPClientEventHandler<NextHandler>) async throws -> Return,
-        onRedirection: @escaping (_ response: HTTPResponse, _ newRequest: HTTPRequest) async throws ->
-            HTTPClientRedirectionAction,
-        onServerTrust: @escaping (_ trust: SecTrust) async throws -> HTTPClientTrustResult,
+        onRedirection: (
+            (_ response: HTTPResponse, _ newRequest: HTTPRequest) async throws ->
+                HTTPClientRedirectionAction
+        )?,
+        onServerTrust: ((_ trust: SecTrust) async throws -> HTTPClientTrustResult)?,
     ) async rethrows -> Return {
         var eventHandler = ScopedHTTPClientEventHandler(nextHandler: nextHandler)
         eventHandler.redirectionHandler = onRedirection
@@ -89,8 +83,10 @@ struct ScopedHTTPClientEventHandler<NextHandler: HTTPClientEventHandler & ~Escap
     static func withEventHandler<Return>(
         nextHandler: consuming NextHandler,
         operation: (inout ScopedHTTPClientEventHandler<NextHandler>) async throws -> Return,
-        onRedirection: @escaping (_ response: HTTPResponse, _ newRequest: HTTPRequest) async throws ->
-            HTTPClientRedirectionAction,
+        onRedirection: (
+            (_ response: HTTPResponse, _ newRequest: HTTPRequest) async throws ->
+                HTTPClientRedirectionAction
+        )?,
     ) async rethrows -> Return {
         var eventHandler = ScopedHTTPClientEventHandler(nextHandler: nextHandler)
         eventHandler.redirectionHandler = onRedirection
