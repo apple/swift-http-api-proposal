@@ -21,7 +21,7 @@
 @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
 public var httpClient: some HTTPClient {
     #if canImport(Darwin)
-    HTTPClientURLSession.shared
+    URLSessionHTTPClient.shared
     #else
     UnsupportedPlatformHTTPClient()
     #endif
