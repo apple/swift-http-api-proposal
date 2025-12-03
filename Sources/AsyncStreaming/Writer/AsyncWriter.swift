@@ -51,7 +51,9 @@ public protocol AsyncWriter<WriteElement, WriteFailure>: ~Copyable, ~Escapable {
     /// }
     /// ```
     // TODO: EOF should be signaled by providing an empty output span?
+    #if compiler(<6.3)
     @_lifetime(self: copy self)
+    #endif
     mutating func write<Result, Failure: Error>(
         _ body: (inout OutputSpan<WriteElement>) async throws(Failure) -> Result
     ) async throws(EitherError<WriteFailure, Failure>) -> Result
@@ -77,7 +79,9 @@ public protocol AsyncWriter<WriteElement, WriteFailure>: ~Copyable, ~Escapable {
     /// // Write the entire span to a file asynchronously
     /// try await fileWriter.write(dataBuffer.span)
     /// ```
+    #if compiler(<6.3)
     @_lifetime(self: copy self)
+    #endif
     mutating func write(
         _ span: Span<WriteElement>
     ) async throws(EitherError<WriteFailure, AsyncWriterWroteShortError>)
@@ -112,7 +116,9 @@ extension AsyncWriter where Self: ~Copyable, Self: ~Escapable {
     /// // Write data to a file asynchronously
     /// try await fileWriter.write(dataChunk)
     /// ```
+    #if compiler(<6.3)
     @_lifetime(self: copy self)
+    #endif
     public mutating func write(_ element: consuming WriteElement) async throws(WriteFailure) {
         // Since the element is ~Copyable but we don't have call-once closures
         // we need to move it into an Optional and then take it out once. This
@@ -132,7 +138,9 @@ extension AsyncWriter where Self: ~Copyable, Self: ~Escapable {
         }
     }
 
+    #if compiler(<6.3)
     @_lifetime(self: copy self)
+    #endif
     public mutating func write(_ span: Span<WriteElement>) async throws(EitherError<WriteFailure, AsyncWriterWroteShortError>)
     where WriteElement: Copyable {
         var index = span.indices.startIndex

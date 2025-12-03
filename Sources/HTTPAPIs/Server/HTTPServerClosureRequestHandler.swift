@@ -94,7 +94,7 @@ where
 }
 
 @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
-extension HTTPServer where Self: ~Copyable, RequestConcludingReader.Underlying: Escapable, ResponseConcludingWriter.Underlying: Escapable {
+extension HTTPServer where Self: ~Copyable, Self: ~Escapable {
     /// Starts an HTTP server with a closure-based request handler.
     ///
     /// This method provides a convenient way to start an HTTP server using a closure to handle incoming requests.

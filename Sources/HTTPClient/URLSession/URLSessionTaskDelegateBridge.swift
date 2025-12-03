@@ -33,6 +33,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
         )
         case error(any Error)
     }
+    private weak let task: URLSessionTask?
     // TODO: This stream need to respect backpressure
     private let stream: AsyncStream<Callback>
     private let continuation: AsyncStream<Callback>.Continuation
@@ -41,7 +42,8 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
     @RequestBodyActor
     private var requestBodyTask: Task<Void, Never>? = nil
 
-    init(body: consuming HTTPClientRequestBody<URLSessionRequestStreamBridge>?) {
+    init(task: URLSessionTask, body: consuming HTTPClientRequestBody<URLSessionRequestStreamBridge>?) {
+        self.task = task
         var continuation: AsyncStream<Callback>.Continuation?
         self.stream = AsyncStream { continuation = $0 }
         self.continuation = continuation!
@@ -149,57 +151,60 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
     }
 
     func data(maximumCount: Int?) async throws -> Data? {
-        // TODO: This continuation is not supporting cancellation
-        try await withCheckedThrowingContinuation { continuation in
-            let oldState = self.state.withLock { state in
-                defer {
-                    switch state {
-                    case .awaitingConsumption(let existingData, let complete, let error, _):
-                        if !existingData.isEmpty || complete {
-                            let remainingData =
-                                if let maximumCount, existingData.count > maximumCount {
-                                    existingData[maximumCount...]
-                                } else {
-                                    Data()
-                                }
-                            state = .awaitingConsumption(
-                                remainingData,
-                                complete: complete,
-                                error: existingData.isEmpty ? nil : error,
-                                suspendedTask: nil
-                            )
-                        } else {
-                            state = .awaitingData(continuation)
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                let oldState = self.state.withLock { state in
+                    defer {
+                        switch state {
+                        case .awaitingConsumption(let existingData, let complete, let error, _):
+                            if !existingData.isEmpty || complete {
+                                let remainingData =
+                                    if let maximumCount, existingData.count > maximumCount {
+                                        existingData[maximumCount...]
+                                    } else {
+                                        Data()
+                                    }
+                                state = .awaitingConsumption(
+                                    remainingData,
+                                    complete: complete,
+                                    error: existingData.isEmpty ? nil : error,
+                                    suspendedTask: nil
+                                )
+                            } else {
+                                state = .awaitingData(continuation)
+                            }
+                        case .awaitingResponse:
+                            fatalError("Unexpected state")
+                        case .awaitingData:
+                            fatalError("Must not read concurrently")
                         }
-                    case .awaitingResponse:
-                        fatalError("Unexpected state")
-                    case .awaitingData:
-                        fatalError("Must not read concurrently")
                     }
+                    return state
                 }
-                return state
-            }
-            switch oldState {
-            case .awaitingConsumption(let existingData, let complete, let error, let suspendedTask):
-                if !existingData.isEmpty {
-                    let data =
-                        if let maximumCount, existingData.count > maximumCount {
-                            existingData[..<maximumCount]
+                switch oldState {
+                case .awaitingConsumption(let existingData, let complete, let error, let suspendedTask):
+                    if !existingData.isEmpty {
+                        let data =
+                            if let maximumCount, existingData.count > maximumCount {
+                                existingData[..<maximumCount]
+                            } else {
+                                existingData
+                            }
+                        continuation.resume(returning: data)
+                        suspendedTask?.resume()
+                    } else if complete {
+                        if let error {
+                            continuation.resume(throwing: error)
                         } else {
-                            existingData
+                            continuation.resume(returning: nil)
                         }
-                    continuation.resume(returning: data)
-                    suspendedTask?.resume()
-                } else if complete {
-                    if let error {
-                        continuation.resume(throwing: error)
-                    } else {
-                        continuation.resume(returning: nil)
                     }
+                case .awaitingResponse, .awaitingData:
+                    break
                 }
-            case .awaitingResponse, .awaitingData:
-                break
             }
+        } onCancel: {
+            self.task?.cancel()
         }
     }
 
@@ -360,8 +365,6 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                     case .deliverRedirectionResponse:
                         completionHandler(nil)
                     }
-                } catch is HTTPClientEventHandlerDefaultImplementationError {
-                    completionHandler(request)
                 } catch {
                     completionHandler(nil)
                     throw error
@@ -380,8 +383,6 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                     } else {
                         completionHandler(.performDefaultHandling, nil)
                     }
-                } catch is HTTPClientEventHandlerDefaultImplementationError {
-                    completionHandler(.performDefaultHandling, nil)
                 } catch {
                     completionHandler(.cancelAuthenticationChallenge, nil)
                     throw error
