@@ -20,7 +20,7 @@ import Synchronization
 
 @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
 final class URLSessionRequestStreamBridge: NSObject, StreamDelegate, Sendable {
-    weak let task: URLSessionTask?
+    private weak let task: URLSessionTask?
 
     private struct LockedState {
         let inputStream: InputStream
@@ -32,7 +32,7 @@ final class URLSessionRequestStreamBridge: NSObject, StreamDelegate, Sendable {
 
     private let lockedState: Mutex<LockedState>
 
-    static let streamQueue: DispatchQueue = .init(label: "HTTPClientRequestBody")
+    private static let streamQueue: DispatchQueue = .init(label: "HTTPClientRequestBody")
 
     init(task: URLSessionTask) {
         self.task = task
