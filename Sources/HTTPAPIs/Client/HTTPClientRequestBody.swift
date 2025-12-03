@@ -98,7 +98,10 @@ extension HTTPClientRequestBody {
         hints.isRestartable = true
         return Self.init(
             hints: hints,
-            writeBody: { _, writer in
+            writeBody: { inputs, writer in
+                guard inputs.offset == 0 else {
+                    fatalError("HTTPClientRequestBody: offset must be 0 in a non-seekable body")
+                }
                 try await body(writer)
             }
         )
