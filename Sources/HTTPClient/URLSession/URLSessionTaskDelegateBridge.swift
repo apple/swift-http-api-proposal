@@ -35,9 +35,9 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
     }
     private weak let task: URLSessionTask?
 
-    /// This stream and the continuation are used for the events such as redirections.
-    /// There is no way to apply back pressure to these events hence this stream doesn't set buffer
-    /// limits.
+    // This stream and the continuation are used for the events such as redirections.
+    // There is no way to apply back pressure to these events hence this stream doesn't set buffer
+    // limits.
     private let stream: AsyncStream<Callback>
     private let continuation: AsyncStream<Callback>.Continuation
     private let requestBody: HTTPClientRequestBody<URLSessionRequestStreamBridge>?
