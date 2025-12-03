@@ -1,13 +1,31 @@
 # Swift HTTP API Proposal
 
-This repository is an experimental space for exploring new approaches to HTTP
-APIs in Swift. Nothing here is final—we're actively iterating on designs, and
-the structure will continue to evolve based on what we learn.
+This repository contains a proposal for standardized HTTP client and server APIs
+for the Swift ecosystem. We're exploring new approaches that leverage Swift's
+latest language features—including `~Copyable`, `~Escapable`, and structured
+concurrency—to provide modern, safe, and efficient HTTP abstractions.
 
-**Important**: The modules in this repository will likely end up in separate
-packages once the designs stabilize. This repo exists primarily as a place to
-experiment with different approaches and see how they interact with each other
-before committing to separate package boundaries.
+> [!NOTE]
+> This is an active proposal and experimental implementation. Nothing here is
+final—we're iterating on designs based on feedback and real-world usage. The
+APIs and structure will continue to evolve as we refine the approach.
+
+## Motivation
+
+The Swift ecosystem currently lacks standardized, modern, and cross-platform
+HTTP APIs that take full advantage of Swift's evolving language capabilities.
+This proposal aims to establish a common foundation for HTTP communication that
+can benefit the entire Swift community, from iOS and macOS apps to server-side
+Swift applications.
+
+## Goal
+
+We intend to propose these APIs for consideration as part of the Swift
+project, potentially as Swift packages or even standard library additions. The
+modules in this repository will likely end up in separate places once the
+designs stabilize. This repo exists primarily as a place to experiment with
+different approaches and see how they interact before committing to separate
+package boundaries.
 
 ## What's Inside
 
@@ -104,6 +122,15 @@ swift test
 
 ## Contributing
 
-We are actively looking for feedback on these new APIs and encourage everyone
-to try them out. Feedback during this design phase will help us shape the next
-generation HTTP APIs for Swift.
+We are actively looking for feedback on these new APIs and encourage everyone to
+try them out. As a proposal for the Swift ecosystem, community input during this
+design phase is crucial and will help us shape the next generation of HTTP APIs
+for Swift.
+
+**How to contribute:**
+- Try out the APIs in your projects and share your experience
+- Open issues for bugs, design concerns, or missing functionality
+- Participate in discussions about API design decisions
+- Provide feedback on ergonomics and usability
+
+Your feedback will directly influence what these APIs look like when they're proposed for broader adoption in the Swift ecosystem.
