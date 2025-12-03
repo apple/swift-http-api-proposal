@@ -38,8 +38,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
     private let continuation: AsyncStream<Callback>.Continuation
     private let requestBody: HTTPClientRequestBody<URLSessionRequestStreamBridge>?
     // TODO: Can we get rid of this task and instead use on task group per client?
-    @RequestBodyActor
-    private var requestBodyTask: Task<Void, Never>? = nil
+    private let requestBodyTask: Mutex<Task<Void, Never>?> = .init(nil)
 
     init(body: consuming HTTPClientRequestBody<URLSessionRequestStreamBridge>?) {
         var continuation: AsyncStream<Callback>.Continuation?
@@ -226,36 +225,45 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
         task: URLSessionTask,
         needNewBodyStream completionHandler: @escaping @Sendable (InputStream?) -> Void
     ) {
-        Task.immediate { @RequestBodyActor in
-            self.requestBodyTask?.cancel()
+        Task.immediate {
             switch self.requestBody {
             case nil:
                 fatalError()
             case .restartable(let producer):
-                self.requestBodyTask = Task.immediate { @RequestBodyActor in
-                    let bridge = URLSessionRequestStreamBridge(task: task)
-                    completionHandler(bridge.inputStream)
-                    do {
-                        try await producer(bridge)
-                    } catch {
-                        if bridge.writeFailed {
-                            // Ignore error
-                        } else {
-                            self.requestBodyStreamFailed(with: error)
+                self.requestBodyTask.withLock {
+                    let oldTask = $0
+                    oldTask?.cancel()
+                    $0 = Task.immediate {
+                        await oldTask?.value
+                        let bridge = URLSessionRequestStreamBridge(task: task)
+                        completionHandler(bridge.inputStream)
+                        do {
+                            try await producer(bridge)
+                        } catch {
+                            if bridge.writeFailed {
+                                // Ignore error
+                            } else {
+                                self.requestBodyStreamFailed(with: error)
+                            }
                         }
                     }
                 }
             case .seekable(let producer):
-                self.requestBodyTask = Task.immediate { @RequestBodyActor in
-                    let bridge = URLSessionRequestStreamBridge(task: task)
-                    completionHandler(bridge.inputStream)
-                    do {
-                        try await producer(0, bridge)
-                    } catch {
-                        if bridge.writeFailed {
-                            // Ignore error
-                        } else {
-                            self.requestBodyStreamFailed(with: error)
+                self.requestBodyTask.withLock {
+                    let oldTask = $0
+                    oldTask?.cancel()
+                    $0 = Task.immediate {
+                        await oldTask?.value
+                        let bridge = URLSessionRequestStreamBridge(task: task)
+                        completionHandler(bridge.inputStream)
+                        do {
+                            try await producer(0, bridge)
+                        } catch {
+                            if bridge.writeFailed {
+                                // Ignore error
+                            } else {
+                                self.requestBodyStreamFailed(with: error)
+                            }
                         }
                     }
                 }
@@ -269,24 +277,28 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
         needNewBodyStreamFrom offset: Int64,
         completionHandler: @escaping @Sendable (InputStream?) -> Void
     ) {
-        Task.immediate { @RequestBodyActor in
-            self.requestBodyTask?.cancel()
+        Task.immediate {
             switch self.requestBody {
             case nil:
                 fatalError()
             case .restartable:
                 fatalError()
             case .seekable(let producer):
-                self.requestBodyTask = Task.immediate { @RequestBodyActor in
-                    let bridge = URLSessionRequestStreamBridge(task: task)
-                    completionHandler(bridge.inputStream)
-                    do {
-                        try await producer(offset, bridge)
-                    } catch {
-                        if bridge.writeFailed {
-                            // Ignore error
-                        } else {
-                            self.requestBodyStreamFailed(with: error)
+                self.requestBodyTask.withLock {
+                    let oldTask = $0
+                    oldTask?.cancel()
+                    $0 = Task.immediate {
+                        await oldTask?.value
+                        let bridge = URLSessionRequestStreamBridge(task: task)
+                        completionHandler(bridge.inputStream)
+                        do {
+                            try await producer(offset, bridge)
+                        } catch {
+                            if bridge.writeFailed {
+                                // Ignore error
+                            } else {
+                                self.requestBodyStreamFailed(with: error)
+                            }
                         }
                     }
                 }
@@ -405,11 +417,11 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
             case .challenge(_, let completionHandler):
                 completionHandler(.cancelAuthenticationChallenge, nil)
             case .error(let error):
-                await self.requestBodyTask?.value
+                await self.requestBodyTask.withLock { $0 }?.value
                 throw error
             }
         }
-        await self.requestBodyTask?.value
+        await self.requestBodyTask.withLock { $0 }?.value
     }
 }
 #endif

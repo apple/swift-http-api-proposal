@@ -36,12 +36,38 @@ struct HTTPClientTests {
         )
         try await httpClient.perform(
             request: request,
-            body: nil
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
             let (_, trailers) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
                 let isEmpty = span.isEmpty
                 #expect(!isEmpty)
+            }
+            #expect(trailers == nil)
+        }
+    }
+
+    @Test(.enabled(if: testsEnabled))
+    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    func testHTTPBinPost() async throws {
+        let request = HTTPRequest(
+            method: .post,
+            scheme: "https",
+            authority: "httpbin.org",
+            path: "/post"
+        )
+        try await httpClient.perform(
+            request: request,
+            body: .restartable { writer in
+                let body = "Hello World"
+                try await writer.writeAndConclude(body.utf8Span.span, finalElement: nil)
+            }
+        ) { response, responseBodyAndTrailers in
+            #expect(response.status == .ok)
+            let (_, trailers) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                let isEmpty = span.isEmpty
+                #expect(!isEmpty)
+                let body = String(copying: try UTF8Span(validating: span))
+                #expect(body.contains("Hello World"))
             }
             #expect(trailers == nil)
         }
