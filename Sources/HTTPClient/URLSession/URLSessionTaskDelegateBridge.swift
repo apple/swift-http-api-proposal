@@ -217,7 +217,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
         if aSelector == #selector(
             (any URLSessionTaskDelegate).urlSession(_:task:needNewBodyStreamFrom:completionHandler:)
         ) {
-            return self.requestBody.isSeekable
+            return self.requestBody?.isSeekable == true
         }
         return super.responds(to: aSelector)
     }
@@ -229,35 +229,19 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
     ) {
         Task.immediate { @RequestBodyActor in
             self.requestBodyTask?.cancel()
-            switch self.requestBody {
-            case nil:
+            guard let requestBody = self.requestBody else {
                 fatalError()
-            case .restartable(let producer):
-                self.requestBodyTask = Task.immediate { @RequestBodyActor in
-                    let bridge = URLSessionRequestStreamBridge()
-                    completionHandler(bridge.inputStream)
-                    do {
-                        try await producer(bridge)
-                    } catch {
-                        if bridge.writeFailed {
-                            // Ignore error
-                        } else {
-                            self.requestBodyStreamFailed(with: error)
-                        }
-                    }
-                }
-            case .seekable(let producer):
-                self.requestBodyTask = Task.immediate { @RequestBodyActor in
-                    let bridge = URLSessionRequestStreamBridge()
-                    completionHandler(bridge.inputStream)
-                    do {
-                        try await producer(0, bridge)
-                    } catch {
-                        if bridge.writeFailed {
-                            // Ignore error
-                        } else {
-                            self.requestBodyStreamFailed(with: error)
-                        }
+            }
+            self.requestBodyTask = Task.immediate { @RequestBodyActor in
+                let bridge = URLSessionRequestStreamBridge()
+                completionHandler(bridge.inputStream)
+                do {
+                    try await requestBody.write(inputs: .init(offset: 0), writer: bridge)
+                } catch {
+                    if bridge.writeFailed {
+                        // Ignore error
+                    } else {
+                        self.requestBodyStreamFailed(with: error)
                     }
                 }
             }
@@ -272,15 +256,14 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
     ) {
         Task.immediate { @RequestBodyActor in
             self.requestBodyTask?.cancel()
-            guard self.requestBody.isSeekable else {
+            guard let requestBody = self.requestBody, requestBody.isSeekable else {
                 fatalError()
             }
-            let requestBody = self.requestBody
             self.requestBodyTask = Task.immediate { @RequestBodyActor in
                 let bridge = URLSessionRequestStreamBridge()
                 completionHandler(bridge.inputStream)
                 do {
-                    try await requestBody.write(.init(offset: offset), bridge)
+                    try await requestBody.write(inputs: .init(offset: offset), writer: bridge)
                 } catch {
                     if bridge.writeFailed {
                         // Ignore error

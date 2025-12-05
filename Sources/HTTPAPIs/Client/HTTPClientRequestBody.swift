@@ -48,7 +48,7 @@ import AsyncStreaming
 /// }
 /// ```
 @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
-public struct HTTPClientRequestBody<Writer>: Sendable, ~Copyable
+public struct HTTPClientRequestBody<Writer>: Sendable
 where Writer: ConcludingAsyncWriter & ~Copyable, Writer.Underlying.WriteElement == UInt8, Writer.FinalElement == HTTPFields?, Writer: SendableMetatype
 {
     /// The body can be asked to restart writing from an arbitrary offset.
@@ -100,7 +100,7 @@ where Writer: ConcludingAsyncWriter & ~Copyable, Writer.Underlying.WriteElement 
     ///   - inputs: Inputs into the body creation closure.
     ///   - writer: The destination into which to write the body.
     /// - Throws: An error thrown from the body closure.
-    public mutating func write(inputs: Inputs, writer: consuming Writer) async throws {
+    public func write(inputs: Inputs, writer: consuming Writer) async throws {
         try await writeBody(inputs, writer)
     }
 }
