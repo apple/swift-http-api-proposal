@@ -97,10 +97,6 @@ where Writer: ConcludingAsyncWriter & ~Copyable, Writer.Underlying.WriteElement 
             try await writeBody(offset, writer)
         }
     }
-}
-
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
-extension HTTPClientRequestBody {
 
     /// A restartable request body that can be replayed from the beginning.
     ///
