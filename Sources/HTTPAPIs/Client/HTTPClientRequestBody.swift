@@ -52,69 +52,49 @@ public struct HTTPClientRequestBody<Writer>: Sendable
 where Writer: ConcludingAsyncWriter & ~Copyable, Writer.Underlying.WriteElement == UInt8, Writer.FinalElement == HTTPFields?, Writer: SendableMetatype
 {
     /// The body can be asked to restart writing from an arbitrary offset.
-    public var isSeekable: Bool
-
-    /// The length of the body is known upfront and can be specified in
-    /// the `content-length` header field.
-    public var knownLength: Int64?
-
-    /// Inputs into the body creation closure.
-    /// 
-    /// This information is provided by the HTTP client implementation and passed with the writer.
-    public struct Inputs: Sendable {
-
-        /// The offset from which to start writing the body.
-        ///
-        /// Only bodies with ``Hints/isSeekable`` set to true are expected to respect
-        /// the provided offset.
-        public var offset: Int64
-
-        /// Creates new inputs.
-        /// - Parameter offset: The offset from which to start writing the body. Set to 0 to start from the beginning.
-        public init(offset: Int64) {
-            self.offset = offset
+    public var isSeekable: Bool {
+        switch self.writeBody {
+        case .restartable:
+            false
+        case .seekable:
+            true
         }
     }
 
-    /// The underlying logic for writing the request obdy.
-    private let writeBody: @Sendable (Inputs, consuming Writer) async throws -> Void
+    /// The length of the body is known upfront and can be specified in
+    /// the `Content-Length` header field.
+    public let knownLength: Int64?
 
-    /// Creates a new body.
+    private enum WriteBody {
+        case restartable(@Sendable (consuming Writer) async throws -> Void)
+        case seekable(@Sendable (Int64, consuming Writer) async throws -> Void)
+    }
+    private let writeBody: WriteBody
+
+    /// Requests the body to be written into the writer.
     /// - Parameters:
-    ///   - isSeekable: The body can be asked to restart writing from an arbitrary offset.
-    ///   - knownLength: The length of the body is known upfront and can be specified in
-    ///     the `content-length` header field.
-    ///   - writeBody: The closure that writes the request body into the writer.
-    internal init(
-        isSeekable: Bool,
-        knownLength: Int64?,
-        writeBody: @escaping @Sendable (Inputs, consuming Writer) async throws -> Void
-    ) {
-        self.isSeekable = isSeekable
-        self.knownLength = knownLength
-        self.writeBody = writeBody
+    ///   - writer: The destination into which to write the body.
+    /// - Throws: An error thrown from the body closure.
+    public func produce(into writer: consuming Writer) async throws {
+        switch self.writeBody {
+        case .restartable(let writeBody):
+            try await writeBody(writer)
+        case .seekable(let writeBody):
+            try await writeBody(0, writer)
+        }
     }
 
     /// Requests the body to be written into the writer.
     /// - Parameters:
-    ///   - inputs: Inputs into the body creation closure.
+    ///   - offset: The offset from which to start writing the body.
     ///   - writer: The destination into which to write the body.
     /// - Throws: An error thrown from the body closure.
-    public func write(inputs: Inputs, writer: consuming Writer) async throws {
-        try await writeBody(inputs, writer)
-    }
-}
-
-/// An error type used when a restartable (non-seekable) body is asked to seek to a non-0 offset.
-private enum HTTPClientRequestBodyError: Error, CustomStringConvertible {
-
-    /// Client tried to seek a non-seekable body to a non-0 offset.
-    case seekingNonSeekable
-
-    var description: String {
-        switch self {
-        case .seekingNonSeekable:
-            "HTTPClientRequestBody: tried to seek to a non-0 offset in a non-seekable body"
+    public func produce(offset: Int64, into writer: consuming Writer) async throws {
+        switch self.writeBody {
+        case .restartable:
+            fatalError("Request body is not seekable")
+        case .seekable(let writeBody):
+            try await writeBody(offset, writer)
         }
     }
 }
@@ -139,14 +119,8 @@ extension HTTPClientRequestBody {
         _ body: @escaping @Sendable (consuming Writer) async throws -> Void
     ) -> Self {
         Self.init(
-            isSeekable: false,
             knownLength: knownLength,
-            writeBody: { inputs, writer in
-                guard inputs.offset == 0 else {
-                    throw HTTPClientRequestBodyError.seekingNonSeekable
-                }
-                try await body(writer)
-            }
+            writeBody: .restartable(body)
         )
     }
 
@@ -167,11 +141,8 @@ extension HTTPClientRequestBody {
         _ body: @escaping @Sendable (Int64, consuming Writer) async throws -> Void
     ) -> Self {
         Self.init(
-            isSeekable: true,
             knownLength: knownLength,
-            writeBody: { inputs, writer in
-                try await body(inputs.offset, writer)
-            }
+            writeBody: .seekable(body)
         )
     }
 }

@@ -236,7 +236,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                 let bridge = URLSessionRequestStreamBridge()
                 completionHandler(bridge.inputStream)
                 do {
-                    try await requestBody.write(inputs: .init(offset: 0), writer: bridge)
+                    try await requestBody.produce(into: bridge)
                 } catch {
                     if bridge.writeFailed {
                         // Ignore error
@@ -256,14 +256,14 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
     ) {
         Task.immediate { @RequestBodyActor in
             self.requestBodyTask?.cancel()
-            guard let requestBody = self.requestBody, requestBody.isSeekable else {
+            guard let requestBody = self.requestBody else {
                 fatalError()
             }
             self.requestBodyTask = Task.immediate { @RequestBodyActor in
                 let bridge = URLSessionRequestStreamBridge()
                 completionHandler(bridge.inputStream)
                 do {
-                    try await requestBody.write(inputs: .init(offset: offset), writer: bridge)
+                    try await requestBody.produce(offset: offset, into: bridge)
                 } catch {
                     if bridge.writeFailed {
                         // Ignore error
