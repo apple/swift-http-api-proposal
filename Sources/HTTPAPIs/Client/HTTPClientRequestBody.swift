@@ -30,8 +30,10 @@ import AsyncStreaming
 /// A seekable body allows the HTTP client to support resumable uploads.
 ///
 /// ```swift
-/// let body: HTTPClientRequestBody = .seekable { byteOffset, writer in
+/// try await httpClient.perform(request: request, body: .seekable { byteOffset, writer in
 ///     // Inspect byteOffset and start writing contents into writer
+/// }) { response, body in
+///     // Handle the response
 /// }
 /// ```
 ///
@@ -43,8 +45,10 @@ import AsyncStreaming
 /// A restartable body allows the HTTP client to handle redirects and retries.
 ///
 /// ```swift
-/// let body: HTTPClientRequestBody = .restartable { writer in
+/// try await httpClient.perform(request: request, body: .restartable { writer in
 ///     // Start writing contents into writer from the beginning
+/// }) { response, body in
+///     // Handle the response
 /// }
 /// ```
 @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
@@ -84,7 +88,8 @@ where Writer: ConcludingAsyncWriter & ~Copyable, Writer.Underlying.WriteElement 
         }
     }
 
-    /// Requests the body to be written into the writer.
+    /// Requests the partial body at the specified offset to be written into the writer.
+    /// - Precondition: The body must be seekable.
     /// - Parameters:
     ///   - offset: The offset from which to start writing the body.
     ///   - writer: The destination into which to write the body.
