@@ -19,7 +19,7 @@ import AsyncStreaming
 /// ``HTTPClientRequestBody`` provides two strategies for streaming request body data:
 /// restartable bodies that can be replayed from the beginning for retries or redirects,
 /// and seekable bodies that support resuming from a specific byte offset.
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public enum HTTPClientRequestBody<Writer>: Sendable, ~Copyable
 where Writer: ConcludingAsyncWriter & ~Copyable, Writer.Underlying.WriteElement == UInt8, Writer.FinalElement == HTTPFields?, Writer: SendableMetatype
 {

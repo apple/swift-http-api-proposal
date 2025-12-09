@@ -18,7 +18,7 @@ import Testing
 @Suite
 struct ConcludingAsyncWriterTests {
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func produceAndConcludeReturnsResult() async throws {
         let writer = TestConcludingWriter()
 
@@ -34,7 +34,7 @@ struct ConcludingAsyncWriterTests {
     }
 
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func produceAndConcludeWithFinalElementOnly() async throws {
         let writer = TestConcludingWriter()
 
@@ -49,7 +49,7 @@ struct ConcludingAsyncWriterTests {
     }
 
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func writeAndConcludeWithSingleElement() async throws {
         let writer = TestConcludingWriter()
 
@@ -59,7 +59,7 @@ struct ConcludingAsyncWriterTests {
     }
 
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func writeAndConcludeWithSpan() async throws {
         let writer = TestConcludingWriter()
         let data = [1, 2, 3, 4, 5]
@@ -70,7 +70,7 @@ struct ConcludingAsyncWriterTests {
     }
 
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func writeAndConcludeWithEmptySpan() async throws {
         let writer = TestConcludingWriter()
         let data: [Int] = []
@@ -81,7 +81,7 @@ struct ConcludingAsyncWriterTests {
     }
 
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func multipleWritesBeforeConclude() async throws {
         let writer = TestConcludingWriter()
 
@@ -105,7 +105,7 @@ struct ConcludingAsyncWriterTests {
     }
 
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func produceAndConcludeWithNoWrites() async throws {
         let writer = TestConcludingWriter()
 

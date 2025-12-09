@@ -22,7 +22,7 @@ import Foundation
     static let shared = RequestBodyActor()
 }
 
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 @RequestBodyActor
 final class URLSessionRequestStreamBridge: NSObject, StreamDelegate, @unchecked Sendable {
     let inputStream: InputStream
@@ -99,7 +99,7 @@ final class URLSessionRequestStreamBridge: NSObject, StreamDelegate, @unchecked 
     }
 }
 
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 extension URLSessionRequestStreamBridge: ConcludingAsyncWriter {
     func produceAndConclude<Return>(
         body:
@@ -116,7 +116,7 @@ extension URLSessionRequestStreamBridge: ConcludingAsyncWriter {
     }
 }
 
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 extension URLSessionRequestStreamBridge: AsyncWriter {
     func write<Result, Failure: Error>(
         _ body: (inout OutputSpan<UInt8>) async throws(Failure) -> Result

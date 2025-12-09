@@ -21,7 +21,7 @@ public import HTTPTypes
 /// more times using ``sendInformational(_:)`` before sending the final response. This design
 /// ensures proper HTTP semantics where exactly one non-informational response is sent, followed
 /// by optional response body streaming and trailers.
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public struct HTTPResponseSender<ResponseWriter: ConcludingAsyncWriter & ~Copyable>: ~Copyable {
     private let _sendInformational: (HTTPResponse) async throws -> Void
     private let _send: (HTTPResponse) async throws -> ResponseWriter

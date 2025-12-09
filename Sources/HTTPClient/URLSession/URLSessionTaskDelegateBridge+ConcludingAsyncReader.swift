@@ -16,7 +16,7 @@
 import HTTPAPIs
 import Foundation
 
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 extension URLSessionTaskDelegateBridge: ConcludingAsyncReader {
     func consumeAndConclude<Return, Failure: Error>(
         body: (consuming sending URLSessionTaskDelegateBridge) async throws(Failure) -> Return
@@ -25,7 +25,7 @@ extension URLSessionTaskDelegateBridge: ConcludingAsyncReader {
     }
 }
 
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 extension URLSessionTaskDelegateBridge: AsyncReader {
     func read<Return, Failure: Error>(
         maximumCount: Int?,

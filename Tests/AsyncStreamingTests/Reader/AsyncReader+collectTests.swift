@@ -19,7 +19,7 @@ import Testing
 @Suite
 struct AsyncReaderCollectTests {
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func collectAllElements() async {
         var reader = [1, 2, 3, 4, 5].asyncReader()
 
@@ -31,7 +31,7 @@ struct AsyncReaderCollectTests {
     }
 
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func collectWithExactLimit() async {
         var reader = [1, 2, 3, 4, 5].asyncReader()
 
@@ -43,7 +43,7 @@ struct AsyncReaderCollectTests {
     }
 
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func collectEmptyReader() async {
         var reader = [Int]().asyncReader()
 
@@ -55,7 +55,7 @@ struct AsyncReaderCollectTests {
     }
 
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func collectProcessesAllElements() async {
         var reader = [10, 20, 30].asyncReader()
 
@@ -71,7 +71,7 @@ struct AsyncReaderCollectTests {
     }
 
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func collectIntoOutputSpan() async {
         var reader = [1, 2, 3, 4, 5].asyncReader()
         var buffer = RigidArray<Int>.init(capacity: 5)
@@ -84,7 +84,7 @@ struct AsyncReaderCollectTests {
     }
 
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func collectWithNeverFailingReader() async {
         var reader = [1, 2, 3].asyncReader()
 

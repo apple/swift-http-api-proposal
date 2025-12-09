@@ -17,7 +17,7 @@
 ///
 /// ``HTTPClientTrustResult`` specifies whether to use the system's default trust evaluation,
 /// explicitly allow the connection, or explicitly deny it.
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public enum HTTPClientTrustResult {
     /// Uses the system's default trust evaluation for the server certificate.
     ///

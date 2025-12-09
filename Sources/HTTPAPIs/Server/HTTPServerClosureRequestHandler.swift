@@ -37,7 +37,7 @@ public import HTTPTypes
 ///     }
 /// }
 /// ```
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public struct HTTPServerClosureRequestHandler<
     RequestReader: ConcludingAsyncReader & ~Copyable,
     ResponseWriter: ConcludingAsyncWriter & ~Copyable,
@@ -93,7 +93,7 @@ where
     }
 }
 
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 extension HTTPServer where Self: ~Copyable, Self: ~Escapable {
     /// Starts an HTTP server with a closure-based request handler.
     ///
