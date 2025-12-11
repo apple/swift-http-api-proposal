@@ -55,9 +55,11 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
 
     // MARK: - Data path
 
+    private static let highWatermark = 256 * 1024
+
     enum State {
         case awaitingResponse
-        case awaitingData(CheckedContinuation<Data?, any Error>)
+        case awaitingData(CheckedContinuation<Void, Never>)
         case awaitingConsumption(Data, complete: Bool, error: (any Error)?, suspendedTask: URLSessionTask?)
     }
 
@@ -94,12 +96,13 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
             defer {
                 switch state {
                 case .awaitingData:
-                    state = .awaitingConsumption(Data(), complete: false, error: nil, suspendedTask: nil)
+                    state = .awaitingConsumption(data, complete: false, error: nil, suspendedTask: nil)
                 case .awaitingResponse:
+                    // We don't support data before response
                     state = .awaitingConsumption(Data(), complete: true, error: nil, suspendedTask: nil)
                 case .awaitingConsumption(let existingData, let complete, let error, var suspendedTask):
                     let newData = existingData + data
-                    if newData.count > 256 * 1024 && suspendedTask == nil {
+                    if newData.count > Self.highWatermark && suspendedTask == nil {
                         dataTask.suspend()
                         suspendedTask = dataTask
                     }
@@ -115,7 +118,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
         }
         switch oldState {
         case .awaitingData(let continuation):
-            continuation.resume(returning: data)
+            continuation.resume()
         case .awaitingResponse:
             // We don't support data before response
             self.continuation.yield(.error(URLError(.unknown)))
@@ -129,7 +132,9 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
         let oldState = self.state.withLock { state in
             defer {
                 switch state {
-                case .awaitingResponse, .awaitingData:
+                case .awaitingData:
+                    state = .awaitingConsumption(Data(), complete: true, error: error, suspendedTask: nil)
+                case .awaitingResponse:
                     state = .awaitingConsumption(Data(), complete: true, error: nil, suspendedTask: nil)
                 case .awaitingConsumption(let existingData, _, let error, _):
                     state = .awaitingConsumption(existingData, complete: true, error: error, suspendedTask: nil)
@@ -139,14 +144,9 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
         }
         switch oldState {
         case .awaitingResponse:
-            // We don't support completion before response
             self.continuation.yield(.error(error ?? URLError(.unknown)))
         case .awaitingData(let continuation):
-            if let error = error {
-                continuation.resume(throwing: error)
-            } else {
-                continuation.resume(returning: nil)
-            }
+            continuation.resume()
         case .awaitingConsumption:
             break
         }
@@ -154,60 +154,59 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
     }
 
     func data(maximumCount: Int?) async throws -> Data? {
-        try await withTaskCancellationHandler {
-            try await withCheckedThrowingContinuation { continuation in
-                let oldState = self.state.withLock { state in
-                    defer {
-                        switch state {
-                        case .awaitingConsumption(let existingData, let complete, let error, _):
-                            if !existingData.isEmpty || complete {
-                                let remainingData =
-                                    if let maximumCount, existingData.count > maximumCount {
-                                        existingData[maximumCount...]
-                                    } else {
-                                        Data()
-                                    }
-                                state = .awaitingConsumption(
-                                    remainingData,
-                                    complete: complete,
-                                    error: existingData.isEmpty ? nil : error,
-                                    suspendedTask: nil
-                                )
-                            } else {
-                                state = .awaitingData(continuation)
-                            }
-                        case .awaitingResponse:
-                            fatalError("Unexpected state")
-                        case .awaitingData:
-                            fatalError("Must not read concurrently")
-                        }
-                    }
-                    return state
-                }
-                switch oldState {
-                case .awaitingConsumption(let existingData, let complete, let error, let suspendedTask):
-                    if !existingData.isEmpty {
-                        let data =
-                            if let maximumCount, existingData.count > maximumCount {
-                                existingData[..<maximumCount]
-                            } else {
-                                existingData
-                            }
-                        continuation.resume(returning: data)
-                        suspendedTask?.resume()
-                    } else if complete {
-                        if let error {
-                            continuation.resume(throwing: error)
-                        } else {
-                            continuation.resume(returning: nil)
-                        }
-                    }
-                case .awaitingResponse, .awaitingData:
-                    break
-                }
+        let needsData: Bool = self.state.withLock { state in
+            switch state {
+            case .awaitingConsumption(let existingData, let complete, _, _):
+                existingData.isEmpty && !complete
+            case .awaitingResponse:
+                fatalError("Unexpected state")
+            case .awaitingData:
+                fatalError("Must not read concurrently")
             }
-        } onCancel: {
-            self.task?.cancel()
+        }
+        if needsData {
+            await withTaskCancellationHandler {
+                await withCheckedContinuation { continuation in
+                    self.state.withLock { state in
+                        state = .awaitingData(continuation)
+                    }
+                }
+            } onCancel: {
+                self.task?.cancel()
+            }
+        }
+        return try self.state.withLock { state in
+            switch state {
+            case .awaitingConsumption(let existingData, let complete, let error, let suspendedTask):
+                if !existingData.isEmpty {
+                    let (dataToReturn, remainingData) =
+                        if let maximumCount, existingData.count > maximumCount {
+                            (existingData[..<maximumCount], existingData[maximumCount...])
+                        } else {
+                            (existingData, Data())
+                        }
+                    let shouldResume = remainingData.count <= Self.highWatermark
+                    state = .awaitingConsumption(
+                        remainingData,
+                        complete: complete,
+                        error: existingData.isEmpty ? nil : error,
+                        suspendedTask: shouldResume ? nil : suspendedTask
+                    )
+                    if shouldResume {
+                        suspendedTask?.resume()
+                    }
+                    return dataToReturn
+                } else if complete {
+                    if let error {
+                        throw error
+                    }
+                    return nil
+                } else {
+                    fatalError("Unexpected state")
+                }
+            case .awaitingResponse, .awaitingData:
+                fatalError("Unexpected state")
+            }
         }
     }
 

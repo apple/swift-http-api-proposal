@@ -56,7 +56,6 @@ extension AsyncReader where Self: ~Copyable, Self: ~Escapable, ReadElement: Copy
         body: (Span<ReadElement>) async throws(Failure) -> Result
     ) async throws(EitherError<ReadFailure, Failure>) -> Result {
         var buffer = [ReadElement]()
-        buffer.reserveCapacity(limit)
         var shouldContinue = true
         do {
             while shouldContinue {
@@ -125,7 +124,6 @@ extension AsyncReader where Self: ~Copyable, Self: ~Escapable, ReadElement: Copy
         body: (Span<ReadElement>) async -> Result
     ) async -> Result where ReadFailure == Never {
         var buffer = [ReadElement]()
-        buffer.reserveCapacity(limit)
         var shouldContinue = true
         while limit - buffer.count > 0 && shouldContinue {
             // This force-try is safe since neither read nor the closure are throwing
