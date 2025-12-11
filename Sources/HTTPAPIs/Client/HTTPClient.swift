@@ -96,10 +96,8 @@ extension HTTPClient {
         onRedirection: (
             (_ response: HTTPResponse, _ newRequest: HTTPRequest) async throws ->
                 HTTPClientRedirectionAction
-        )? = { .follow($1) },
-        onServerTrust: ((_ trust: SecTrust) async throws -> HTTPClientTrustResult)? = { _ in
-            .default
-        },
+        )? = nil,
+        onServerTrust: ((_ trust: SecTrust) async throws -> HTTPClientTrustResult)? = nil,
     ) async throws -> Return {
         // Since the element is ~Copyable but we don't have call-once closures
         // we need to move it into an Optional and then take it out once
@@ -149,7 +147,7 @@ extension HTTPClient {
         onRedirection: (
             (_ response: HTTPResponse, _ newRequest: HTTPRequest) async throws ->
                 HTTPClientRedirectionAction
-        )? = { .follow($1) },
+        )? = nil,
     ) async throws -> Return {
         // Since the element is ~Copyable but we don't have call-once closures
         // we need to move it into an Optional and then take it out once
