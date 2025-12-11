@@ -181,7 +181,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                 if !existingData.isEmpty {
                     let (dataToReturn, remainingData) =
                         if let maximumCount, existingData.count > maximumCount {
-                            (existingData[..<maximumCount], existingData[maximumCount...])
+                            (existingData.prefix(maximumCount), existingData.dropFirst(maximumCount))
                         } else {
                             (existingData, Data())
                         }
