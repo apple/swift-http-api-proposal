@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 extension Array {
     /// Creates an async reader that provides access to the array's elements.
     ///
@@ -41,7 +41,7 @@ extension Array {
 /// This internal reader type wraps an array and delivers its elements through the ``AsyncReader``
 /// protocol. It maintains a current read position and can deliver elements in chunks based on
 /// the requested maximum count.
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 struct ArrayAsyncReader<Element>: AsyncReader {
     typealias ReadElement = Element
     typealias ReadFailure = Never

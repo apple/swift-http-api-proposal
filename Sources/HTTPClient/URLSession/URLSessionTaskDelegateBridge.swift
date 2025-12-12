@@ -18,7 +18,7 @@ import Foundation
 import HTTPTypesFoundation
 import Synchronization
 
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDelegate {
     private enum Callback: Sendable {
         case response(URLResponse)
@@ -35,9 +35,9 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
     }
     private weak let task: URLSessionTask?
 
-    /// This stream and the continuation are used for the events such as redirections.
-    /// There is no way to apply back pressure to these events hence this stream doesn't set buffer
-    /// limits.
+    // This stream and the continuation are used for the events such as redirections.
+    // There is no way to apply back pressure to these events hence this stream doesn't set buffer
+    // limits.
     private let stream: AsyncStream<Callback>
     private let continuation: AsyncStream<Callback>.Continuation
     private let requestBody: HTTPClientRequestBody<URLSessionRequestStreamBridge>?

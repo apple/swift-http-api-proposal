@@ -14,7 +14,7 @@
 
 import BasicContainers
 
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 extension AsyncReader where Self: ~Copyable, Self: ~Escapable {
     /// Transforms elements read from this reader using the provided transformation function.
     ///
@@ -54,7 +54,7 @@ extension AsyncReader where Self: ~Copyable, Self: ~Escapable {
 /// This internal reader type wraps another async reader and applies a transformation
 /// to each element read from the base reader. The transformation is applied lazily
 /// as elements are read, maintaining the streaming nature of the operation.
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 struct AsyncMapReader<Base: AsyncReader & ~Copyable & ~Escapable, MappedElement: ~Copyable>: AsyncReader, ~Copyable, ~Escapable {
     typealias ReadElement = MappedElement
     typealias ReadFailure = Base.ReadFailure

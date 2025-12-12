@@ -18,7 +18,7 @@ import Testing
 @Suite
 struct AsyncReaderForEachTests {
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func forEachIteratesAllSpans() async throws {
         let reader = [1, 2, 3, 4, 5].asyncReader()
         var elementCount = 0
@@ -31,7 +31,7 @@ struct AsyncReaderForEachTests {
     }
 
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func forEachProcessesElements() async throws {
         let reader = [10, 20, 30].asyncReader()
         var sum = 0
@@ -46,7 +46,7 @@ struct AsyncReaderForEachTests {
     }
 
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func forEachWithEmptyReader() async throws {
         let reader = [Int]().asyncReader()
         var callCount = 0
@@ -59,7 +59,7 @@ struct AsyncReaderForEachTests {
     }
 
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func forEachWithThrowingBody() async {
         enum TestError: Error {
             case failed
@@ -78,7 +78,7 @@ struct AsyncReaderForEachTests {
     }
 
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func forEachWithNeverFailingReader() async {
         enum TestError: Error {
             case failed
@@ -99,7 +99,7 @@ struct AsyncReaderForEachTests {
     }
 
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func forEachWithAsyncWork() async throws {
         let reader = [1, 2, 3].asyncReader()
         var results: [Int] = []
@@ -115,7 +115,7 @@ struct AsyncReaderForEachTests {
     }
 
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func forEachMultipleSpans() async {
         var reader = [1, 2, 3, 4, 5, 6].asyncReader()
         var spanCounts: [Int] = []

@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 extension AsyncWriter where Self: ~Copyable, Self: ~Escapable {
     /// Writes all elements from an async reader to this writer.
     ///
