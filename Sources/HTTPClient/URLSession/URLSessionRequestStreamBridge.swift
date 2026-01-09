@@ -18,7 +18,7 @@ import BasicContainers
 import Foundation
 import Synchronization
 
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 final class URLSessionRequestStreamBridge: NSObject, StreamDelegate, Sendable {
     private weak let task: URLSessionTask?
 
@@ -129,7 +129,7 @@ final class URLSessionRequestStreamBridge: NSObject, StreamDelegate, Sendable {
     }
 }
 
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 extension URLSessionRequestStreamBridge: ConcludingAsyncWriter {
     func produceAndConclude<Return>(
         body:
@@ -146,7 +146,7 @@ extension URLSessionRequestStreamBridge: ConcludingAsyncWriter {
     }
 }
 
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 extension URLSessionRequestStreamBridge: AsyncWriter {
     func write<Result, Failure: Error>(
         _ body: (inout OutputSpan<UInt8>) async throws(Failure) -> Result

@@ -25,7 +25,7 @@ public import Security
 ///
 /// ``HTTPClient`` provides asynchronous request execution with streaming request
 /// and response bodies.
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public protocol HTTPClient<RequestConcludingWriter, ResponseConcludingReader>: ~Copyable {
     /// The type used to write request body data and trailers.
     // TODO: Check if we should allow ~Escapable readers https://github.com/apple/swift-http-api-proposal/issues/13
@@ -63,7 +63,7 @@ public protocol HTTPClient<RequestConcludingWriter, ResponseConcludingReader>: ~
     ) async throws -> Return
 }
 
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 extension HTTPClient {
     #if canImport(Darwin)
     /// Performs an HTTP request and processes the response.
@@ -96,10 +96,8 @@ extension HTTPClient {
         onRedirection: (
             (_ response: HTTPResponse, _ newRequest: HTTPRequest) async throws ->
                 HTTPClientRedirectionAction
-        )? = { .follow($1) },
-        onServerTrust: ((_ trust: SecTrust) async throws -> HTTPClientTrustResult)? = { _ in
-            .default
-        },
+        )? = nil,
+        onServerTrust: ((_ trust: SecTrust) async throws -> HTTPClientTrustResult)? = nil,
     ) async throws -> Return {
         // Since the element is ~Copyable but we don't have call-once closures
         // we need to move it into an Optional and then take it out once
@@ -149,7 +147,7 @@ extension HTTPClient {
         onRedirection: (
             (_ response: HTTPResponse, _ newRequest: HTTPRequest) async throws ->
                 HTTPClientRedirectionAction
-        )? = { .follow($1) },
+        )? = nil,
     ) async throws -> Return {
         // Since the element is ~Copyable but we don't have call-once closures
         // we need to move it into an Optional and then take it out once

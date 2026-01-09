@@ -21,7 +21,7 @@ public import Security
 /// ``HTTPClientEventHandler`` allows custom handling of HTTP redirections and server
 /// trust evaluations during client request processing. Conforming types can implement
 /// custom logic for these events to control client behavior.
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public protocol HTTPClientEventHandler: ~Escapable, ~Copyable {
     /// Handles 3xx redirection responses received by the HTTP client.
     ///
@@ -60,7 +60,7 @@ public protocol HTTPClientEventHandler: ~Escapable, ~Copyable {
     #endif
 }
 
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 extension HTTPClientEventHandler where Self: ~Escapable, Self: ~Copyable {
     public func handleRedirection(
         response: HTTPResponse,

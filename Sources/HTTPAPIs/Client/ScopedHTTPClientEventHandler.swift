@@ -18,7 +18,7 @@ import Synchronization
 public import Security
 #endif
 
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 @usableFromInline
 struct ScopedHTTPClientEventHandler<NextHandler: HTTPClientEventHandler & ~Escapable & ~Copyable>:
     HTTPClientEventHandler, ~Escapable, ~Copyable

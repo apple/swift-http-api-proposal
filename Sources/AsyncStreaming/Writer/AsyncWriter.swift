@@ -16,7 +16,7 @@
 ///
 /// ``AsyncWriter`` defines an interface for types that can asynchronously write elements
 /// to a destination by providing an output span buffer for efficient batch writing operations.
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public protocol AsyncWriter<WriteElement, WriteFailure>: ~Copyable, ~Escapable {
     /// The type of elements that can be written by this writer.
     associatedtype WriteElement: ~Copyable
@@ -95,7 +95,7 @@ public struct AsyncWriterWroteShortError: Error {
     public init() {}
 }
 
-@available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 extension AsyncWriter where Self: ~Copyable, Self: ~Escapable {
     /// Writes the provided element to the underlying destination.
     ///

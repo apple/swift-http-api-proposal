@@ -19,7 +19,7 @@ import Testing
 @Suite
 struct AsyncWriterTests {
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func writeElement() async {
         var writer = TestWriter()
 
@@ -29,7 +29,7 @@ struct AsyncWriterTests {
     }
 
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func writeMultipleElements() async {
         var writer = TestWriter()
 
@@ -41,7 +41,7 @@ struct AsyncWriterTests {
     }
 
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func writeWithOutputSpan() async {
         var writer = TestWriter()
 
@@ -55,7 +55,7 @@ struct AsyncWriterTests {
     }
 
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func writeSpan() async {
         var writer = TestWriter()
         let data = [1, 2, 3, 4, 5]
@@ -66,7 +66,7 @@ struct AsyncWriterTests {
     }
 
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func writeEmptySpan() async {
         var writer = TestWriter()
         let data: [Int] = []
@@ -77,7 +77,7 @@ struct AsyncWriterTests {
     }
 
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func writeLargeSpan() async {
         var writer = TestWriter(capacity: 100)
         let data = Array(1...50)
@@ -88,7 +88,7 @@ struct AsyncWriterTests {
     }
 
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func writeSpanExceedingCapacity() async {
         var writer = TestWriter(capacity: 5)
         let data = Array(1...10)
@@ -107,7 +107,7 @@ struct AsyncWriterTests {
     }
 
     @Test
-    @available(macOS 26.0, iOS 26.0, watchOS 26.0, tvOS 26.0, visionOS 26.0, *)
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func multipleWrites() async {
         var writer = TestWriter()
 

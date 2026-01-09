@@ -31,6 +31,7 @@ jobs:
       xcode_16_3_enabled: false
       xcode_16_4_enabled: false
       xcode_26_0_enabled: false
+      xcode_26_1_enabled: false
       macos_xcode_build_enabled: false
       ios_xcode_build_enabled: false
       watchos_xcode_build_enabled: false
