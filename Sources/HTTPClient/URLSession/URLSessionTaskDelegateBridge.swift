@@ -236,7 +236,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                 let bridge = URLSessionRequestStreamBridge(task: task)
                 completionHandler(bridge.inputStream)
                 do {
-                    try await requestBody.produce(into: bridge)
+                    try await bridge.write(requestBody)
                 } catch {
                     if bridge.writeFailed {
                         // Ignore error
@@ -265,7 +265,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                 let bridge = URLSessionRequestStreamBridge(task: task)
                 completionHandler(bridge.inputStream)
                 do {
-                    try await requestBody.produce(offset: offset, into: bridge)
+                    try await bridge.write(requestBody, from: offset)
                 } catch {
                     if bridge.writeFailed {
                         // Ignore error

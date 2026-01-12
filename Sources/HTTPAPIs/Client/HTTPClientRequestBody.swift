@@ -69,39 +69,11 @@ where Writer: ConcludingAsyncWriter & ~Copyable, Writer.Underlying.WriteElement 
     /// the `Content-Length` header field.
     public let knownLength: Int64?
 
-    private enum WriteBody {
+    fileprivate enum WriteBody {
         case restartable(@Sendable (consuming Writer) async throws -> Void)
         case seekable(@Sendable (Int64, consuming Writer) async throws -> Void)
     }
-    private let writeBody: WriteBody
-
-    /// Requests the body to be written into the writer.
-    /// - Parameters:
-    ///   - writer: The destination into which to write the body.
-    /// - Throws: An error thrown from the body closure.
-    public func produce(into writer: consuming Writer) async throws {
-        switch self.writeBody {
-        case .restartable(let writeBody):
-            try await writeBody(writer)
-        case .seekable(let writeBody):
-            try await writeBody(0, writer)
-        }
-    }
-
-    /// Requests the partial body at the specified offset to be written into the writer.
-    /// - Precondition: The body must be seekable.
-    /// - Parameters:
-    ///   - offset: The offset from which to start writing the body.
-    ///   - writer: The destination into which to write the body.
-    /// - Throws: An error thrown from the body closure.
-    public func produce(offset: Int64, into writer: consuming Writer) async throws {
-        switch self.writeBody {
-        case .restartable:
-            fatalError("Request body is not seekable")
-        case .seekable(let writeBody):
-            try await writeBody(offset, writer)
-        }
-    }
+    fileprivate let writeBody: WriteBody
 
     /// A restartable request body that can be replayed from the beginning.
     ///
@@ -145,5 +117,36 @@ where Writer: ConcludingAsyncWriter & ~Copyable, Writer.Underlying.WriteElement 
             knownLength: knownLength,
             writeBody: .seekable(body)
         )
+    }
+}
+
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+extension ConcludingAsyncWriter where Self: ~Copyable & SendableMetatype, Underlying.WriteElement == UInt8, FinalElement == HTTPFields? {
+    /// Write the HTTP request body from the beginning.
+    /// - Parameters:
+    ///   - requestBody: The HTTP client request body.
+    /// - Throws: An error thrown from the body closure.
+    consuming public func write(_ requestBody: HTTPClientRequestBody<Self>) async throws {
+        switch requestBody.writeBody {
+        case .restartable(let writeBody):
+            try await writeBody(self)
+        case .seekable(let writeBody):
+            try await writeBody(0, self)
+        }
+    }
+
+    /// Write the partial HTTP request body from the specified offset.
+    /// - Precondition: The body must be seekable.
+    /// - Parameters:
+    ///   - requestBody: The HTTP client request body.
+    ///   - offset: The offset from which to start writing the body.
+    /// - Throws: An error thrown from the body closure.
+    consuming public func write(_ requestBody: HTTPClientRequestBody<Self>, from offset: Int64) async throws {
+        switch requestBody.writeBody {
+        case .restartable:
+            fatalError("Request body is not seekable")
+        case .seekable(let writeBody):
+            try await writeBody(offset, self)
+        }
     }
 }
