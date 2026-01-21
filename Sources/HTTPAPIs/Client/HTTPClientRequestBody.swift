@@ -52,9 +52,8 @@ import AsyncStreaming
 /// }
 /// ```
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-public struct HTTPClientRequestBody<Writer>: Sendable
-where Writer: ConcludingAsyncWriter & ~Copyable, Writer.Underlying.WriteElement == UInt8, Writer.FinalElement == HTTPFields?, Writer: SendableMetatype
-{
+public struct HTTPClientRequestBody<Writer: AsyncWriter & ~Copyable>: Sendable
+where Writer.WriteElement == UInt8, Writer: SendableMetatype {
     /// The body can be asked to restart writing from an arbitrary offset.
     public var isSeekable: Bool {
         switch self.writeBody {
@@ -70,8 +69,8 @@ where Writer: ConcludingAsyncWriter & ~Copyable, Writer.Underlying.WriteElement 
     public let knownLength: Int64?
 
     private enum WriteBody {
-        case restartable(@Sendable (consuming Writer) async throws -> Void)
-        case seekable(@Sendable (Int64, consuming Writer) async throws -> Void)
+        case restartable(@Sendable (consuming Writer) async throws -> HTTPFields?)
+        case seekable(@Sendable (Int64, consuming Writer) async throws -> HTTPFields?)
     }
     private let writeBody: WriteBody
 
@@ -79,7 +78,7 @@ where Writer: ConcludingAsyncWriter & ~Copyable, Writer.Underlying.WriteElement 
     /// - Parameters:
     ///   - writer: The destination into which to write the body.
     /// - Throws: An error thrown from the body closure.
-    public func produce(into writer: consuming Writer) async throws {
+    public func produce(into writer: consuming Writer) async throws -> HTTPFields? {
         switch self.writeBody {
         case .restartable(let writeBody):
             try await writeBody(writer)
@@ -94,7 +93,7 @@ where Writer: ConcludingAsyncWriter & ~Copyable, Writer.Underlying.WriteElement 
     ///   - offset: The offset from which to start writing the body.
     ///   - writer: The destination into which to write the body.
     /// - Throws: An error thrown from the body closure.
-    public func produce(offset: Int64, into writer: consuming Writer) async throws {
+    public func produce(offset: Int64, into writer: consuming Writer) async throws -> HTTPFields? {
         switch self.writeBody {
         case .restartable:
             fatalError("Request body is not seekable")
@@ -117,7 +116,7 @@ where Writer: ConcludingAsyncWriter & ~Copyable, Writer.Underlying.WriteElement 
     ///     - writer: The closure that writes the request body using the provided writer.
     public static func restartable(
         knownLength: Int64? = nil,
-        _ body: @escaping @Sendable (consuming Writer) async throws -> Void
+        _ body: @escaping @Sendable (consuming Writer) async throws -> HTTPFields?
     ) -> Self {
         Self.init(
             knownLength: knownLength,
@@ -139,11 +138,34 @@ where Writer: ConcludingAsyncWriter & ~Copyable, Writer.Underlying.WriteElement 
     ///     - writer: The closure that writes the request body using the provided writer.
     public static func seekable(
         knownLength: Int64? = nil,
-        _ body: @escaping @Sendable (Int64, consuming Writer) async throws -> Void
+        _ body: @escaping @Sendable (Int64, consuming Writer) async throws -> HTTPFields?
     ) -> Self {
         Self.init(
             knownLength: knownLength,
             writeBody: .seekable(body)
         )
+    }
+
+    private init(knownLength: Int64?, writeBody: WriteBody) {
+        self.knownLength = knownLength
+        self.writeBody = writeBody
+    }
+
+    public init<OtherWriter: ~Copyable>(
+        other: HTTPClientRequestBody<OtherWriter>,
+        transform: @escaping @Sendable (consuming Writer) -> OtherWriter
+    ) {
+        self.knownLength = other.knownLength
+        self.writeBody =
+            switch other.writeBody {
+            case .restartable(let writeBody):
+                .restartable { writer in
+                    try await writeBody(transform(writer))
+                }
+            case .seekable(let writeBody):
+                .seekable { offset, writer in
+                    try await writeBody(offset, transform(writer))
+                }
+            }
     }
 }

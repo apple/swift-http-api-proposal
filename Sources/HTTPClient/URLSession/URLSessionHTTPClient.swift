@@ -21,23 +21,30 @@ import Synchronization
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 final class URLSessionHTTPClient: HTTPClient, Sendable {
-    static let shared = URLSessionHTTPClient()
-
-    typealias RequestConcludingWriter = URLSessionRequestStreamBridge
+    typealias RequestWriter = URLSessionRequestStreamBridge
     typealias ResponseConcludingReader = URLSessionTaskDelegateBridge
 
-    struct SessionConfiguration: Hashable {
-        var minimumTLSVersion: TLSVersion
-        var maximumTLSVersion: TLSVersion
+    let poolConfiguration: HTTPConnectionPoolConfiguration
 
-        init(_ configuration: HTTPClientConfiguration) {
-            self.minimumTLSVersion = configuration.security.minimumTLSVersion
-            self.maximumTLSVersion = configuration.security.maximumTLSVersion
+    init(poolConfiguration: HTTPConnectionPoolConfiguration) {
+        self.poolConfiguration = poolConfiguration
+    }
+
+    struct SessionConfiguration: Hashable {
+        let poolConfiguration: HTTPConnectionPoolConfiguration
+        let minimumTLSVersion: TLSVersion
+        let maximumTLSVersion: TLSVersion
+
+        init(_ options: HTTPRequestOptions, poolConfiguration: HTTPConnectionPoolConfiguration) {
+            self.minimumTLSVersion = options.minimumTLSVersion
+            self.maximumTLSVersion = options.maximumTLSVersion
+            self.poolConfiguration = poolConfiguration
         }
 
         var configuration: URLSessionConfiguration {
             let configuration = URLSessionConfiguration.default
             configuration.usesClassicLoadingMode = false
+            configuration.httpMaximumConnectionsPerHost = poolConfiguration.maximumConcurrentHTTP1ConnectionsPerHost
             if let version = self.minimumTLSVersion.tlsProtocolVersion {
                 configuration.tlsMinimumSupportedProtocolVersion = version
             }
@@ -51,8 +58,8 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
     // TODO: Do we need to remove sessions again to avoid holding onto the memory forever
     let sessions: Mutex<[SessionConfiguration: URLSession]> = .init([:])
 
-    func session(for configuration: HTTPClientConfiguration) -> URLSession {
-        let sessionConfiguration = SessionConfiguration(configuration)
+    func session(for options: HTTPRequestOptions) -> URLSession {
+        let sessionConfiguration = SessionConfiguration(options, poolConfiguration: self.poolConfiguration)
         return self.sessions.withLock {
             if let session = $0[sessionConfiguration] {
                 return session
@@ -63,24 +70,23 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
         }
     }
 
-    func request(for request: HTTPRequest, configuration: HTTPClientConfiguration) throws -> URLRequest {
+    func request(for request: HTTPRequest, options: HTTPRequestOptions) throws -> URLRequest {
         guard var request = URLRequest(httpRequest: request) else {
             throw HTTPTypeConversionError.failedToConvertHTTPTypesToURLType
         }
-        request.allowsExpensiveNetworkAccess = configuration.path.allowsExpensiveNetworkAccess
-        request.allowsConstrainedNetworkAccess = configuration.path.allowsConstrainedNetworkAccess
+        request.allowsExpensiveNetworkAccess = options.allowsExpensiveNetworkAccess
+        request.allowsConstrainedNetworkAccess = options.allowsConstrainedNetworkAccess
         return request
     }
 
     func perform<Return>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<RequestConcludingWriter>?,
-        configuration: HTTPClientConfiguration,
-        eventHandler: borrowing some HTTPClientEventHandler & ~Escapable & ~Copyable,
+        body: consuming HTTPClientRequestBody<RequestWriter>?,
+        options: HTTPRequestOptions,
         responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return
     ) async throws -> Return {
-        let request = try self.request(for: request, configuration: configuration)
-        let session = self.session(for: configuration)
+        let request = try self.request(for: request, options: options)
+        let session = self.session(for: options)
         let task: URLSessionTask
         let delegateBridge: URLSessionTaskDelegateBridge
         if let body {
@@ -95,7 +101,7 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
         return try await withTaskCancellationHandler {
             let result: Result<Return, any Error>
             do {
-                let response = try await delegateBridge.processDelegateCallbacksBeforeResponse(eventHandler)
+                let response = try await delegateBridge.processDelegateCallbacksBeforeResponse(options)
                 guard let response = (response as? HTTPURLResponse)?.httpResponse else {
                     throw HTTPTypeConversionError.failedToConvertURLTypeToHTTPTypes
                 }
@@ -103,7 +109,7 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
             } catch {
                 result = .failure(error)
             }
-            try await delegateBridge.processDelegateCallbacksAfterResponse(eventHandler)
+            try await delegateBridge.processDelegateCallbacksAfterResponse(options)
             return try result.get()
         } onCancel: {
             task.cancel()

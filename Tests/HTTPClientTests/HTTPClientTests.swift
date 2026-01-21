@@ -34,7 +34,7 @@ struct HTTPClientTests {
             authority: "httpbin.org",
             path: "/get"
         )
-        try await httpClient.perform(
+        try await HTTP.perform(
             request: request,
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
@@ -55,11 +55,13 @@ struct HTTPClientTests {
             authority: "httpbin.org",
             path: "/post"
         )
-        try await httpClient.perform(
+        try await HTTP.perform(
             request: request,
             body: .restartable { writer in
+                var writer = writer
                 let body = "Hello World"
-                try await writer.writeAndConclude(body.utf8Span.span, finalElement: nil)
+                try await writer.write(body.utf8Span.span)
+                return nil
             }
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
