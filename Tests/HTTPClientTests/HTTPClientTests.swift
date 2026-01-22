@@ -46,7 +46,7 @@ struct HTTPClientTests {
         }
     }
 
-    @Test(.enabled(if: false))
+    @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func testHTTPBinPost() async throws {
         let request = HTTPRequest(
