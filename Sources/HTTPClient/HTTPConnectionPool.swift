@@ -29,7 +29,11 @@ public final class HTTPConnectionPool: HTTPClient, Sendable {
         public mutating func write<Result, Failure>(
             _ body: (inout OutputSpan<UInt8>) async throws(Failure) -> Result
         ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Result where Failure: Error {
+            #if canImport(Darwin)
             try await self.actual.write(body)
+            #else
+            fatalError()
+            #endif
         }
 
         #if canImport(Darwin)
@@ -43,7 +47,11 @@ public final class HTTPConnectionPool: HTTPClient, Sendable {
                 maximumCount: Int?,
                 body: (consuming Span<UInt8>) async throws(Failure) -> Return
             ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Return where Failure: Error {
+                #if canImport(Darwin)
                 try await self.actual.read(maximumCount: maximumCount, body: body)
+                #else
+                fatalError()
+                #endif
             }
 
             #if canImport(Darwin)
@@ -54,9 +62,13 @@ public final class HTTPConnectionPool: HTTPClient, Sendable {
         public func consumeAndConclude<Return, Failure>(
             body: (consuming sending Underlying) async throws(Failure) -> Return
         ) async throws(Failure) -> (Return, HTTPFields?) where Failure: Error {
+            #if canImport(Darwin)
             try await self.actual.consumeAndConclude { actual throws(Failure) in
                 try await body(Underlying(actual: actual))
             }
+            #else
+            fatalError()
+            #endif
         }
 
         #if canImport(Darwin)
@@ -78,7 +90,9 @@ public final class HTTPConnectionPool: HTTPClient, Sendable {
     #endif
 
     private init(configuration: HTTPConnectionPoolConfiguration) {
+        #if canImport(Darwin)
         self.client = URLSessionHTTPClient(poolConfiguration: configuration)
+        #endif
     }
 
     public func perform<Return>(
