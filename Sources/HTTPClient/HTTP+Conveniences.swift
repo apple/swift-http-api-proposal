@@ -26,10 +26,7 @@ extension HTTP {
         options: Client.RequestOptions = .init(),
         on client: Client = HTTPConnectionPool.shared,
         responseHandler: (HTTPResponse, consuming Client.ResponseConcludingReader) async throws -> Return,
-        configureOptions: (inout Client.RequestOptions) -> Void = { _ in }
     ) async throws -> Return {
-        var options = options
-        configureOptions(&options)
         return try await client.perform(request: request, body: body, options: options, responseHandler: responseHandler)
     }
 
@@ -40,10 +37,7 @@ extension HTTP {
         options: Client.RequestOptions = .init(),
         on client: Client = HTTPConnectionPool.shared,
         collectUpTo limit: Int,
-        configureOptions: (inout Client.RequestOptions) -> Void = { _ in }
     ) async throws -> (HTTPResponse, Data) {
-        var options = options
-        configureOptions(&options)
         let request = HTTPRequest(url: url, headerFields: headerFields)
         return try await client.perform(request: request, body: nil, options: options) { response, body in
             (
@@ -63,10 +57,7 @@ extension HTTP {
         options: Client.RequestOptions = .init(),
         on client: Client = HTTPConnectionPool.shared,
         collectUpTo limit: Int,
-        configureOptions: (inout Client.RequestOptions) -> Void = { _ in }
     ) async throws -> (HTTPResponse, Data) {
-        var options = options
-        configureOptions(&options)
         let request = HTTPRequest(method: .post, url: url, headerFields: headerFields)
         return try await client.perform(request: request, body: .init(body), options: options) { response, body in
             (
@@ -86,10 +77,7 @@ extension HTTP {
         options: Client.RequestOptions = .init(),
         on client: Client = HTTPConnectionPool.shared,
         collectUpTo limit: Int,
-        configureOptions: (inout Client.RequestOptions) -> Void = { _ in }
     ) async throws -> (HTTPResponse, Data) {
-        var options = options
-        configureOptions(&options)
         let request = HTTPRequest(method: .put, url: url, headerFields: headerFields)
         return try await client.perform(request: request, body: .init(body), options: options) { response, body in
             (
@@ -109,10 +97,7 @@ extension HTTP {
         options: Client.RequestOptions = .init(),
         on client: Client = HTTPConnectionPool.shared,
         collectUpTo limit: Int,
-        configureOptions: (inout Client.RequestOptions) -> Void = { _ in }
     ) async throws -> (HTTPResponse, Data) {
-        var options = options
-        configureOptions(&options)
         let request = HTTPRequest(method: .delete, url: url, headerFields: headerFields)
         return try await client.perform(request: request, body: body.map { .init($0) }, options: options) { response, body in
             (
@@ -132,10 +117,7 @@ extension HTTP {
         options: Client.RequestOptions = .init(),
         on client: Client = HTTPConnectionPool.shared,
         collectUpTo limit: Int,
-        configureOptions: (inout Client.RequestOptions) -> Void = { _ in }
     ) async throws -> (HTTPResponse, Data) {
-        var options = options
-        configureOptions(&options)
         let request = HTTPRequest(method: .patch, url: url, headerFields: headerFields)
         return try await client.perform(request: request, body: .init(body), options: options) { response, body in
             (
