@@ -52,7 +52,7 @@ public protocol HTTPClient<RequestOptions>: ~Copyable {
     /// - Returns: The value returned by the response handler closure.
     ///
     /// - Throws: An error if the request fails or if the response handler throws.
-    func perform<Return>(
+    func perform<Return: ~Copyable>(
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<RequestWriter>?,
         options: RequestOptions,

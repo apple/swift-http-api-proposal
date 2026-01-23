@@ -78,10 +78,10 @@ public final class HTTPConnectionPool: HTTPClient, Sendable {
 
     public static let shared = HTTPConnectionPool(configuration: .init())
 
-    public static func withHTTPConnectionPool<Return: ~Copyable, E: Error>(
+    public static func withHTTPConnectionPool<Return: ~Copyable, Failure: Error>(
         connectionPoolConfiguration: HTTPConnectionPoolConfiguration,
-        body: (HTTPConnectionPool) async throws(E) -> Return
-    ) async throws(E) -> Return {
+        body: (HTTPConnectionPool) async throws(Failure) -> Return
+    ) async throws(Failure) -> Return {
         try await body(HTTPConnectionPool(configuration: connectionPoolConfiguration))
     }
 
@@ -95,7 +95,7 @@ public final class HTTPConnectionPool: HTTPClient, Sendable {
         #endif
     }
 
-    public func perform<Return>(
+    public func perform<Return: ~Copyable>(
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<RequestWriter>?,
         options: HTTPRequestOptions,

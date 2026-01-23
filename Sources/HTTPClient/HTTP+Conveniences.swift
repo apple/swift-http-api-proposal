@@ -20,7 +20,7 @@ public import Foundation
 
 extension HTTP {
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    public static func perform<Client: HTTPClient, Return>(
+    public static func perform<Client: HTTPClient, Return: ~Copyable>(
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<Client.RequestWriter>? = nil,
         options: Client.RequestOptions = .init(),
@@ -67,7 +67,7 @@ extension HTTP {
     ) async throws -> (HTTPResponse, Data) {
         var options = options
         configureOptions(&options)
-        let request = HTTPRequest(url: url, headerFields: headerFields)
+        let request = HTTPRequest(method: .post, url: url, headerFields: headerFields)
         return try await client.perform(request: request, body: .init(body), options: options) { response, body in
             (
                 response,
@@ -90,7 +90,7 @@ extension HTTP {
     ) async throws -> (HTTPResponse, Data) {
         var options = options
         configureOptions(&options)
-        let request = HTTPRequest(url: url, headerFields: headerFields)
+        let request = HTTPRequest(method: .put, url: url, headerFields: headerFields)
         return try await client.perform(request: request, body: .init(body), options: options) { response, body in
             (
                 response,
@@ -113,7 +113,7 @@ extension HTTP {
     ) async throws -> (HTTPResponse, Data) {
         var options = options
         configureOptions(&options)
-        let request = HTTPRequest(url: url, headerFields: headerFields)
+        let request = HTTPRequest(method: .delete, url: url, headerFields: headerFields)
         return try await client.perform(request: request, body: body.map { .init($0) }, options: options) { response, body in
             (
                 response,
@@ -136,7 +136,7 @@ extension HTTP {
     ) async throws -> (HTTPResponse, Data) {
         var options = options
         configureOptions(&options)
-        let request = HTTPRequest(url: url, headerFields: headerFields)
+        let request = HTTPRequest(method: .patch, url: url, headerFields: headerFields)
         return try await client.perform(request: request, body: .init(body), options: options) { response, body in
             (
                 response,
