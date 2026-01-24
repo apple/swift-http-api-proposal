@@ -14,10 +14,6 @@
 
 public import NetworkTypes
 
-#if !canImport(Darwin)
-public import FoundationEssentials
-#endif
-
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public struct HTTPRequestOptions: HTTPRequestOptionsRedirectionHandler, HTTPRequestOptionsTLSVersion,
     HTTPRequestOptionsDeclarativePathSelection
@@ -29,7 +25,6 @@ public struct HTTPRequestOptions: HTTPRequestOptionsRedirectionHandler, HTTPRequ
     public var clientCertificateHandler: (any ClientCertificateHandler)? = nil
     #else
     public var serverTrustPolicy: TrustEvaluationPolicy = .default
-    public var clientCertificate: Data? = nil
     #endif
 
     public var minimumTLSVersion: TLSVersion = .v1_2

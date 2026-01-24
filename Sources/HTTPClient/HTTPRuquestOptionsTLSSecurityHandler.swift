@@ -51,23 +51,6 @@ private struct DeclarativeServerTrustHandler: ServerTrustHandler {
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-private struct DeclarativeClientCertificateHandler: ClientCertificateHandler {
-    let data: Data
-    var id: Data { data }
-    func handleClientCertificateChallenge(distinguishedNames: [Data]) async throws -> (SecIdentity, [SecCertificate])? {
-        var items: CFArray? = nil
-        let error = unsafe SecPKCS12Import(data as CFData, [kSecImportToMemoryOnly: true] as CFDictionary, &items)
-        guard let items = items as [CFTypeRef]?, let identity = items.first, CFGetTypeID(identity) == SecIdentityGetTypeID() else {
-            struct OSStatusError: Error {
-                var code: OSStatus
-            }
-            throw OSStatusError(code: error)
-        }
-        return (identity as! SecIdentity, [])
-    }
-}
-
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 extension HTTPRequestOptionsTLSSecurityHandler {
     public var serverTrustPolicy: TrustEvaluationPolicy {
         get {
@@ -83,24 +66,6 @@ extension HTTPRequestOptionsTLSSecurityHandler {
                 self.serverTrustHandler = DeclarativeServerTrustHandler(policy: newValue)
             } else {
                 self.serverTrustHandler = nil
-            }
-        }
-    }
-
-    public var clientCertificate: Data? {
-        get {
-            if let clientCertificateHandler = self.clientCertificateHandler {
-                // Crash if it's not our built-in handler
-                (clientCertificateHandler as! DeclarativeClientCertificateHandler).data
-            } else {
-                nil
-            }
-        }
-        set {
-            if let newValue {
-                self.clientCertificateHandler = DeclarativeClientCertificateHandler(data: newValue)
-            } else {
-                self.clientCertificateHandler = nil
             }
         }
     }
