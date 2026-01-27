@@ -153,26 +153,26 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
     }
 
     func data(maximumCount: Int?) async throws -> Data? {
-        let needsData: Bool = self.state.withLock { state in
-            switch state {
-            case .awaitingConsumption(let existingData, let complete, _, _):
-                existingData.isEmpty && !complete
-            case .awaitingResponse:
-                fatalError("Unexpected state")
-            case .awaitingData:
-                fatalError("Must not read concurrently")
-            }
-        }
-        if needsData {
-            await withTaskCancellationHandler {
-                await withCheckedContinuation { continuation in
-                    self.state.withLock { state in
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                self.state.withLock { state in
+                    let needsData: Bool = switch state {
+                    case .awaitingConsumption(let existingData, let complete, _, _):
+                        existingData.isEmpty && !complete
+                    case .awaitingResponse:
+                        fatalError("Unexpected state")
+                    case .awaitingData:
+                        fatalError("Must not read concurrently")
+                    }
+                    if needsData {
                         state = .awaitingData(continuation)
+                    } else {
+                        continuation.resume()
                     }
                 }
-            } onCancel: {
-                self.task?.cancel()
             }
+        } onCancel: {
+            self.task?.cancel()
         }
         return try self.state.withLock { state in
             switch state {
