@@ -57,34 +57,6 @@ public protocol AsyncWriter<WriteElement, WriteFailure>: ~Copyable, ~Escapable {
     mutating func write<Result, Failure: Error>(
         _ body: (inout OutputSpan<WriteElement>) async throws(Failure) -> Result
     ) async throws(EitherError<WriteFailure, Failure>) -> Result
-
-    /// Writes a span of elements to the underlying destination.
-    ///
-    /// This method asynchronously writes all elements from the provided span to whatever destination
-    /// the writer represents. The operation may require multiple write calls to complete if the
-    /// writer cannot accept all elements at once.
-    ///
-    /// - Parameter span: The span of elements to write.
-    ///
-    /// - Throws: An `EitherError` containing either a `WriteFailure` from the write operation
-    ///   or an `AsyncWriterWroteShortError` if the writer cannot accept any more data before
-    ///   all elements are written.
-    ///
-    /// ## Example
-    ///
-    /// ```swift
-    /// var fileWriter: FileAsyncWriter = ...
-    /// let dataBuffer: [UInt8] = [1, 2, 3, 4, 5]
-    ///
-    /// // Write the entire span to a file asynchronously
-    /// try await fileWriter.write(dataBuffer.span)
-    /// ```
-    #if compiler(<6.3)
-    @_lifetime(self: copy self)
-    #endif
-    mutating func write(
-        _ span: Span<WriteElement>
-    ) async throws(EitherError<WriteFailure, AsyncWriterWroteShortError>)
 }
 
 /// An error that indicates the writer was unable to accept all provided elements.
