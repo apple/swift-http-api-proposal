@@ -18,11 +18,24 @@
 
 #if canImport(Darwin) || os(Linux)
 
+/// Configuration options for an HTTP connection pool.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public struct HTTPConnectionPoolConfiguration: Hashable, Sendable {
+    /// The maximum number of concurrent HTTP/1.1 connections allowed per host.
+    ///
+    /// This limit helps prevent overwhelming a single host with too many simultaneous
+    /// connections. HTTP/2 and HTTP/3 connections typically use multiplexing and are
+    /// not subject to this limit.
+    ///
+    /// The default value is `6`.
     public var maximumConcurrentHTTP1ConnectionsPerHost: Int = 6
 }
 
+/// A connection pool-based HTTP client that manages persistent connections to HTTP servers.
+///
+/// `HTTPConnectionPool` provides an efficient HTTP client implementation that reuses
+/// connections across multiple requests. It supports HTTP/1.1, HTTP/2, and HTTP/3 protocols,
+/// automatically handling connection management, protocol negotiation, and resource cleanup.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public final class HTTPConnectionPool: HTTPClient, Sendable {
     public struct RequestWriter: AsyncWriter, ~Copyable {
@@ -76,13 +89,25 @@ public final class HTTPConnectionPool: HTTPClient, Sendable {
         #endif
     }
 
+    /// A shared connection pool instance with default configuration.
     public static let shared = HTTPConnectionPool(configuration: .init())
 
+    /// Creates a connection pool with custom configuration and executes a closure with it.
+    ///
+    /// This method provides a scoped way to use a custom-configured connection pool.
+    /// The pool is automatically cleaned up after the closure completes.
+    ///
+    /// - Parameters:
+    ///   - configuration: The configuration to use for the connection pool.
+    ///   - body: A closure that receives the configured connection pool and performs
+    ///     HTTP operations with it.
+    /// - Returns: The value returned by the `body` closure.
+    /// - Throws: Any error thrown by the `body` closure.
     public static func withHTTPConnectionPool<Return: ~Copyable, Failure: Error>(
-        connectionPoolConfiguration: HTTPConnectionPoolConfiguration,
+        configuration: HTTPConnectionPoolConfiguration,
         body: (HTTPConnectionPool) async throws(Failure) -> Return
     ) async throws(Failure) -> Return {
-        try await body(HTTPConnectionPool(configuration: connectionPoolConfiguration))
+        try await body(HTTPConnectionPool(configuration: configuration))
     }
 
     #if canImport(Darwin)

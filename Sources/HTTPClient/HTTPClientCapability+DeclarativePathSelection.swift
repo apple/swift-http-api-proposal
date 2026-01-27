@@ -13,13 +13,13 @@
 //===----------------------------------------------------------------------===//
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-public protocol HTTPRequestOptionsDeclarativeTLS: HTTPAPIs.HTTPRequestOptions {
-    var serverTrustPolicy: TrustEvaluationPolicy { get set }
-}
+extension HTTPClientCapability {
+    /// A protocol for HTTP request options that support path selection.
+    public protocol DeclarativePathSelection: RequestOptions {
+        /// Allows the request to route over expensive (certain cellular and personal hotspot) networks.
+        var allowsExpensiveNetworkAccess: Bool { get set }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-public enum TrustEvaluationPolicy: Hashable {
-    case `default`
-    case allowNameMismatch
-    case allowAny
+        /// Allows the request to route over networks in Low Data Mode.
+        var allowsConstrainedNetworkAccess: Bool { get set }
+    }
 }

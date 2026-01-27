@@ -12,10 +12,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-public import NetworkTypes
-
+/// An enumeration that represents the policy for the server trust evaluation during TLS handshakes.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-public protocol HTTPRequestOptionsTLSVersion: HTTPRequestOptions {
-    var minimumTLSVersion: TLSVersion { get set }
-    var maximumTLSVersion: TLSVersion { get set }
+public enum TrustEvaluationPolicy: Hashable {
+    /// The default system policy.
+    case `default`
+
+    /// Allows valid certificates that do not cover the hostname of the current request.
+    case allowNameMismatch
+
+    /// Allow any invalid certificates.
+    case allowAny
 }

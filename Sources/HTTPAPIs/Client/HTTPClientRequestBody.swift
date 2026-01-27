@@ -30,7 +30,7 @@ import AsyncStreaming
 /// A seekable body allows the HTTP client to support resumable uploads.
 ///
 /// ```swift
-/// try await httpClient.perform(request: request, body: .seekable { byteOffset, writer in
+/// try await HTTP.perform(request: request, body: .seekable { byteOffset, writer in
 ///     // Inspect byteOffset and start writing contents into writer
 /// }) { response, body in
 ///     // Handle the response
@@ -45,7 +45,7 @@ import AsyncStreaming
 /// A restartable body allows the HTTP client to handle redirects and retries.
 ///
 /// ```swift
-/// try await httpClient.perform(request: request, body: .restartable { writer in
+/// try await HTTP.perform(request: request, body: .restartable { writer in
 ///     // Start writing contents into writer from the beginning
 /// }) { response, body in
 ///     // Handle the response
@@ -112,7 +112,8 @@ where Writer.WriteElement == UInt8, Writer: SendableMetatype {
     /// - Parameters:
     ///   - knownLength: The length of the body is known upfront and can be specified in
     ///     the `content-length` header field.
-    ///   - body: The closure that writes the request body using the provided writer.
+    ///   - body: The closure that writes the request body using the provided writer and
+    ///     returns an optional trailer.
     ///     - writer: The closure that writes the request body using the provided writer.
     public static func restartable(
         knownLength: Int64? = nil,
@@ -133,7 +134,8 @@ where Writer.WriteElement == UInt8, Writer: SendableMetatype {
     /// - Parameters:
     ///   - knownLength: The length of the body is known upfront and can be specified in
     ///     the `content-length` header field.
-    ///   - body: The closure that writes the request body using the provided writer.
+    ///   - body: The closure that writes the request body using the provided writer and
+    ///     returns an optional trailer.
     ///     - offset: The byte offset from which to start writing the body.
     ///     - writer: The closure that writes the request body using the provided writer.
     public static func seekable(

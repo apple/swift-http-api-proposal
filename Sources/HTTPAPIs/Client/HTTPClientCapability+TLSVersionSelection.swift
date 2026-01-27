@@ -12,8 +12,16 @@
 //
 //===----------------------------------------------------------------------===//
 
+public import NetworkTypes
+
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-public protocol HTTPRequestOptionsDeclarativePathSelection: HTTPAPIs.HTTPRequestOptions {
-    var allowsExpensiveNetworkAccess: Bool { get set }
-    var allowsConstrainedNetworkAccess: Bool { get set }
+extension HTTPClientCapability {
+    /// A protocol for HTTP request options that support TLS version constraints.
+    public protocol TLSVersionSelection: RequestOptions {
+        /// The minimum TLS version allowed for the connection.
+        var minimumTLSVersion: TLSVersion { get set }
+
+        /// The maximum TLS version allowed for the connection.
+        var maximumTLSVersion: TLSVersion { get set }
+    }
 }

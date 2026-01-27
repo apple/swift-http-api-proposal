@@ -23,7 +23,7 @@
 /// and response bodies.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public protocol HTTPClient<RequestOptions>: ~Copyable {
-    associatedtype RequestOptions: HTTPRequestOptions
+    associatedtype RequestOptions: HTTPClientCapability.RequestOptions
 
     /// The type used to write request body data and trailers.
     // TODO: Check if we should allow ~Escapable readers https://github.com/apple/swift-http-api-proposal/issues/13
@@ -38,16 +38,15 @@ public protocol HTTPClient<RequestOptions>: ~Copyable {
     /// Performs an HTTP request and processes the response.
     ///
     /// This method executes the HTTP request with the specified configuration and event
-    /// handler, then invokes the response handler when the response headers are received.
+    /// handler, then invokes the response handler when the response header is received.
     /// The request and response bodies are streamed using the client's writer and reader types.
     ///
     /// - Parameters:
-    ///   - request: The HTTP request headers to send.
+    ///   - request: The HTTP request header to send.
     ///   - body: The optional request body to send. When `nil`, no body is sent.
-    ///   - configuration: The configuration settings for this request.
-    ///   - eventHandler: The handler for processing events during request execution.
+    ///   - options: The options for this request.
     ///   - responseHandler: The closure to process the response. This closure is invoked
-    ///     when the response headers are received and can read the response body.
+    ///     when the response header is received and can read the response body.
     ///
     /// - Returns: The value returned by the response handler closure.
     ///

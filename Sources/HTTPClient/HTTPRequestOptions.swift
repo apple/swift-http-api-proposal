@@ -14,15 +14,16 @@
 
 public import NetworkTypes
 
+/// The options for the default HTTP client implementation.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-public struct HTTPRequestOptions: HTTPRequestOptionsRedirectionHandler, HTTPRequestOptionsTLSVersion,
-    HTTPRequestOptionsDeclarativePathSelection
+public struct HTTPRequestOptions: HTTPClientCapability.RedirectionHandler, HTTPClientCapability.TLSVersionSelection,
+    HTTPClientCapability.DeclarativePathSelection
 {
     public var redirectionHandler: (any HTTPClientRedirectionHandler)? = nil
 
     #if canImport(Darwin)
-    public var serverTrustHandler: (any ServerTrustHandler)? = nil
-    public var clientCertificateHandler: (any ClientCertificateHandler)? = nil
+    public var serverTrustHandler: (any HTTPClientServerTrustHandler)? = nil
+    public var clientCertificateHandler: (any HTTPClientClientCertificateHandler)? = nil
     #else
     public var serverTrustPolicy: TrustEvaluationPolicy = .default
     #endif
@@ -37,8 +38,8 @@ public struct HTTPRequestOptions: HTTPRequestOptionsRedirectionHandler, HTTPRequ
 
 #if canImport(Darwin)
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-extension HTTPRequestOptions: HTTPRequestOptionsTLSSecurityHandler {}
+extension HTTPRequestOptions: HTTPClientCapability.TLSSecurityHandler {}
 #else
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-extension HTTPRequestOptions: HTTPRequestOptionsDeclarativeTLS {}
+extension HTTPRequestOptions: HTTPClientCapability.DeclarativeTLS {}
 #endif
