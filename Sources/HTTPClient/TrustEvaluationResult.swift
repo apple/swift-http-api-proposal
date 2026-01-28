@@ -15,10 +15,10 @@
 #if canImport(Darwin)
 /// An enumeration that represents the action to take when evaluating server trust during TLS handshake.
 ///
-/// ``HTTPClientTrustResult`` specifies whether to use the system's default trust evaluation,
+/// ``TrustEvaluationResult`` specifies whether to use the system's default trust evaluation,
 /// explicitly allow the connection, or explicitly deny it.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-public enum HTTPClientTrustResult {
+public enum TrustEvaluationResult {
     /// Uses the system's default trust evaluation for the server certificate.
     ///
     /// The system evaluates the server's certificate chain using standard trust policies
