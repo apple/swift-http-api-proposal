@@ -37,9 +37,9 @@ public protocol HTTPClient<RequestOptions>: ~Copyable {
 
     /// Performs an HTTP request and processes the response.
     ///
-    /// This method executes the HTTP request with the specified configuration and event
-    /// handler, then invokes the response handler when the response header is received.
-    /// The request and response bodies are streamed using the client's writer and reader types.
+    /// This method executes the HTTP request with the specified options, then invokes
+    /// the response handler when the response header is received. The request and
+    /// response bodies are streamed using the client's writer and reader types.
     ///
     /// - Parameters:
     ///   - request: The HTTP request header to send.

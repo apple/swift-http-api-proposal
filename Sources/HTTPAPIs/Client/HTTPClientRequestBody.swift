@@ -153,7 +153,7 @@ where Writer.WriteElement == UInt8, Writer: SendableMetatype {
         self.writeBody = writeBody
     }
 
-    public init<OtherWriter: ~Copyable>(
+    package init<OtherWriter: ~Copyable>(
         other: HTTPClientRequestBody<OtherWriter>,
         transform: @escaping @Sendable (consuming Writer) -> OtherWriter
     ) {
