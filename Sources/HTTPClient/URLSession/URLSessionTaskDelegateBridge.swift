@@ -236,7 +236,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                 let bridge = URLSessionRequestStreamBridge(task: task)
                 completionHandler(bridge.inputStream)
                 do {
-                    try await requestBody.produce(into: bridge)
+                    _ = try await requestBody.produce(into: bridge)
                 } catch {
                     if bridge.writeFailed {
                         // Ignore error
@@ -244,6 +244,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                         self.requestBodyStreamFailed(with: error)
                     }
                 }
+                bridge.close()
             }
         }
     }
@@ -265,7 +266,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                 let bridge = URLSessionRequestStreamBridge(task: task)
                 completionHandler(bridge.inputStream)
                 do {
-                    try await requestBody.produce(offset: offset, into: bridge)
+                    _ = try await requestBody.produce(offset: offset, into: bridge)
                 } catch {
                     if bridge.writeFailed {
                         // Ignore error
@@ -318,47 +319,69 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
         self.continuation.yield(.error(error))
     }
 
-    func processDelegateCallbacksBeforeResponse(
-        _ eventHandler: borrowing some HTTPClientEventHandler & ~Escapable & ~Copyable
-    ) async throws -> URLResponse {
+    func processDelegateCallbacksBeforeResponse(_ options: HTTPRequestOptions) async throws -> URLResponse {
         for await callback in self.stream {
             switch callback {
             case .response(let response):
                 return response
             case .redirection(let response, let request, let completionHandler):
-                do {
-                    guard let httpResponse = response.httpResponse,
-                        let httpRequest = request.httpRequest
-                    else {
-                        completionHandler(nil)
-                        throw HTTPTypeConversionError.failedToConvertURLTypeToHTTPTypes
-                    }
-                    switch try await eventHandler.handleRedirection(response: httpResponse, newRequest: httpRequest) {
-                    case .follow(let finalRequest):
-                        guard let urlRequest = URLRequest(httpRequest: finalRequest) else {
+                if let redirectionHandler = options.redirectionHandler {
+                    do {
+                        guard let httpResponse = response.httpResponse,
+                            let httpRequest = request.httpRequest
+                        else {
                             completionHandler(nil)
-                            throw HTTPTypeConversionError.failedToConvertHTTPTypesToURLType
+                            throw HTTPTypeConversionError.failedToConvertURLTypeToHTTPTypes
                         }
-                        completionHandler(urlRequest)
-                    case .deliverRedirectionResponse:
+                        switch try await redirectionHandler.handleRedirection(response: httpResponse, newRequest: httpRequest) {
+                        case .follow(let finalRequest):
+                            guard let urlRequest = URLRequest(httpRequest: finalRequest) else {
+                                completionHandler(nil)
+                                throw HTTPTypeConversionError.failedToConvertHTTPTypesToURLType
+                            }
+                            completionHandler(urlRequest)
+                        case .deliverRedirectionResponse:
+                            completionHandler(nil)
+                        }
+                    } catch {
                         completionHandler(nil)
+                        throw error
                     }
-                } catch {
-                    completionHandler(nil)
-                    throw error
+                } else {
+                    completionHandler(request)
                 }
             case .challenge(let challenge, let completionHandler):
                 do {
-                    if let trust = challenge.protectionSpace.serverTrust {
-                        switch try await eventHandler.handleServerTrust(trust) {
-                        case .default:
+                    switch challenge.protectionSpace.authenticationMethod {
+                    case NSURLAuthenticationMethodServerTrust:
+                        if let serverTrustHandler = options.serverTrustHandler,
+                            let trust = challenge.protectionSpace.serverTrust
+                        {
+                            switch try await serverTrustHandler.evaluateServerTrust(trust) {
+                            case .default:
+                                completionHandler(.performDefaultHandling, nil)
+                            case .allow:
+                                completionHandler(.useCredential, URLCredential(trust: trust))
+                            case .deny:
+                                completionHandler(.cancelAuthenticationChallenge, nil)
+                            }
+                        } else {
                             completionHandler(.performDefaultHandling, nil)
-                        case .allow:
-                            completionHandler(.useCredential, URLCredential(trust: trust))
-                        case .deny:
-                            completionHandler(.cancelAuthenticationChallenge, nil)
                         }
-                    } else {
+                    case NSURLAuthenticationMethodClientCertificate:
+                        if let clientCertificateHandler = options.clientCertificateHandler {
+                            let distinguishedNames = challenge.protectionSpace.distinguishedNames ?? []
+                            if let (identity, certificates) = try await clientCertificateHandler.handleClientCertificateChallenge(
+                                distinguishedNames: distinguishedNames
+                            ) {
+                                completionHandler(.useCredential, URLCredential(identity: identity, certificates: certificates, persistence: .none))
+                            } else {
+                                completionHandler(.useCredential, nil)
+                            }
+                        } else {
+                            completionHandler(.performDefaultHandling, nil)
+                        }
+                    default:
                         completionHandler(.performDefaultHandling, nil)
                     }
                 } catch {
@@ -372,9 +395,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
         fatalError()
     }
 
-    func processDelegateCallbacksAfterResponse(
-        _ eventHandler: borrowing some HTTPClientEventHandler & ~Escapable & ~Copyable
-    ) async throws {
+    func processDelegateCallbacksAfterResponse(_ options: HTTPRequestOptions) async throws {
         for await callback in self.stream {
             switch callback {
             case .response:

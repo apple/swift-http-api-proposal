@@ -64,9 +64,8 @@ let request = HTTPRequest(
     path: "/users"
 )
 
-try await httpClient.perform(
+try await HTTP.perform(
     request: request,
-    body: nil
 ) { response, responseBodyAndTrailers in
     print("Status: \(response.status)")
 
