@@ -165,11 +165,11 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                         case .awaitingConsumption(let existingData, let complete, let error, let suspendedTask):
                             if !existingData.isEmpty {
                                 let (dataToReturn, remainingData) =
-                                if let maximumCount, existingData.count > maximumCount {
-                                    (existingData.prefix(maximumCount), existingData.dropFirst(maximumCount))
-                                } else {
-                                    (existingData, Data())
-                                }
+                                    if let maximumCount, existingData.count > maximumCount {
+                                        (existingData.prefix(maximumCount), existingData.dropFirst(maximumCount))
+                                    } else {
+                                        (existingData, Data())
+                                    }
                                 let shouldResume = remainingData.count <= Self.highWatermark
                                 state = .awaitingConsumption(
                                     remainingData,
