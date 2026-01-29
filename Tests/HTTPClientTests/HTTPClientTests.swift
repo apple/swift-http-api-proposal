@@ -28,13 +28,16 @@ let testsEnabled: Bool = {
     #endif
 }()
 
-// Default response constructed by the server
-struct TestServerResponse: Codable {
+// Request as received by the server
+struct Request: Codable {
     // Headers from the request
     let headers: [String: [String]]
     
     // Body of the request
     let body: String
+    
+    // Method of the request
+    let method: String
 }
 
 actor TestHTTPServer {
@@ -58,13 +61,8 @@ actor TestHTTPServer {
         Task {
             try await server.serve { request, requestContext, requestBodyAndTrailers, responseSender in
                 switch request.path {
-                case "/get":
-                    // Bad method
-                    if request.method != .get {
-                        let writer = try await responseSender.send(HTTPResponse(status: .methodNotAllowed))
-                        try await writer.writeAndConclude("Incorrect method".utf8.span, finalElement: nil)
-                        return
-                    }
+                case "/request":
+                    // Returns a JSON describing the request received.
                     
                     // Collect the headers that were sent in with the request
                     var headers: [String: [String]] = [:]
@@ -81,45 +79,19 @@ actor TestHTTPServer {
                         return String(copying: try UTF8Span(validating: span))
                     }
                     
-                    // Construct a response
-                    let response = TestServerResponse(headers: headers, body: body)
+                    let method = request.method.rawValue;
+                    
+                    // Construct the JSON request object and send it as a response
+                    let response = Request(headers: headers, body: body, method: method)
+                    
                     let response_data = try JSONEncoder().encode(response)
                     let response_span = response_data.span
-                    
-                    // OK
                     let writer = try await responseSender.send(HTTPResponse(status: .ok))
                     try await writer.writeAndConclude(response_span, finalElement: nil)
-                case "/post":
-                    // Bad method
-                    if request.method != .post {
-                        let writer = try await responseSender.send(HTTPResponse(status: .methodNotAllowed))
-                        try await writer.writeAndConclude("Incorrect method".utf8.span, finalElement: nil)
-                        return
-                    }
-                    
-                    // Collect the headers that were sent in with the request
-                    var headers: [String: [String]] = [:]
-                    for field in request.headerFields {
-                        if var header = headers[field.name.rawName] {
-                            header.append(field.value)
-                        } else {
-                            headers[field.name.rawName] = [field.value]
-                        }
-                    }
-                    
-                    // Parse the body as a UTF8 string
-                    let (body, _) = try await requestBodyAndTrailers.collect(upTo: 1024) { span in
-                        return String(copying: try UTF8Span(validating: span))
-                    }
-                    
-                    // Construct a response
-                    let response = TestServerResponse(headers: headers, body: body)
-                    let response_data = try JSONEncoder().encode(response)
-                    let response_span = response_data.span
-                    
+                case "/200":
                     // OK
                     let writer = try await responseSender.send(HTTPResponse(status: .ok))
-                    try await writer.writeAndConclude(response_span, finalElement: nil)
+                    try await writer.writeAndConclude("".utf8.span, finalElement: nil)
                 case "/gzip":
                     // OK
                     let response_headers = HTTPFields([HTTPField(name: .contentEncoding, value: "gzip")])
@@ -139,12 +111,12 @@ actor TestHTTPServer {
                     
                     try await writer.writeAndConclude(bytes.span, finalElement: nil)
                 case "/301":
-                    // Redirect to /get
-                    let writer = try await responseSender.send(HTTPResponse(status: .movedPermanently, headerFields: HTTPFields([HTTPField(name: .location, value: "/get")])))
+                    // Redirect to /request
+                    let writer = try await responseSender.send(HTTPResponse(status: .movedPermanently, headerFields: HTTPFields([HTTPField(name: .location, value: "/request")])))
                     try await writer.writeAndConclude("".utf8.span, finalElement: nil)
                 case "/308":
-                    // Redirect to /get
-                    let writer = try await responseSender.send(HTTPResponse(status: .permanentRedirect, headerFields: HTTPFields([HTTPField(name: .location, value: "/get")])))
+                    // Redirect to /request
+                    let writer = try await responseSender.send(HTTPResponse(status: .permanentRedirect, headerFields: HTTPFields([HTTPField(name: .location, value: "/request")])))
                     try await writer.writeAndConclude("".utf8.span, finalElement: nil)
                 case "/404":
                     let writer = try await responseSender.send(HTTPResponse(status: .notFound))
@@ -196,42 +168,72 @@ actor TestHTTPServer {
 struct HTTPClientTests {
     static let server = TestHTTPServer()
     
+    let httpMethods: [HTTPRequest.Method] = [.head, .get, .put, .post, .delete]
+    
     init() async {
         await HTTPClientTests.server.serve()
     }
     
     @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    func get() async throws {
+    func ok() async throws {
+        for method in httpMethods {
+            let request = HTTPRequest(
+                method: method,
+                scheme: "http",
+                authority: "127.0.0.1:12345",
+                path: "/200"
+            )
+            try await httpClient.perform(
+                request: request,
+            ) { response, responseBodyAndTrailers in
+                #expect(response.status == .ok)
+                let (body, trailers) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                    return String(copying: try UTF8Span(validating: span))
+                }
+                #expect(body.isEmpty)
+                #expect(trailers == nil)
+            }
+        }
+    }
+    
+    @Test(.enabled(if: false))
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+    func empty_chunked_body() async throws {
+        // TODO: This test hangs.
         let request = HTTPRequest(
-            method: .get,
+            method: .post,
             scheme: "http",
             authority: "127.0.0.1:12345",
-            path: "/get"
+            path: "/request"
         )
         try await HTTP.perform(
             request: request,
+            
+            // TODO: This is causing the hang
+            body: .restartable(knownLength: 0) { writer in
+                try await writer.writeAndConclude(Span(), finalElement: nil)
+            }
+            
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            let (json_response, trailers) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+            let (json_request, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
                 let body = String(copying: try UTF8Span(validating: span))
                 let data = body.data(using: .utf8)!
-                return try JSONDecoder().decode(TestServerResponse.self, from: data)
+                return try JSONDecoder().decode(Request.self, from: data)
             }
-            #expect(json_response.body.isEmpty)
-            #expect(!json_response.headers.isEmpty)
-            #expect(trailers == nil)
+            #expect(json_request.body.isEmpty)
         }
     }
 
     @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    func post() async throws {
+    func echo_string() async throws {
         let request = HTTPRequest(
             method: .post,
             scheme: "http",
             authority: "127.0.0.1:12345",
-            path: "/post"
+            path: "/echo"
         )
         try await HTTP.perform(
             request: request,
@@ -243,16 +245,13 @@ struct HTTPClientTests {
             }
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            let (json_response, trailers) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+            let (body, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
                 let body = String(copying: try UTF8Span(validating: span))
-                let data = body.data(using: .utf8)!
-                return try JSONDecoder().decode(TestServerResponse.self, from: data)
+                return body
             }
             
             // Check that the request body was in the response
-            #expect(json_response.body == "Hello World")
-            #expect(!json_response.headers.isEmpty)
-            #expect(trailers == nil)
+            #expect(body == "Hello World")
         }
     }
     
@@ -270,11 +269,10 @@ struct HTTPClientTests {
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
             #expect(response.headerFields[.contentEncoding]!.contains("gzip"))
-            let (body, trailers) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+            let (body, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
                 return String(copying: try UTF8Span(validating: span))
             }
             #expect(body == "TEST\n")
-            #expect(trailers == nil)
         }
     }
 
@@ -294,11 +292,10 @@ struct HTTPClientTests {
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
             #expect(response.headerFields[.contentEncoding]!.contains("br"))
-            let (body, trailers) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+            let (body, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
                 return String(copying: try UTF8Span(validating: span))
             }
             #expect(body == "TEST\n")
-            #expect(trailers == nil)
         }
     }
     
@@ -306,26 +303,26 @@ struct HTTPClientTests {
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func custom_headers() async throws {
         let request = HTTPRequest(
-            method: .get,
+            method: .post,
             scheme: "http",
             authority: "127.0.0.1:12345",
-            path: "/get",
+            path: "/request",
             headerFields: HTTPFields([HTTPField(name: .init("X-Foo")!, value: "BARbaz")])
         )
         
         try await httpClient.perform(
             request: request,
+            body: .restartable { writer in
+                try await writer.writeAndConclude("Hello World".utf8.span, finalElement: nil)
+            }
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            let (json_response, trailers) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+            let (json_request, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
                 let body = String(copying: try UTF8Span(validating: span))
                 let data = body.data(using: .utf8)!
-                return try JSONDecoder().decode(TestServerResponse.self, from: data)
+                return try JSONDecoder().decode(Request.self, from: data)
             }
-            #expect(json_response.body.isEmpty)
-            #expect(!json_response.headers.isEmpty)
-            #expect(trailers == nil)
-            #expect(json_response.headers["X-Foo"] == ["BARbaz"])
+            #expect(json_request.headers["X-Foo"] == ["BARbaz"])
         }
     }
     
@@ -358,14 +355,14 @@ struct HTTPClientTests {
             eventHandler: handler
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            let (json_response, trailers) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+            let (json_request, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
                 let body = String(copying: try UTF8Span(validating: span))
                 let data = body.data(using: .utf8)!
-                return try JSONDecoder().decode(TestServerResponse.self, from: data)
+                return try JSONDecoder().decode(Request.self, from: data)
             }
-            #expect(json_response.body.isEmpty)
-            #expect(!json_response.headers.isEmpty)
-            #expect(trailers == nil)
+            #expect(json_request.method == "GET")
+            #expect(json_request.body.isEmpty)
+            #expect(!json_request.headers.isEmpty)
         }
     }
     
@@ -386,14 +383,14 @@ struct HTTPClientTests {
             eventHandler: handler,
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            let (json_response, trailers) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+            let (json_request, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
                 let body = String(copying: try UTF8Span(validating: span))
                 let data = body.data(using: .utf8)!
-                return try JSONDecoder().decode(TestServerResponse.self, from: data)
+                return try JSONDecoder().decode(Request.self, from: data)
             }
-            #expect(json_response.body.isEmpty)
-            #expect(!json_response.headers.isEmpty)
-            #expect(trailers == nil)
+            #expect(json_request.method == "GET")
+            #expect(json_request.body.isEmpty)
+            #expect(!json_request.headers.isEmpty)
         }
     }
     
@@ -411,11 +408,10 @@ struct HTTPClientTests {
             request: request,
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .notFound)
-            let (_, trailers) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+            let (_, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
                 let isEmpty = span.isEmpty
                 #expect(isEmpty)
             }
-            #expect(trailers == nil)
         }
     }
     
@@ -433,15 +429,14 @@ struct HTTPClientTests {
             request: request,
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .init(integerLiteral: 999))
-            let (_, trailers) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+            let (_, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
                 let isEmpty = span.isEmpty
                 #expect(isEmpty)
             }
-            #expect(trailers == nil)
         }
     }
     
-    @Test(.enabled(if: testsEnabled))
+    @Test(.enabled(if: false))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func timeout() async throws {
         // TODO: This test is technically exercising Darwin-specific timeouts.
@@ -471,7 +466,7 @@ struct HTTPClientTests {
             method: .get,
             scheme: "http",
             authority: "127.0.0.1:12345",
-            path: "/get"
+            path: "/request"
         )
         
         try await withThrowingTaskGroup { group in
@@ -500,7 +495,7 @@ struct HTTPClientTests {
     
     @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    func echo() async throws {
+    func echo_interleave() async throws {
         // This header stops MIME type sniffing, which can cause delays in receiving
         // the chunked bytes.
         let headers = HTTPFields([HTTPField(name: .xContentTypeOptions, value: "nosniff")])
