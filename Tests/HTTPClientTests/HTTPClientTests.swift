@@ -546,4 +546,35 @@ struct HTTPClientTests {
             }
         }
     }
+    
+    @Test(.enabled(if: testsEnabled), .timeLimit(.minutes(1)))
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+    func cancel_perform() async throws {
+        // The /hang HTTP endpoint is not expected to return at all.
+        // Because of the cancellation, we're expected to return from this task group
+        // within 100ms.
+        try await withThrowingTaskGroup { group in
+            group.addTask {
+                let request = HTTPRequest(
+                    method: .get,
+                    scheme: "http",
+                    authority: "127.0.0.1:12345",
+                    path: "/hang",
+                )
+                
+                try await httpClient.perform(
+                    request: request,
+                ) { response, responseBodyAndTrailers in
+                    #expect(response.status == .ok)
+                    try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                        assertionFailure("Never expected to actually receive a body")
+                    }
+                }
+            }
+            try await Task.sleep(for: .milliseconds(100))
+            group.cancelAll()
+        }
+        
+        // Yeah we cancelled it
+    }
 }
