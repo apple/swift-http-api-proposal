@@ -13,9 +13,11 @@
 //===----------------------------------------------------------------------===//
 
 #if canImport(FoundationEssentials)
-public import FoundationEssentials
+public import struct FoundationEssentials.URL
+public import struct FoundationEssentials.Data
 #else
-public import Foundation
+public import struct Foundation.URL
+public import struct Foundation.Data
 #endif
 
 extension HTTP {
@@ -27,7 +29,7 @@ extension HTTP {
     /// - Parameters:
     ///   - request: The HTTP request header to send.
     ///   - body: The optional request body to send. Defaults to no body.
-    ///   - options: The options for this request. Defaults to an empty initialized `RequestOptions`.
+    ///   - options: The options for this request. Defaults to an empty initialized options.
     ///   - client: The HTTP client to use for the request. Defaults to `HTTPConnectionPool.shared`.
     ///   - responseHandler: The closure to process the response. This closure is invoked
     ///     when the response header is received and can read the response body.
@@ -54,7 +56,7 @@ extension HTTP {
     /// - Parameters:
     ///   - url: The URL to send the GET request to.
     ///   - headerFields: The HTTP header fields to include in the request. Defaults to an empty collection.
-    ///   - options: The options for this request. Defaults to an empty initialized of `RequestOptions`.
+    ///   - options: The options for this request. Defaults to an empty initialized options.
     ///   - client: The HTTP client to use for the request. Defaults to `HTTPConnectionPool.shared`.
     ///   - limit: The maximum number of bytes to collect from the response body.
     ///
@@ -68,7 +70,7 @@ extension HTTP {
         options: Client.RequestOptions = .init(),
         on client: Client = HTTPConnectionPool.shared,
         collectUpTo limit: Int,
-    ) async throws -> (HTTPResponse, Data) {
+    ) async throws -> (response: HTTPResponse, body: Data) {
         let request = HTTPRequest(url: url, headerFields: headerFields)
         return try await client.perform(request: request, body: nil, options: options) { response, body in
             (
@@ -89,7 +91,7 @@ extension HTTP {
     ///   - url: The URL to send the POST request to.
     ///   - headerFields: The HTTP header fields to include in the request. Defaults to an empty collection.
     ///   - body: The request body data to send.
-    ///   - options: The options for this request. Defaults to an empty initialized of `RequestOptions`.
+    ///   - options: The options for this request. Defaults to an empty initialized options.
     ///   - client: The HTTP client to use for the request. Defaults to `HTTPConnectionPool.shared`.
     ///   - limit: The maximum number of bytes to collect from the response body.
     ///
@@ -104,7 +106,7 @@ extension HTTP {
         options: Client.RequestOptions = .init(),
         on client: Client = HTTPConnectionPool.shared,
         collectUpTo limit: Int,
-    ) async throws -> (HTTPResponse, Data) {
+    ) async throws -> (response: HTTPResponse, body: Data) {
         let request = HTTPRequest(method: .post, url: url, headerFields: headerFields)
         return try await client.perform(request: request, body: .init(body), options: options) { response, body in
             (
@@ -125,7 +127,7 @@ extension HTTP {
     ///   - url: The URL to send the PUT request to.
     ///   - headerFields: The HTTP header fields to include in the request. Defaults to an empty collection.
     ///   - body: The request body data to send.
-    ///   - options: The options for this request. Defaults to an empty initialized of `RequestOptions`.
+    ///   - options: The options for this request. Defaults to an empty initialized options.
     ///   - client: The HTTP client to use for the request. Defaults to `HTTPConnectionPool.shared`.
     ///   - limit: The maximum number of bytes to collect from the response body.
     ///
@@ -140,7 +142,7 @@ extension HTTP {
         options: Client.RequestOptions = .init(),
         on client: Client = HTTPConnectionPool.shared,
         collectUpTo limit: Int,
-    ) async throws -> (HTTPResponse, Data) {
+    ) async throws -> (response: HTTPResponse, body: Data) {
         let request = HTTPRequest(method: .put, url: url, headerFields: headerFields)
         return try await client.perform(request: request, body: .init(body), options: options) { response, body in
             (
@@ -161,7 +163,7 @@ extension HTTP {
     ///   - url: The URL to send the DELETE request to.
     ///   - headerFields: The HTTP header fields to include in the request. Defaults to an empty collection.
     ///   - body: The optional request body data to send. Defaults to no body.
-    ///   - options: The options for this request. Defaults to an empty initialized of `RequestOptions`.
+    ///   - options: The options for this request. Defaults to an empty initialized options.
     ///   - client: The HTTP client to use for the request. Defaults to `HTTPConnectionPool.shared`.
     ///   - limit: The maximum number of bytes to collect from the response body.
     ///
@@ -176,7 +178,7 @@ extension HTTP {
         options: Client.RequestOptions = .init(),
         on client: Client = HTTPConnectionPool.shared,
         collectUpTo limit: Int,
-    ) async throws -> (HTTPResponse, Data) {
+    ) async throws -> (response: HTTPResponse, body: Data) {
         let request = HTTPRequest(method: .delete, url: url, headerFields: headerFields)
         return try await client.perform(request: request, body: body.map { .init($0) }, options: options) { response, body in
             (
@@ -197,7 +199,7 @@ extension HTTP {
     ///   - url: The URL to send the PATCH request to.
     ///   - headerFields: The HTTP header fields to include in the request. Defaults to an empty collection.
     ///   - body: The request body data to send.
-    ///   - options: The options for this request. Defaults to an empty initialized of `RequestOptions`.
+    ///   - options: The options for this request. Defaults to an empty initialized options.
     ///   - client: The HTTP client to use for the request. Defaults to `HTTPConnectionPool.shared`.
     ///   - limit: The maximum number of bytes to collect from the response body.
     ///
@@ -212,7 +214,7 @@ extension HTTP {
         options: Client.RequestOptions = .init(),
         on client: Client = HTTPConnectionPool.shared,
         collectUpTo limit: Int,
-    ) async throws -> (HTTPResponse, Data) {
+    ) async throws -> (response: HTTPResponse, body: Data) {
         let request = HTTPRequest(method: .patch, url: url, headerFields: headerFields)
         return try await client.perform(request: request, body: .init(body), options: options) { response, body in
             (
