@@ -34,7 +34,7 @@ struct HTTPClientTests {
             authority: "httpbin.org",
             path: "/get"
         )
-        try await httpClient.perform(
+        try await HTTP.perform(
             request: request,
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
@@ -46,7 +46,7 @@ struct HTTPClientTests {
         }
     }
 
-    @Test(.enabled(if: false))
+    @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func testHTTPBinPost() async throws {
         let request = HTTPRequest(
@@ -55,11 +55,13 @@ struct HTTPClientTests {
             authority: "httpbin.org",
             path: "/post"
         )
-        try await httpClient.perform(
+        try await HTTP.perform(
             request: request,
             body: .restartable { writer in
+                var writer = writer
                 let body = "Hello World"
-                try await writer.writeAndConclude(body.utf8Span.span, finalElement: nil)
+                try await writer.write(body.utf8Span.span)
+                return nil
             }
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)

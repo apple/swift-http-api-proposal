@@ -130,23 +130,6 @@ final class URLSessionRequestStreamBridge: NSObject, StreamDelegate, Sendable {
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-extension URLSessionRequestStreamBridge: ConcludingAsyncWriter {
-    func produceAndConclude<Return>(
-        body:
-            (consuming sending URLSessionRequestStreamBridge) async throws -> (Return, HTTPFields?)
-    ) async throws -> Return {
-        let result: Result<Return, any Error>
-        do {
-            result = .success(try await body(self).0)
-        } catch {
-            result = .failure(error)
-        }
-        self.close()
-        return try result.get()
-    }
-}
-
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 extension URLSessionRequestStreamBridge: AsyncWriter {
     func write<Result, Failure: Error>(
         _ body: (inout OutputSpan<UInt8>) async throws(Failure) -> Result
