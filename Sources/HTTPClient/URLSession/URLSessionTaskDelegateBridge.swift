@@ -369,7 +369,11 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                 throw error
             }
         }
-        fatalError()
+        
+        // We should only exit the above for-loop as a result of task
+        // cancellation, when the AsyncStream returns nil, so we should
+        // propogate a cancellation error upwards.
+        throw CancellationError()
     }
 
     func processDelegateCallbacksAfterResponse(
