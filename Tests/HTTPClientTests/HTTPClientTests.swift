@@ -97,7 +97,7 @@ struct HTTPClientTests {
     func testHTTPBinPostConvenience() async throws {
         let (response, data) = try await HTTP.post(
             url: URL(string: "https://httpbin.org/post")!,
-            body: Data("Hello World".utf8),
+            bodyData: Data("Hello World".utf8),
             collectUpTo: .max
         )
         #expect(response.status == .ok)

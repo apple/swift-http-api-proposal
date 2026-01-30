@@ -70,7 +70,7 @@ extension HTTP {
         options: Client.RequestOptions = .init(),
         on client: Client = HTTPConnectionPool.shared,
         collectUpTo limit: Int,
-    ) async throws -> (response: HTTPResponse, body: Data) {
+    ) async throws -> (response: HTTPResponse, bodyData: Data) {
         try await client.get(url: url, headerFields: headerFields, options: options, collectUpTo: limit)
     }
 
@@ -82,7 +82,7 @@ extension HTTP {
     /// - Parameters:
     ///   - url: The URL to send the POST request to.
     ///   - headerFields: The HTTP header fields to include in the request. Defaults to an empty collection.
-    ///   - body: The request body data to send.
+    ///   - bodyData: The request body data to send.
     ///   - options: The options for this request. Defaults to an empty initialized options.
     ///   - client: The HTTP client to use for the request. Defaults to `HTTPConnectionPool.shared`.
     ///   - limit: The maximum number of bytes to collect from the response body.
@@ -94,12 +94,12 @@ extension HTTP {
     public static func post<Client: HTTPClient>(
         url: URL,
         headerFields: HTTPFields = [:],
-        body: Data,
+        bodyData: Data,
         options: Client.RequestOptions = .init(),
         on client: Client = HTTPConnectionPool.shared,
         collectUpTo limit: Int,
-    ) async throws -> (response: HTTPResponse, body: Data) {
-        try await client.post(url: url, headerFields: headerFields, body: body, options: options, collectUpTo: limit)
+    ) async throws -> (response: HTTPResponse, bodyData: Data) {
+        try await client.post(url: url, headerFields: headerFields, bodyData: bodyData, options: options, collectUpTo: limit)
     }
 
     /// Performs an HTTP PUT request with a body and collects the response body.
@@ -110,7 +110,7 @@ extension HTTP {
     /// - Parameters:
     ///   - url: The URL to send the PUT request to.
     ///   - headerFields: The HTTP header fields to include in the request. Defaults to an empty collection.
-    ///   - body: The request body data to send.
+    ///   - bodyData: The request body data to send.
     ///   - options: The options for this request. Defaults to an empty initialized options.
     ///   - client: The HTTP client to use for the request. Defaults to `HTTPConnectionPool.shared`.
     ///   - limit: The maximum number of bytes to collect from the response body.
@@ -122,12 +122,12 @@ extension HTTP {
     public static func put<Client: HTTPClient>(
         url: URL,
         headerFields: HTTPFields = [:],
-        body: Data,
+        bodyData: Data,
         options: Client.RequestOptions = .init(),
         on client: Client = HTTPConnectionPool.shared,
         collectUpTo limit: Int,
-    ) async throws -> (response: HTTPResponse, body: Data) {
-        try await client.put(url: url, headerFields: headerFields, body: body, options: options, collectUpTo: limit)
+    ) async throws -> (response: HTTPResponse, bodyData: Data) {
+        try await client.put(url: url, headerFields: headerFields, bodyData: bodyData, options: options, collectUpTo: limit)
     }
 
     /// Performs an HTTP DELETE request and collects the response body.
@@ -138,7 +138,7 @@ extension HTTP {
     /// - Parameters:
     ///   - url: The URL to send the DELETE request to.
     ///   - headerFields: The HTTP header fields to include in the request. Defaults to an empty collection.
-    ///   - body: The optional request body data to send. Defaults to no body.
+    ///   - bodyData: The optional request body data to send. Defaults to no body.
     ///   - options: The options for this request. Defaults to an empty initialized options.
     ///   - client: The HTTP client to use for the request. Defaults to `HTTPConnectionPool.shared`.
     ///   - limit: The maximum number of bytes to collect from the response body.
@@ -150,12 +150,12 @@ extension HTTP {
     public static func delete<Client: HTTPClient>(
         url: URL,
         headerFields: HTTPFields = [:],
-        body: Data? = nil,
+        bodyData: Data? = nil,
         options: Client.RequestOptions = .init(),
         on client: Client = HTTPConnectionPool.shared,
         collectUpTo limit: Int,
-    ) async throws -> (response: HTTPResponse, body: Data) {
-        try await client.delete(url: url, headerFields: headerFields, body: body, options: options, collectUpTo: limit)
+    ) async throws -> (response: HTTPResponse, bodyData: Data) {
+        try await client.delete(url: url, headerFields: headerFields, bodyData: bodyData, options: options, collectUpTo: limit)
     }
 
     /// Performs an HTTP PATCH request with a body and collects the response body.
@@ -166,7 +166,7 @@ extension HTTP {
     /// - Parameters:
     ///   - url: The URL to send the PATCH request to.
     ///   - headerFields: The HTTP header fields to include in the request. Defaults to an empty collection.
-    ///   - body: The request body data to send.
+    ///   - bodyData: The request body data to send.
     ///   - options: The options for this request. Defaults to an empty initialized options.
     ///   - client: The HTTP client to use for the request. Defaults to `HTTPConnectionPool.shared`.
     ///   - limit: The maximum number of bytes to collect from the response body.
@@ -178,11 +178,11 @@ extension HTTP {
     public static func patch<Client: HTTPClient>(
         url: URL,
         headerFields: HTTPFields = [:],
-        body: Data,
+        bodyData: Data,
         options: Client.RequestOptions = .init(),
         on client: Client = HTTPConnectionPool.shared,
         collectUpTo limit: Int,
-    ) async throws -> (response: HTTPResponse, body: Data) {
-        try await client.patch(url: url, headerFields: headerFields, body: body, options: options, collectUpTo: limit)
+    ) async throws -> (response: HTTPResponse, bodyData: Data) {
+        try await client.patch(url: url, headerFields: headerFields, bodyData: bodyData, options: options, collectUpTo: limit)
     }
 }

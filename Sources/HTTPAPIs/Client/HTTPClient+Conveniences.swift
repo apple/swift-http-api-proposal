@@ -65,7 +65,7 @@ extension HTTPClient {
         headerFields: HTTPFields = [:],
         options: RequestOptions = .init(),
         collectUpTo limit: Int,
-    ) async throws -> (response: HTTPResponse, body: Data) {
+    ) async throws -> (response: HTTPResponse, bodyData: Data) {
         let request = HTTPRequest(url: url, headerFields: headerFields)
         return try await self.perform(request: request, body: nil, options: options) { response, body in
             (
@@ -83,7 +83,7 @@ extension HTTPClient {
     /// - Parameters:
     ///   - url: The URL to send the POST request to.
     ///   - headerFields: The HTTP header fields to include in the request. Defaults to an empty collection.
-    ///   - body: The request body data to send.
+    ///   - bodyData: The request body data to send.
     ///   - options: The options for this request. Defaults to an empty initialized options.
     ///   - limit: The maximum number of bytes to collect from the response body.
     ///
@@ -93,12 +93,12 @@ extension HTTPClient {
     public func post(
         url: URL,
         headerFields: HTTPFields = [:],
-        body: Data,
+        bodyData: Data,
         options: RequestOptions = .init(),
         collectUpTo limit: Int,
-    ) async throws -> (response: HTTPResponse, body: Data) {
+    ) async throws -> (response: HTTPResponse, bodyData: Data) {
         let request = HTTPRequest(method: .post, url: url, headerFields: headerFields)
-        return try await self.perform(request: request, body: .init(body), options: options) { response, body in
+        return try await self.perform(request: request, body: .data(bodyData), options: options) { response, body in
             (
                 response,
                 try await self.collectBody(body, upTo: limit)
@@ -114,7 +114,7 @@ extension HTTPClient {
     /// - Parameters:
     ///   - url: The URL to send the PUT request to.
     ///   - headerFields: The HTTP header fields to include in the request. Defaults to an empty collection.
-    ///   - body: The request body data to send.
+    ///   - bodyData: The request body data to send.
     ///   - options: The options for this request. Defaults to an empty initialized options.
     ///   - limit: The maximum number of bytes to collect from the response body.
     ///
@@ -124,12 +124,12 @@ extension HTTPClient {
     public func put(
         url: URL,
         headerFields: HTTPFields = [:],
-        body: Data,
+        bodyData: Data,
         options: RequestOptions = .init(),
         collectUpTo limit: Int,
-    ) async throws -> (response: HTTPResponse, body: Data) {
+    ) async throws -> (response: HTTPResponse, bodyData: Data) {
         let request = HTTPRequest(method: .put, url: url, headerFields: headerFields)
-        return try await self.perform(request: request, body: .init(body), options: options) { response, body in
+        return try await self.perform(request: request, body: .data(bodyData), options: options) { response, body in
             (
                 response,
                 try await self.collectBody(body, upTo: limit)
@@ -145,7 +145,7 @@ extension HTTPClient {
     /// - Parameters:
     ///   - url: The URL to send the DELETE request to.
     ///   - headerFields: The HTTP header fields to include in the request. Defaults to an empty collection.
-    ///   - body: The optional request body data to send. Defaults to no body.
+    ///   - bodyData: The optional request body data to send. Defaults to no body.
     ///   - options: The options for this request. Defaults to an empty initialized options.
     ///   - limit: The maximum number of bytes to collect from the response body.
     ///
@@ -155,12 +155,12 @@ extension HTTPClient {
     public func delete(
         url: URL,
         headerFields: HTTPFields = [:],
-        body: Data? = nil,
+        bodyData: Data? = nil,
         options: RequestOptions = .init(),
         collectUpTo limit: Int,
-    ) async throws -> (response: HTTPResponse, body: Data) {
+    ) async throws -> (response: HTTPResponse, bodyData: Data) {
         let request = HTTPRequest(method: .delete, url: url, headerFields: headerFields)
-        return try await self.perform(request: request, body: body.map { .init($0) }, options: options) { response, body in
+        return try await self.perform(request: request, body: bodyData.map { .data($0) }, options: options) { response, body in
             (
                 response,
                 try await self.collectBody(body, upTo: limit)
@@ -176,7 +176,7 @@ extension HTTPClient {
     /// - Parameters:
     ///   - url: The URL to send the PATCH request to.
     ///   - headerFields: The HTTP header fields to include in the request. Defaults to an empty collection.
-    ///   - body: The request body data to send.
+    ///   - bodyData: The request body data to send.
     ///   - options: The options for this request. Defaults to an empty initialized options.
     ///   - limit: The maximum number of bytes to collect from the response body.
     ///
@@ -186,12 +186,12 @@ extension HTTPClient {
     public func patch(
         url: URL,
         headerFields: HTTPFields = [:],
-        body: Data,
+        bodyData: Data,
         options: RequestOptions = .init(),
         collectUpTo limit: Int,
-    ) async throws -> (response: HTTPResponse, body: Data) {
+    ) async throws -> (response: HTTPResponse, bodyData: Data) {
         let request = HTTPRequest(method: .patch, url: url, headerFields: headerFields)
-        return try await self.perform(request: request, body: .init(body), options: options) { response, body in
+        return try await self.perform(request: request, body: .data(bodyData), options: options) { response, body in
             (
                 response,
                 try await self.collectBody(body, upTo: limit)
