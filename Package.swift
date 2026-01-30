@@ -90,7 +90,7 @@ let package = Package(
         ),
 
         // MARK: Tests
-        
+
         // This target is borrowed from `swift-http-server` and is only used for tests
         .target(
             name: "HTTPServerForTesting",
