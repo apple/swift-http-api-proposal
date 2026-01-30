@@ -79,7 +79,7 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
         return request
     }
 
-    func perform<Return: ~Copyable>(
+    func perform<Return>(
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<RequestWriter>?,
         options: HTTPRequestOptions,
@@ -98,9 +98,8 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
         }
         task.delegate = delegateBridge
         task.resume()
-        // withTaskCancellationHandler does not support ~Copyable result type
-        var result: Result<Return, any Error>? = nil
-        try await withTaskCancellationHandler {
+        return try await withTaskCancellationHandler {
+            let result: Result<Return, any Error>
             do {
                 let response = try await delegateBridge.processDelegateCallbacksBeforeResponse(options)
                 guard let response = (response as? HTTPURLResponse)?.httpResponse else {
@@ -111,10 +110,10 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
                 result = .failure(error)
             }
             try await delegateBridge.processDelegateCallbacksAfterResponse(options)
+            return try result.get()
         } onCancel: {
             task.cancel()
         }
-        return try result!.get()
     }
 }
 #endif

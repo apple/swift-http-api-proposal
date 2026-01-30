@@ -30,7 +30,7 @@ extension HTTP {
     ///
     /// - Throws: An error if the request fails or if the response handler throws.
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    public static func perform<Client: HTTPClient, Return: ~Copyable>(
+    public static func perform<Client: HTTPClient, Return>(
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<Client.RequestWriter>? = nil,
         options: Client.RequestOptions = .init(),

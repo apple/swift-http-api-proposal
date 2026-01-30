@@ -120,7 +120,7 @@ public final class HTTPConnectionPool: HTTPClient, Sendable {
         #endif
     }
 
-    public func perform<Return: ~Copyable>(
+    public func perform<Return>(
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<RequestWriter>?,
         options: HTTPRequestOptions,

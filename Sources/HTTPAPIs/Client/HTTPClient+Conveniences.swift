@@ -29,7 +29,7 @@ extension HTTPClient {
     /// - Returns: The value returned by the response handler closure.
     ///
     /// - Throws: An error if the request fails or if the response handler throws.
-    public func perform<Return: ~Copyable>(
+    public func perform<Return>(
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<RequestWriter>? = nil,
         options: RequestOptions = .init(),
