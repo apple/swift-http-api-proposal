@@ -70,9 +70,7 @@ extension HTTPClient {
         return try await self.perform(request: request, body: nil, options: options) { response, body in
             (
                 response,
-                try await body.collect(upTo: limit) {
-                    unsafe $0.withUnsafeBytes { unsafe Data($0) }
-                }.0
+                try await self.collectBody(body, upTo: limit)
             )
         }
     }
@@ -103,9 +101,7 @@ extension HTTPClient {
         return try await self.perform(request: request, body: .init(body), options: options) { response, body in
             (
                 response,
-                try await body.collect(upTo: limit) {
-                    unsafe $0.withUnsafeBytes { unsafe Data($0) }
-                }.0
+                try await self.collectBody(body, upTo: limit)
             )
         }
     }
@@ -136,9 +132,7 @@ extension HTTPClient {
         return try await self.perform(request: request, body: .init(body), options: options) { response, body in
             (
                 response,
-                try await body.collect(upTo: limit) {
-                    unsafe $0.withUnsafeBytes { unsafe Data($0) }
-                }.0
+                try await self.collectBody(body, upTo: limit)
             )
         }
     }
@@ -169,9 +163,7 @@ extension HTTPClient {
         return try await self.perform(request: request, body: body.map { .init($0) }, options: options) { response, body in
             (
                 response,
-                try await body.collect(upTo: limit) {
-                    unsafe $0.withUnsafeBytes { unsafe Data($0) }
-                }.0
+                try await self.collectBody(body, upTo: limit)
             )
         }
     }
@@ -202,10 +194,20 @@ extension HTTPClient {
         return try await self.perform(request: request, body: .init(body), options: options) { response, body in
             (
                 response,
-                try await body.collect(upTo: limit) {
-                    unsafe $0.withUnsafeBytes { unsafe Data($0) }
-                }.0
+                try await self.collectBody(body, upTo: limit)
             )
         }
     }
+
+    private func collectBody<Reader: ConcludingAsyncReader>(_ body: consuming Reader, upTo limit: Int) async throws -> Data
+    where Reader: ~Copyable, Reader.Underlying.ReadElement == UInt8 {
+        try await body.collect(upTo: limit == .max ? .max : limit + 1) {
+            if $0.count > limit {
+                throw LengthLimitExceededError()
+            }
+            return unsafe $0.withUnsafeBytes { unsafe Data($0) }
+        }.0
+    }
 }
+
+struct LengthLimitExceededError: Error {}

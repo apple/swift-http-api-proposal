@@ -71,15 +71,7 @@ extension HTTP {
         on client: Client = HTTPConnectionPool.shared,
         collectUpTo limit: Int,
     ) async throws -> (response: HTTPResponse, body: Data) {
-        let request = HTTPRequest(url: url, headerFields: headerFields)
-        return try await client.perform(request: request, body: nil, options: options) { response, body in
-            (
-                response,
-                try await body.collect(upTo: limit) {
-                    unsafe $0.withUnsafeBytes { unsafe Data($0) }
-                }.0
-            )
-        }
+        try await client.get(url: url, headerFields: headerFields, options: options, collectUpTo: limit)
     }
 
     /// Performs an HTTP POST request with a body and collects the response body.
@@ -107,15 +99,7 @@ extension HTTP {
         on client: Client = HTTPConnectionPool.shared,
         collectUpTo limit: Int,
     ) async throws -> (response: HTTPResponse, body: Data) {
-        let request = HTTPRequest(method: .post, url: url, headerFields: headerFields)
-        return try await client.perform(request: request, body: .init(body), options: options) { response, body in
-            (
-                response,
-                try await body.collect(upTo: limit) {
-                    unsafe $0.withUnsafeBytes { unsafe Data($0) }
-                }.0
-            )
-        }
+        try await client.post(url: url, headerFields: headerFields, body: body, options: options, collectUpTo: limit)
     }
 
     /// Performs an HTTP PUT request with a body and collects the response body.
@@ -143,15 +127,7 @@ extension HTTP {
         on client: Client = HTTPConnectionPool.shared,
         collectUpTo limit: Int,
     ) async throws -> (response: HTTPResponse, body: Data) {
-        let request = HTTPRequest(method: .put, url: url, headerFields: headerFields)
-        return try await client.perform(request: request, body: .init(body), options: options) { response, body in
-            (
-                response,
-                try await body.collect(upTo: limit) {
-                    unsafe $0.withUnsafeBytes { unsafe Data($0) }
-                }.0
-            )
-        }
+        try await client.put(url: url, headerFields: headerFields, body: body, options: options, collectUpTo: limit)
     }
 
     /// Performs an HTTP DELETE request and collects the response body.
@@ -179,15 +155,7 @@ extension HTTP {
         on client: Client = HTTPConnectionPool.shared,
         collectUpTo limit: Int,
     ) async throws -> (response: HTTPResponse, body: Data) {
-        let request = HTTPRequest(method: .delete, url: url, headerFields: headerFields)
-        return try await client.perform(request: request, body: body.map { .init($0) }, options: options) { response, body in
-            (
-                response,
-                try await body.collect(upTo: limit) {
-                    unsafe $0.withUnsafeBytes { unsafe Data($0) }
-                }.0
-            )
-        }
+        try await client.delete(url: url, headerFields: headerFields, body: body, options: options, collectUpTo: limit)
     }
 
     /// Performs an HTTP PATCH request with a body and collects the response body.
@@ -215,14 +183,6 @@ extension HTTP {
         on client: Client = HTTPConnectionPool.shared,
         collectUpTo limit: Int,
     ) async throws -> (response: HTTPResponse, body: Data) {
-        let request = HTTPRequest(method: .patch, url: url, headerFields: headerFields)
-        return try await client.perform(request: request, body: .init(body), options: options) { response, body in
-            (
-                response,
-                try await body.collect(upTo: limit) {
-                    unsafe $0.withUnsafeBytes { unsafe Data($0) }
-                }.0
-            )
-        }
+        try await client.patch(url: url, headerFields: headerFields, body: body, options: options, collectUpTo: limit)
     }
 }
