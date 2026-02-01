@@ -52,7 +52,7 @@ import AsyncStreaming
 /// }
 /// ```
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-public struct HTTPClientRequestBody<Writer: AsyncWriter & ~Copyable>: Sendable
+public struct StreamingHTTPClientRequestBody<Writer: AsyncWriter & ~Copyable>: Sendable
 where Writer.WriteElement == UInt8, Writer: SendableMetatype {
     /// The body can be asked to restart writing from an arbitrary offset.
     public var isSeekable: Bool {
@@ -154,7 +154,7 @@ where Writer.WriteElement == UInt8, Writer: SendableMetatype {
     }
 
     package init<OtherWriter: ~Copyable>(
-        other: HTTPClientRequestBody<OtherWriter>,
+        other: StreamingHTTPClientRequestBody<OtherWriter>,
         transform: @escaping @Sendable (consuming Writer) -> OtherWriter
     ) {
         self.knownLength = other.knownLength

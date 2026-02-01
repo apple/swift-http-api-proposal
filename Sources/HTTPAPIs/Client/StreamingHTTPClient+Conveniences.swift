@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-extension HTTPClient {
+extension StreamingHTTPClient {
     /// Performs an HTTP request and processes the response.
     ///
     /// This convenience method provides default values for `body` and `options` arguments,
@@ -31,7 +31,7 @@ extension HTTPClient {
     /// - Throws: An error if the request fails or if the response handler throws.
     public func perform<Return: ~Copyable>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<RequestWriter>? = nil,
+        body: consuming StreamingHTTPClientRequestBody<RequestWriter>? = nil,
         options: RequestOptions = .init(),
         responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return,
     ) async throws -> Return {
