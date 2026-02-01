@@ -20,7 +20,7 @@ import NetworkTypes
 import Synchronization
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-final class URLSessionHTTPClient: HTTPClient, Sendable {
+final class URLSessionHTTPClient: StreamingHTTPClient, Sendable {
     typealias RequestWriter = URLSessionRequestStreamBridge
     typealias ResponseConcludingReader = URLSessionTaskDelegateBridge
 
@@ -81,7 +81,7 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
 
     func perform<Return: ~Copyable>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<RequestWriter>?,
+        body: consuming StreamingHTTPClientRequestBody<RequestWriter>?,
         options: HTTPRequestOptions,
         responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return
     ) async throws -> Return {

@@ -37,7 +37,7 @@ public struct HTTPConnectionPoolConfiguration: Hashable, Sendable {
 /// connections across multiple requests. It supports HTTP/1.1, HTTP/2, and HTTP/3 protocols,
 /// automatically handling connection management, protocol negotiation, and resource cleanup.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-public final class HTTPConnectionPool: HTTPClient, Sendable {
+public final class HTTPConnectionPool: StreamingHTTPClient, Sendable {
     public struct RequestWriter: AsyncWriter, ~Copyable {
         public mutating func write<Result, Failure>(
             _ body: (inout OutputSpan<UInt8>) async throws(Failure) -> Result
@@ -122,13 +122,13 @@ public final class HTTPConnectionPool: HTTPClient, Sendable {
 
     public func perform<Return: ~Copyable>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<RequestWriter>?,
+        body: consuming StreamingHTTPClientRequestBody<RequestWriter>?,
         options: HTTPRequestOptions,
         responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return
     ) async throws -> Return {
         #if canImport(Darwin)
         let body = body.map {
-            HTTPClientRequestBody<URLSessionHTTPClient.RequestWriter>(other: $0, transform: RequestWriter.init)
+            StreamingHTTPClientRequestBody<URLSessionHTTPClient.RequestWriter>(other: $0, transform: RequestWriter.init)
         }
         return try await self.client.perform(request: request, body: body, options: options) { response, body in
             try await responseHandler(response, ResponseConcludingReader(actual: body))

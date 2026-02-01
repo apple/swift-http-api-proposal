@@ -40,11 +40,11 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
     // limits.
     private let stream: AsyncStream<Callback>
     private let continuation: AsyncStream<Callback>.Continuation
-    private let requestBody: HTTPClientRequestBody<URLSessionRequestStreamBridge>?
+    private let requestBody: StreamingHTTPClientRequestBody<URLSessionRequestStreamBridge>?
     // TODO: Can we get rid of this task and instead use on task group per client?
     private let requestBodyTask: Mutex<Task<Void, Never>?> = .init(nil)
 
-    init(task: URLSessionTask, body: consuming HTTPClientRequestBody<URLSessionRequestStreamBridge>?) {
+    init(task: URLSessionTask, body: consuming StreamingHTTPClientRequestBody<URLSessionRequestStreamBridge>?) {
         self.task = task
         var continuation: AsyncStream<Callback>.Continuation?
         self.stream = AsyncStream { continuation = $0 }
