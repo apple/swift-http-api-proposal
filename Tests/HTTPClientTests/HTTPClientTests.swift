@@ -40,6 +40,7 @@ struct Request: Codable {
     let method: String
 }
 
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 actor TestHTTPServer {
     let logger: Logger
     let server: NIOHTTPServer
@@ -177,10 +178,12 @@ actor TestHTTPServer {
 
 @Suite
 struct HTTPClientTests {
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     static let server = TestHTTPServer()
 
     let httpMethods: [HTTPRequest.Method] = [.head, .get, .put, .post, .delete]
 
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     init() async {
         await HTTPClientTests.server.serve()
     }
