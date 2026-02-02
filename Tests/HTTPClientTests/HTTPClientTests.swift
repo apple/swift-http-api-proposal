@@ -98,27 +98,64 @@ actor TestHTTPServer {
                     let writer = try await responseSender.send(HTTPResponse(status: .ok))
                     try await writer.writeAndConclude("".utf8.span, finalElement: nil)
                 case "/gzip":
-                    // OK
-                    let response_headers = HTTPFields([HTTPField(name: .contentEncoding, value: "gzip")])
-                    let writer = try await responseSender.send(HTTPResponse(status: .ok, headerFields: response_headers))
+                    // If the client didn't say that they supported this encoding,
+                    // then fallback to no encoding.
+                    let acceptEncoding = request.headerFields[.acceptEncoding]
+                    var bytes: [UInt8]
+                    var headers: HTTPFields
+                    if let acceptEncoding, acceptEncoding.contains("gzip") {
+                        // "TEST\n" as gzip
+                        bytes = [
+                            0x1f, 0x8b, 0x08, 0x00, 0xfd, 0xd6, 0x77, 0x69, 0x04, 0x03, 0x0b, 0x71, 0x0d, 0x0e, 0xe1, 0x02, 0x00, 0xbe, 0xd7, 0x83,
+                            0xf7,
+                            0x05, 0x00, 0x00, 0x00,
+                        ]
+                        headers = HTTPFields([HTTPField(name: .contentEncoding, value: "gzip")])
+                    } else {
+                        // "TEST\n" as raw ASCII
+                        bytes = [84, 69, 83, 84, 10]
+                        headers = [:]
+                    }
 
-                    // "TEST\n" as gzip-encode
-                    let bytes: [UInt8] = [
-                        0x1f, 0x8b, 0x08, 0x00, 0xfd, 0xd6, 0x77, 0x69, 0x04, 0x03, 0x0b, 0x71, 0x0d, 0x0e, 0xe1, 0x02, 0x00, 0xbe, 0xd7, 0x83, 0xf7,
-                        0x05, 0x00, 0x00, 0x00,
-                    ]
+                    let writer = try await responseSender.send(HTTPResponse(status: .ok, headerFields: headers))
+                    try await writer.writeAndConclude(bytes.span, finalElement: nil)
+                case "/deflate":
+                    // If the client didn't say that they supported this encoding,
+                    // then fallback to no encoding.
+                    let acceptEncoding = request.headerFields[.acceptEncoding]
+                    var bytes: [UInt8]
+                    var headers: HTTPFields
+                    if let acceptEncoding, acceptEncoding.contains("deflate") {
+                        // "TEST\n" as deflate
+                        bytes = [0x78, 0x9c, 0x0b, 0x71, 0x0d, 0x0e, 0xe1, 0x02, 0x00, 0x04, 0x68, 0x01, 0x4b]
+                        headers = HTTPFields([HTTPField(name: .contentEncoding, value: "deflate")])
+                    } else {
+                        // "TEST\n" as raw ASCII
+                        bytes = [84, 69, 83, 84, 10]
+                        headers = [:]
+                    }
 
+                    let writer = try await responseSender.send(HTTPResponse(status: .ok, headerFields: headers))
                     try await writer.writeAndConclude(bytes.span, finalElement: nil)
                 case "/brotli":
-                    // OK
-                    let response_headers = HTTPFields([HTTPField(name: .contentEncoding, value: "br")])
-                    let writer = try await responseSender.send(HTTPResponse(status: .ok, headerFields: response_headers))
+                    // If the client didn't say that they supported this encoding,
+                    // then fallback to no encoding.
+                    let acceptEncoding = request.headerFields[.acceptEncoding]
+                    var bytes: [UInt8]
+                    var headers: HTTPFields
+                    if let acceptEncoding, acceptEncoding.contains("br") {
+                        // "TEST\n" as brotli
+                        bytes = [0x0f, 0x02, 0x80, 0x54, 0x45, 0x53, 0x54, 0x0a, 0x03]
+                        headers = HTTPFields([HTTPField(name: .contentEncoding, value: "br")])
+                    } else {
+                        // "TEST\n" as raw ASCII
+                        bytes = [84, 69, 83, 84, 10]
+                        headers = [:]
+                    }
 
-                    // "TEST\n" as brotli-encode
-                    let bytes: [UInt8] = [0x0f, 0x02, 0x80, 0x54, 0x45, 0x53, 0x54, 0x0a, 0x03]
-
+                    let writer = try await responseSender.send(HTTPResponse(status: .ok, headerFields: headers))
                     try await writer.writeAndConclude(bytes.span, finalElement: nil)
-                case "/no_encoding":
+                case "/identity":
                     // This will always write out the body with no encoding.
                     // Used to check that a client can handle fallback to no encoding.
                     let writer = try await responseSender.send(HTTPResponse(status: .ok))
@@ -290,32 +327,12 @@ struct HTTPClientTests {
             request: request,
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            #expect(response.headerFields[.contentEncoding]!.contains("gzip"))
-            let (body, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                return String(copying: try UTF8Span(validating: span))
-            }
-            #expect(body == "TEST\n")
-        }
-    }
 
-    // TODO: We don't want to enforce brotli support in the client, but how do we query
-    // for support from the client implementation such that we can conditionally enable
-    // this test?
-    @Test(.enabled(if: false))
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    func brotli() async throws {
-        let request = HTTPRequest(
-            method: .get,
-            scheme: "http",
-            authority: "127.0.0.1:12345",
-            path: "/brotli",
-            headerFields: [.acceptEncoding: "br"]
-        )
-        try await HTTP.perform(
-            request: request,
-        ) { response, responseBodyAndTrailers in
-            #expect(response.status == .ok)
-            #expect(response.headerFields[.contentEncoding]!.contains("br"))
+            // If gzip is not advertised by the client, a fallback to no-encoding
+            // will occur, which should be supported.
+            let contentEncoding = response.headerFields[.contentEncoding]
+            #expect(contentEncoding == nil || contentEncoding == "gzip" || contentEncoding == "identity")
+
             let (body, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
                 return String(copying: try UTF8Span(validating: span))
             }
@@ -325,22 +342,71 @@ struct HTTPClientTests {
 
     @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    func fallbackEncoding() async throws {
-        // Client asks for `gzip`, but server doesn't support it.
-        // Request should still succeed and body should be transmitted in
-        // unencoded form.
+    func deflate() async throws {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
             authority: "127.0.0.1:12345",
-            path: "/no_encoding",
-            headerFields: [.acceptEncoding: "gzip"]
+            path: "/deflate"
         )
         try await HTTP.perform(
             request: request,
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            #expect(response.headerFields[.contentEncoding] == nil)
+
+            // If deflate is not advertised by the client, a fallback to no-encoding
+            // will occur, which should be supported.
+            let contentEncoding = response.headerFields[.contentEncoding]
+            #expect(contentEncoding == nil || contentEncoding == "deflate" || contentEncoding == "identity")
+
+            let (body, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                return String(copying: try UTF8Span(validating: span))
+            }
+            #expect(body == "TEST\n")
+        }
+    }
+
+    @Test(.enabled(if: testsEnabled))
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+    func brotli() async throws {
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:12345",
+            path: "/brotli",
+        )
+        try await HTTP.perform(
+            request: request,
+        ) { response, responseBodyAndTrailers in
+            #expect(response.status == .ok)
+
+            // If brotli is not advertised by the client, a fallback to no-encoding
+            // will occur, which should be supported.
+            let contentEncoding = response.headerFields[.contentEncoding]
+            #expect(contentEncoding == nil || contentEncoding == "br" || contentEncoding == "identity")
+
+            let (body, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                return String(copying: try UTF8Span(validating: span))
+            }
+            #expect(body == "TEST\n")
+        }
+    }
+
+    @Test(.enabled(if: testsEnabled))
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+    func identity() async throws {
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:12345",
+            path: "/identity",
+        )
+        try await HTTP.perform(
+            request: request,
+        ) { response, responseBodyAndTrailers in
+            #expect(response.status == .ok)
+            let contentEncoding = response.headerFields[.contentEncoding]
+            #expect(contentEncoding == nil || contentEncoding == "identity")
             let (body, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
                 return String(copying: try UTF8Span(validating: span))
             }
