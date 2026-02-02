@@ -214,7 +214,7 @@ struct HTTPClientTests {
     // TODO: Writing just an empty span causes a hang. The terminating chunk (size 0) is not written out on the wire.
     @Test(.enabled(if: false))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    func empty_chunked_body() async throws {
+    func emptyChunkedBody() async throws {
         // TODO: This test hangs.
         let request = HTTPRequest(
             method: .post,
@@ -243,7 +243,7 @@ struct HTTPClientTests {
 
     @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    func echo_string() async throws {
+    func echoString() async throws {
         let request = HTTPRequest(
             method: .post,
             scheme: "http",
@@ -315,7 +315,7 @@ struct HTTPClientTests {
 
     @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    func custom_headers() async throws {
+    func customHeader() async throws {
         let request = HTTPRequest(
             method: .post,
             scheme: "http",
@@ -344,7 +344,7 @@ struct HTTPClientTests {
 
     @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    func redirect_308() async throws {
+    func redirect308() async throws {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -376,7 +376,7 @@ struct HTTPClientTests {
 
     @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    func redirect_301() async throws {
+    func redirect301() async throws {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -408,7 +408,7 @@ struct HTTPClientTests {
 
     @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    func not_found() async throws {
+    func notFound() async throws {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -429,7 +429,7 @@ struct HTTPClientTests {
 
     @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    func status_out_of_range_but_valid() async throws {
+    func statusOutOfRangeButValid() async throws {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -484,7 +484,7 @@ struct HTTPClientTests {
 
     @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    func echo_interleave() async throws {
+    func echoInterleave() async throws {
         // This header stops MIME type sniffing, which can cause delays in receiving
         // the chunked bytes.
         let headers = HTTPFields([HTTPField(name: .xContentTypeOptions, value: "nosniff")])
@@ -537,7 +537,7 @@ struct HTTPClientTests {
     // TODO: This test crashes. It can be enabled once we have correctly dealt with task cancellation.
     @Test(.enabled(if: false), .timeLimit(.minutes(1)))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    func cancel_hang() async throws {
+    func cancelPreHeaders() async throws {
         // The /hang HTTP endpoint is not expected to return at all.
         // Because of the cancellation, we're expected to return from this task group
         // within 100ms.
@@ -564,7 +564,7 @@ struct HTTPClientTests {
     // TODO: This test crashes. It can be enabled once we have correctly dealt with task cancellation.
     @Test(.enabled(if: false), .timeLimit(.minutes(1)))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    func cancel_hang_body() async throws {
+    func cancelPreBody() async throws {
         // The /hang_body HTTP endpoint gives headers, but is not expected to return a
         // body. Because of the cancellation, we're expected to return from this task group
         // within 100ms.
