@@ -58,7 +58,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
 
     enum State {
         case awaitingResponse
-        case awaitingData(CheckedContinuation<Void, Never>)
+        case awaitingData(CheckedContinuation<(Bool, Data?), any Error>)
         case awaitingConsumption(Data, complete: Bool, error: (any Error)?, suspendedTask: URLSessionTask?)
     }
 
@@ -117,7 +117,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
         }
         switch oldState {
         case .awaitingData(let continuation):
-            continuation.resume()
+            continuation.resume(returning: (false, nil))
         case .awaitingResponse:
             // We don't support data before response
             self.continuation.yield(.error(URLError(.unknown)))
@@ -145,7 +145,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
         case .awaitingResponse:
             self.continuation.yield(.error(error ?? URLError(.unknown)))
         case .awaitingData(let continuation):
-            continuation.resume()
+            continuation.resume(returning: (false, nil))
         case .awaitingConsumption:
             break
         }
@@ -153,59 +153,54 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
     }
 
     func data(maximumCount: Int?) async throws -> Data? {
-        let needsData: Bool = self.state.withLock { state in
-            switch state {
-            case .awaitingConsumption(let existingData, let complete, _, _):
-                existingData.isEmpty && !complete
-            case .awaitingResponse:
-                fatalError("Unexpected state")
-            case .awaitingData:
-                fatalError("Must not read concurrently")
-            }
-        }
-        if needsData {
-            await withTaskCancellationHandler {
-                await withCheckedContinuation { continuation in
+        try await withTaskCancellationHandler {
+            // Keep waiting on continuations until:
+            // a) data is returned
+            // b) no more data can be returned (complete)
+            // c) an error occurred
+            while true {
+                let (shouldReturn, result): (Bool, Data?) = try await withCheckedThrowingContinuation { continuation in
                     self.state.withLock { state in
-                        state = .awaitingData(continuation)
-                    }
-                }
-            } onCancel: {
-                self.task?.cancel()
-            }
-        }
-        return try self.state.withLock { state in
-            switch state {
-            case .awaitingConsumption(let existingData, let complete, let error, let suspendedTask):
-                if !existingData.isEmpty {
-                    let (dataToReturn, remainingData) =
-                        if let maximumCount, existingData.count > maximumCount {
-                            (existingData.prefix(maximumCount), existingData.dropFirst(maximumCount))
-                        } else {
-                            (existingData, Data())
+                        switch state {
+                        case .awaitingConsumption(let existingData, let complete, let error, let suspendedTask):
+                            if !existingData.isEmpty {
+                                let (dataToReturn, remainingData) =
+                                    if let maximumCount, existingData.count > maximumCount {
+                                        (existingData.prefix(maximumCount), existingData.dropFirst(maximumCount))
+                                    } else {
+                                        (existingData, Data())
+                                    }
+                                let shouldResume = remainingData.count <= Self.highWatermark
+                                state = .awaitingConsumption(
+                                    remainingData,
+                                    complete: complete,
+                                    error: existingData.isEmpty ? nil : error,
+                                    suspendedTask: shouldResume ? nil : suspendedTask
+                                )
+                                if shouldResume {
+                                    suspendedTask?.resume()
+                                }
+                                continuation.resume(returning: (true, dataToReturn))
+                            } else if let error, complete {
+                                continuation.resume(throwing: error)
+                            } else if complete {
+                                continuation.resume(returning: (true, nil))
+                            } else {
+                                state = .awaitingData(continuation)
+                            }
+                        case .awaitingResponse:
+                            fatalError("Unexpected state")
+                        case .awaitingData:
+                            fatalError("Must not read concurrently")
                         }
-                    let shouldResume = remainingData.count <= Self.highWatermark
-                    state = .awaitingConsumption(
-                        remainingData,
-                        complete: complete,
-                        error: existingData.isEmpty ? nil : error,
-                        suspendedTask: shouldResume ? nil : suspendedTask
-                    )
-                    if shouldResume {
-                        suspendedTask?.resume()
                     }
-                    return dataToReturn
-                } else if complete {
-                    if let error {
-                        throw error
-                    }
-                    return nil
-                } else {
-                    fatalError("Unexpected state")
                 }
-            case .awaitingResponse, .awaitingData:
-                fatalError("Unexpected state")
+                if shouldReturn {
+                    return result
+                }
             }
+        } onCancel: {
+            self.task?.cancel()
         }
     }
 

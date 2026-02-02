@@ -77,6 +77,7 @@ extension AsyncReader where Self: ~Copyable, Self: ~Escapable {
     ///     // Process the chunk
     /// }
     /// ```
+    @inlinable
     public consuming func forEach<Failure: Error>(
         body: (consuming Span<ReadElement>) async throws(Failure) -> Void
     ) async throws(Failure) where ReadFailure == Never {
