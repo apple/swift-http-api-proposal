@@ -298,7 +298,10 @@ struct HTTPClientTests {
         }
     }
 
-    @Test(.enabled(if: testsEnabled))
+    // TODO: We don't want to enforce brotli support in the client, but how do we query
+    // for support from the client implementation such that we can conditionally enable
+    // this test?
+    @Test(.enabled(if: false))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func brotli() async throws {
         let request = HTTPRequest(
