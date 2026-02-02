@@ -29,6 +29,7 @@ let package = Package(
             branch: "fb-async"
         ),
         .package(url: "https://github.com/apple/swift-http-types.git", from: "1.5.1"),
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
     ],
     targets: [
         .target(
@@ -104,6 +105,40 @@ let package = Package(
             dependencies: [
                 "Middleware"
             ],
+            swiftSettings: extraSettings
+        ),
+
+        // MARK: Examples
+        .executableTarget(
+            name: "MiddlewareClient",
+            dependencies: [
+                "HTTPAPIs",
+                "HTTPClient",
+                "Middleware",
+                "ExampleMiddleware",
+            ],
+            path: "Examples/MiddlewareClient",
+            swiftSettings: extraSettings
+        ),
+        .executableTarget(
+            name: "MiddlewareServer",
+            dependencies: [
+                "HTTPAPIs",
+                "HTTPServer",
+                "Middleware",
+                "ExampleMiddleware",
+            ],
+            path: "Examples/MiddlewareServer",
+            swiftSettings: extraSettings
+        ),
+        .target(
+            name: "ExampleMiddleware",
+            dependencies: [
+                "HTTPAPIs",
+                "Middleware",
+                .product(name: "Logging", package: "swift-log"),
+            ],
+            path: "Examples/ExampleMiddleware",
             swiftSettings: extraSettings
         ),
     ]

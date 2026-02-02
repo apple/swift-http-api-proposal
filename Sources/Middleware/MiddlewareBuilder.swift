@@ -62,7 +62,7 @@ public struct MiddlewareBuilder {
         next: some Middleware<MiddleInput, NextInput>
     ) -> some Middleware<Input, NextInput> {
         let chained = ChainedMiddleware(first: accumulated, second: next)
-        return ClosureMiddleware(middlewareFunc: chained.intercept)
+        return chained
     }
 
     /// Converts a middleware expression to a middleware chain.

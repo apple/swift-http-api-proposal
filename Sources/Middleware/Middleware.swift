@@ -42,8 +42,8 @@ public protocol Middleware<Input, NextInput>: Sendable {
     ///           It accepts a parameter of type `NextInput`.
     ///
     /// - Throws: Any error that occurs during processing.
-    func intercept(
+    func intercept<Return: ~Copyable>(
         input: consuming Input,
-        next: (consuming NextInput) async throws -> Void
-    ) async throws
+        next: (consuming NextInput) async throws -> Return
+    ) async throws -> Return
 }
