@@ -44,22 +44,26 @@ struct Request: Codable {
 actor TestHTTPServer {
     let logger: Logger
     let server: NIOHTTPServer
-    var running: Bool
+    var server_task: Task<Void, any Error>?
 
     init() {
         logger = Logger(label: "TestHTTPServer")
         server = NIOHTTPServer(logger: logger, configuration: .init(bindTarget: .hostAndPort(host: "127.0.0.1", port: 12345)))
-        running = false
+    }
+    
+    deinit {
+        if let server_task {
+            server_task.cancel()
+        }
     }
 
     func serve() {
         // Since this is one server running for all test cases, only serve it once.
-        if running {
+        if server_task != nil {
             return
         }
         print("Serving HTTP on localhost:12345")
-        running = true
-        Task {
+        server_task = Task {
             try await server.serve { request, requestContext, requestBodyAndTrailers, responseSender in
                 switch request.path {
                 case "/request":
@@ -163,7 +167,7 @@ actor TestHTTPServer {
                     assertionFailure("Not expected to complete hour-long wait")
                 case "/stall_body":
                     // Send the headers, but not the body
-                    let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
+                    let _ = try await responseSender.send(.init(status: .ok))
                     // Wait for an hour (effectively never giving an answer)
                     try! await Task.sleep(for: .seconds(60 * 60))
                     assertionFailure("Not expected to complete hour-long wait")
@@ -181,33 +185,32 @@ struct HTTPClientTests {
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     static let server = TestHTTPServer()
 
-    let httpMethods: [HTTPRequest.Method] = [.head, .get, .put, .post, .delete]
-
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     init() async {
         await HTTPClientTests.server.serve()
     }
 
-    @Test(.enabled(if: testsEnabled))
+    @Test(
+        .enabled(if: testsEnabled),
+        arguments: [HTTPRequest.Method.head, .get, .put, .post, .delete]
+    )
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    func ok() async throws {
-        for method in httpMethods {
-            let request = HTTPRequest(
-                method: method,
-                scheme: "http",
-                authority: "127.0.0.1:12345",
-                path: "/200"
-            )
-            try await HTTP.perform(
-                request: request,
-            ) { response, responseBodyAndTrailers in
-                #expect(response.status == .ok)
-                let (body, trailers) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                    return String(copying: try UTF8Span(validating: span))
-                }
-                #expect(body.isEmpty)
-                #expect(trailers == nil)
+    func ok(_ method: HTTPRequest.Method) async throws {
+        let request = HTTPRequest(
+            method: method,
+            scheme: "http",
+            authority: "127.0.0.1:12345",
+            path: "/200"
+        )
+        try await HTTP.perform(
+            request: request,
+        ) { response, responseBodyAndTrailers in
+            #expect(response.status == .ok)
+            let (body, trailers) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                return String(copying: try UTF8Span(validating: span))
             }
+            #expect(body.isEmpty)
+            #expect(trailers == nil)
         }
     }
 
@@ -464,7 +467,7 @@ struct HTTPClientTests {
                         request: request,
                     ) { response, responseBodyAndTrailers in
                         #expect(response.status == .ok)
-                        try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                        let _ = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
                             let isEmpty = span.isEmpty
                             #expect(!isEmpty)
                         }
@@ -517,7 +520,7 @@ struct HTTPClientTests {
             }
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            try await responseBodyAndTrailers.consumeAndConclude { reader in
+            let _ = try await responseBodyAndTrailers.consumeAndConclude { reader in
                 var numberOfChunks = 0
                 try await reader.forEach { span in
                     numberOfChunks += 1
@@ -580,7 +583,7 @@ struct HTTPClientTests {
                     request: request,
                 ) { response, responseBodyAndTrailers in
                     #expect(response.status == .ok)
-                    try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                    let _ = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
                         assertionFailure("Not expected to receive a body")
                     }
                 }
