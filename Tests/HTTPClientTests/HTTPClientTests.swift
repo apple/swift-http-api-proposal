@@ -16,9 +16,9 @@ import Foundation
 import HTTPClient
 import HTTPServerForTesting
 import HTTPTypes
-import Testing
 import Logging
 import Synchronization
+import Testing
 
 let testsEnabled: Bool = {
     #if canImport(Darwin)
@@ -32,10 +32,10 @@ let testsEnabled: Bool = {
 struct Request: Codable {
     // Headers from the request
     let headers: [String: [String]]
-    
+
     // Body of the request
     let body: String
-    
+
     // Method of the request
     let method: String
 }
@@ -44,13 +44,13 @@ actor TestHTTPServer {
     let logger: Logger
     let server: NIOHTTPServer
     var running: Bool
-    
+
     init() {
         logger = Logger(label: "TestHTTPServer")
         server = NIOHTTPServer(logger: logger, configuration: .init(bindTarget: .hostAndPort(host: "127.0.0.1", port: 12345)))
         running = false
     }
-    
+
     func serve() {
         // Since this is one server running for all test cases, only serve it once.
         if running {
@@ -63,7 +63,7 @@ actor TestHTTPServer {
                 switch request.path {
                 case "/request":
                     // Returns a JSON describing the request received.
-                    
+
                     // Collect the headers that were sent in with the request
                     var headers: [String: [String]] = [:]
                     for field in request.headerFields {
@@ -73,17 +73,17 @@ actor TestHTTPServer {
                             headers[field.name.rawName] = [field.value]
                         }
                     }
-                    
+
                     // Parse the body as a UTF8 string
                     let (body, _) = try await requestBodyAndTrailers.collect(upTo: 1024) { span in
                         return String(copying: try UTF8Span(validating: span))
                     }
-                    
-                    let method = request.method.rawValue;
-                    
+
+                    let method = request.method.rawValue
+
                     // Construct the JSON request object and send it as a response
                     let response = Request(headers: headers, body: body, method: method)
-                    
+
                     let response_data = try JSONEncoder().encode(response)
                     let response_span = response_data.span
                     let writer = try await responseSender.send(HTTPResponse(status: .ok))
@@ -96,27 +96,34 @@ actor TestHTTPServer {
                     // OK
                     let response_headers = HTTPFields([HTTPField(name: .contentEncoding, value: "gzip")])
                     let writer = try await responseSender.send(HTTPResponse(status: .ok, headerFields: response_headers))
-                    
+
                     // "TEST\n" as gzip-encode
-                    let bytes: [UInt8] = [0x1f,0x8b,0x08,0x00,0xfd,0xd6,0x77,0x69,0x04,0x03,0x0b,0x71,0x0d,0x0e,0xe1,0x02,0x00,0xbe,0xd7,0x83,0xf7,0x05,0x00,0x00,0x00]
-                    
+                    let bytes: [UInt8] = [
+                        0x1f, 0x8b, 0x08, 0x00, 0xfd, 0xd6, 0x77, 0x69, 0x04, 0x03, 0x0b, 0x71, 0x0d, 0x0e, 0xe1, 0x02, 0x00, 0xbe, 0xd7, 0x83, 0xf7,
+                        0x05, 0x00, 0x00, 0x00,
+                    ]
+
                     try await writer.writeAndConclude(bytes.span, finalElement: nil)
                 case "/brotli":
                     // OK
                     let response_headers = HTTPFields([HTTPField(name: .contentEncoding, value: "br")])
                     let writer = try await responseSender.send(HTTPResponse(status: .ok, headerFields: response_headers))
-                    
+
                     // "TEST\n" as brotli-encode
-                    let bytes: [UInt8] = [0x0f,0x02,0x80,0x54,0x45,0x53,0x54,0x0a,0x03]
-                    
+                    let bytes: [UInt8] = [0x0f, 0x02, 0x80, 0x54, 0x45, 0x53, 0x54, 0x0a, 0x03]
+
                     try await writer.writeAndConclude(bytes.span, finalElement: nil)
                 case "/301":
                     // Redirect to /request
-                    let writer = try await responseSender.send(HTTPResponse(status: .movedPermanently, headerFields: HTTPFields([HTTPField(name: .location, value: "/request")])))
+                    let writer = try await responseSender.send(
+                        HTTPResponse(status: .movedPermanently, headerFields: HTTPFields([HTTPField(name: .location, value: "/request")]))
+                    )
                     try await writer.writeAndConclude("".utf8.span, finalElement: nil)
                 case "/308":
                     // Redirect to /request
-                    let writer = try await responseSender.send(HTTPResponse(status: .permanentRedirect, headerFields: HTTPFields([HTTPField(name: .location, value: "/request")])))
+                    let writer = try await responseSender.send(
+                        HTTPResponse(status: .permanentRedirect, headerFields: HTTPFields([HTTPField(name: .location, value: "/request")]))
+                    )
                     try await writer.writeAndConclude("".utf8.span, finalElement: nil)
                 case "/404":
                     let writer = try await responseSender.send(HTTPResponse(status: .notFound))
@@ -131,14 +138,14 @@ actor TestHTTPServer {
                         try await writer.writeAndConclude("Incorrect method".utf8.span, finalElement: nil)
                         return
                     }
-                
+
                     // Needed since we are lacking call-once closures
                     var responseSender = Optional(responseSender)
 
                     _ = try await requestBodyAndTrailers.consumeAndConclude { reader in
                         // Needed since we are lacking call-once closures
                         var reader = Optional(reader)
-                        
+
                         // This header stops MIME type sniffing, which can cause delays in receiving
                         // the chunked bytes.
                         let headers = HTTPFields([HTTPField(name: .xContentTypeOptions, value: "nosniff")])
@@ -168,18 +175,16 @@ actor TestHTTPServer {
     }
 }
 
-
-
 @Suite
 struct HTTPClientTests {
     static let server = TestHTTPServer()
-    
+
     let httpMethods: [HTTPRequest.Method] = [.head, .get, .put, .post, .delete]
-    
+
     init() async {
         await HTTPClientTests.server.serve()
     }
-    
+
     @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func ok() async throws {
@@ -202,7 +207,7 @@ struct HTTPClientTests {
             }
         }
     }
-    
+
     @Test(.enabled(if: false))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func empty_chunked_body() async throws {
@@ -215,14 +220,14 @@ struct HTTPClientTests {
         )
         try await HTTP.perform(
             request: request,
-            
+
             // TODO: This is causing the hang
             body: .restartable(knownLength: 0) { writer in
                 var writer = writer
                 try await writer.write(Span())
                 return nil
             }
-            
+
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
             let (json_request, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
@@ -257,12 +262,12 @@ struct HTTPClientTests {
                 let body = String(copying: try UTF8Span(validating: span))
                 return body
             }
-            
+
             // Check that the request body was in the response
             #expect(body == "Hello World")
         }
     }
-    
+
     @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func gzip() async throws {
@@ -284,7 +289,6 @@ struct HTTPClientTests {
         }
     }
 
-    
     @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func brotli() async throws {
@@ -306,7 +310,7 @@ struct HTTPClientTests {
             #expect(body == "TEST\n")
         }
     }
-    
+
     @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func custom_headers() async throws {
@@ -317,7 +321,7 @@ struct HTTPClientTests {
             path: "/request",
             headerFields: HTTPFields([HTTPField(name: .init("X-Foo")!, value: "BARbaz")])
         )
-        
+
         try await HTTP.perform(
             request: request,
             body: .restartable { writer in
@@ -335,7 +339,7 @@ struct HTTPClientTests {
             #expect(json_request.headers["X-Foo"] == ["BARbaz"])
         }
     }
-    
+
     @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func redirect_308() async throws {
@@ -345,13 +349,13 @@ struct HTTPClientTests {
             authority: "127.0.0.1:12345",
             path: "/308"
         )
-        
+
         var options = HTTPRequestOptions()
         options.redirectionHandlerClosure = { response, newRequest in
             #expect(response.status == .permanentRedirect)
             return .follow(newRequest)
         }
-        
+
         try await HTTP.perform(
             request: request,
             options: options,
@@ -367,7 +371,7 @@ struct HTTPClientTests {
             #expect(!json_request.headers.isEmpty)
         }
     }
-    
+
     @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func redirect_301() async throws {
@@ -377,14 +381,13 @@ struct HTTPClientTests {
             authority: "127.0.0.1:12345",
             path: "/301"
         )
-        
-        
+
         var options = HTTPRequestOptions()
         options.redirectionHandlerClosure = { response, newRequest in
             #expect(response.status == .movedPermanently)
             return .follow(newRequest)
         }
-        
+
         try await HTTP.perform(
             request: request,
             options: options,
@@ -400,7 +403,7 @@ struct HTTPClientTests {
             #expect(!json_request.headers.isEmpty)
         }
     }
-    
+
     @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func not_found() async throws {
@@ -410,7 +413,7 @@ struct HTTPClientTests {
             authority: "127.0.0.1:12345",
             path: "/404"
         )
-        
+
         try await HTTP.perform(
             request: request,
         ) { response, responseBodyAndTrailers in
@@ -421,7 +424,7 @@ struct HTTPClientTests {
             }
         }
     }
-    
+
     @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func status_out_of_range_but_valid() async throws {
@@ -431,7 +434,7 @@ struct HTTPClientTests {
             authority: "127.0.0.1:12345",
             path: "/999"
         )
-        
+
         try await HTTP.perform(
             request: request,
         ) { response, responseBodyAndTrailers in
@@ -442,7 +445,7 @@ struct HTTPClientTests {
             }
         }
     }
-    
+
     @Test(.enabled(if: false))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func timeout() async throws {
@@ -453,7 +456,7 @@ struct HTTPClientTests {
             authority: "127.0.0.1:12345",
             path: "/hang"
         )
-        
+
         do {
             try await HTTP.perform(
                 request: request,
@@ -475,7 +478,7 @@ struct HTTPClientTests {
             authority: "127.0.0.1:12345",
             path: "/request"
         )
-        
+
         try await withThrowingTaskGroup { group in
             for _ in 0..<100 {
                 group.addTask {
@@ -490,16 +493,16 @@ struct HTTPClientTests {
                     }
                 }
             }
-            
+
             var count = 0
             for try await _ in group {
                 count += 1
             }
-            
+
             #expect(count == 100)
         }
     }
-    
+
     @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func echo_interleave() async throws {
@@ -513,23 +516,23 @@ struct HTTPClientTests {
             path: "/echo",
             headerFields: headers
         )
-        
+
         // Used to ping-pong between the client-side writer and reader
         let writerWaiting: Mutex<CheckedContinuation<Void, Never>?> = .init(nil)
-        
+
         try await HTTP.perform(
             request: request,
             body: .restartable { writer in
                 var writer = writer
-                
+
                 for _ in 0..<1000 {
                     // TODO: There's a bug that prevents a single byte from being
                     // successfully written out as a chunk. So write 2 bytes for now.
                     try await writer.write("AB".utf8.span)
-                    
+
                     // Only proceed once the client receives the echo.
                     await withCheckedContinuation { continuation in
-                        writerWaiting.withLock{ $0 = continuation }
+                        writerWaiting.withLock { $0 = continuation }
                     }
                 }
                 return nil
@@ -543,7 +546,7 @@ struct HTTPClientTests {
                     #expect(span.count == 2)
                     #expect(span[0] == UInt8(ascii: "A"))
                     #expect(span[1] == UInt8(ascii: "B"))
-                    
+
                     // Unblock the writer
                     writerWaiting.withLock { $0!.resume() }
                 }
@@ -551,7 +554,7 @@ struct HTTPClientTests {
             }
         }
     }
-    
+
     // TODO: This test crashes. It can be enabled once we have correctly dealt with task cancellation.
     @Test(.enabled(if: false), .timeLimit(.minutes(1)))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
@@ -567,7 +570,7 @@ struct HTTPClientTests {
                     authority: "127.0.0.1:12345",
                     path: "/hang",
                 )
-                
+
                 try await HTTP.perform(
                     request: request,
                 ) { response, responseBodyAndTrailers in
@@ -578,7 +581,7 @@ struct HTTPClientTests {
             group.cancelAll()
         }
     }
-    
+
     // TODO: This test crashes. It can be enabled once we have correctly dealt with task cancellation.
     @Test(.enabled(if: false), .timeLimit(.minutes(1)))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
@@ -594,7 +597,7 @@ struct HTTPClientTests {
                     authority: "127.0.0.1:12345",
                     path: "/hang_body",
                 )
-                
+
                 try await HTTP.perform(
                     request: request,
                 ) { response, responseBodyAndTrailers in
@@ -604,7 +607,7 @@ struct HTTPClientTests {
                     }
                 }
             }
-            
+
             try await Task.sleep(for: .milliseconds(100))
             group.cancelAll()
         }
