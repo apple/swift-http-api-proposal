@@ -118,6 +118,11 @@ actor TestHTTPServer {
                     let bytes: [UInt8] = [0x0f, 0x02, 0x80, 0x54, 0x45, 0x53, 0x54, 0x0a, 0x03]
 
                     try await writer.writeAndConclude(bytes.span, finalElement: nil)
+                case "/no_encoding":
+                    // This will always write out the body with no encoding.
+                    // Used to check that a client can handle fallback to no encoding.
+                    let writer = try await responseSender.send(HTTPResponse(status: .ok))
+                    try await writer.writeAndConclude("TEST\n".utf8.span, finalElement: nil)
                 case "/301":
                     // Redirect to /request
                     let writer = try await responseSender.send(
@@ -308,6 +313,31 @@ struct HTTPClientTests {
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
             #expect(response.headerFields[.contentEncoding]!.contains("br"))
+            let (body, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                return String(copying: try UTF8Span(validating: span))
+            }
+            #expect(body == "TEST\n")
+        }
+    }
+    
+    @Test(.enabled(if: testsEnabled))
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+    func fallbackEncoding() async throws {
+        // Client asks for `gzip`, but server doesn't support it.
+        // Request should still succeed and body should be transmitted in
+        // unencoded form.
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:12345",
+            path: "/no_encoding",
+            headerFields: [.acceptEncoding: "gzip"]
+        )
+        try await HTTP.perform(
+            request: request,
+        ) { response, responseBodyAndTrailers in
+            #expect(response.status == .ok)
+            #expect(response.headerFields[.contentEncoding] == nil)
             let (body, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
                 return String(copying: try UTF8Span(validating: span))
             }
