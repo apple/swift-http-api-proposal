@@ -50,7 +50,7 @@ actor TestHTTPServer {
         logger = Logger(label: "TestHTTPServer")
         server = NIOHTTPServer(logger: logger, configuration: .init(bindTarget: .hostAndPort(host: "127.0.0.1", port: 12345)))
     }
-    
+
     deinit {
         if let server_task {
             server_task.cancel()
