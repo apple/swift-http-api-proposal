@@ -157,11 +157,11 @@ actor TestHTTPServer {
                             return nil
                         }
                     }
-                case "/hang":
+                case "/stall":
                     // Wait for an hour (effectively never giving an answer)
                     try! await Task.sleep(for: .seconds(60 * 60))
                     assertionFailure("Not expected to complete hour-long wait")
-                case "/hang_body":
+                case "/stall_body":
                     // Send the headers, but not the body
                     let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
                     // Wait for an hour (effectively never giving an answer)
@@ -211,11 +211,10 @@ struct HTTPClientTests {
         }
     }
 
-    // TODO: Writing just an empty span causes a hang. The terminating chunk (size 0) is not written out on the wire.
+    // TODO: Writing just an empty span causes an indefinite stall. The terminating chunk (size 0) is not written out on the wire.
     @Test(.enabled(if: false))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func emptyChunkedBody() async throws {
-        // TODO: This test hangs.
         let request = HTTPRequest(
             method: .post,
             scheme: "http",
@@ -538,7 +537,7 @@ struct HTTPClientTests {
     @Test(.enabled(if: false), .timeLimit(.minutes(1)))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func cancelPreHeaders() async throws {
-        // The /hang HTTP endpoint is not expected to return at all.
+        // The /stall HTTP endpoint is not expected to return at all.
         // Because of the cancellation, we're expected to return from this task group
         // within 100ms.
         try await withThrowingTaskGroup { group in
@@ -547,7 +546,7 @@ struct HTTPClientTests {
                     method: .get,
                     scheme: "http",
                     authority: "127.0.0.1:12345",
-                    path: "/hang",
+                    path: "/stall",
                 )
 
                 try await HTTP.perform(
@@ -565,7 +564,7 @@ struct HTTPClientTests {
     @Test(.enabled(if: false), .timeLimit(.minutes(1)))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func cancelPreBody() async throws {
-        // The /hang_body HTTP endpoint gives headers, but is not expected to return a
+        // The /stall_body HTTP endpoint gives headers, but is not expected to return a
         // body. Because of the cancellation, we're expected to return from this task group
         // within 100ms.
         try await withThrowingTaskGroup { group in
@@ -574,7 +573,7 @@ struct HTTPClientTests {
                     method: .get,
                     scheme: "http",
                     authority: "127.0.0.1:12345",
-                    path: "/hang_body",
+                    path: "/stall_body",
                 )
 
                 try await HTTP.perform(
