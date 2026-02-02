@@ -23,12 +23,23 @@ let package = Package(
         .library(name: "AsyncStreaming", targets: ["AsyncStreaming"]),
         .library(name: "NetworkTypes", targets: ["NetworkTypes"]),
     ],
+    traits: [
+        .trait(name: "SwiftConfiguration"),
+        .default(enabledTraits: ["SwiftConfiguration"]),
+    ],
     dependencies: [
         .package(
             url: "https://github.com/FranzBusch/swift-collections.git",
             branch: "fb-async"
         ),
         .package(url: "https://github.com/apple/swift-http-types.git", from: "1.5.1"),
+        .package(url: "https://github.com/apple/swift-certificates.git", from: "1.16.0"),
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
+        .package(url: "https://github.com/apple/swift-nio.git", from: "2.92.2"),
+        .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.36.0"),
+        .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.30.0"),
+        .package(url: "https://github.com/apple/swift-nio-http2.git", from: "1.0.0"),
+        .package(url: "https://github.com/apple/swift-configuration", from: "1.0.0"),
     ],
     targets: [
         .target(
@@ -78,6 +89,34 @@ let package = Package(
         ),
 
         // MARK: Tests
+
+        // This target is borrowed from `swift-http-server` and is only used for tests
+        .target(
+            name: "HTTPServerForTesting",
+            dependencies: [
+                "AsyncStreaming",
+                .product(name: "DequeModule", package: "swift-collections"),
+                .product(name: "BasicContainers", package: "swift-collections"),
+                .product(name: "X509", package: "swift-certificates"),
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "NIOCore", package: "swift-nio"),
+                .product(name: "NIOPosix", package: "swift-nio"),
+                .product(name: "NIOHTTP1", package: "swift-nio"),
+                .product(name: "NIOHTTP2", package: "swift-nio-http2"),
+                .product(name: "NIOSSL", package: "swift-nio-ssl"),
+                .product(name: "Logging", package: "swift-log"),
+                .product(name: "NIOHTTPTypesHTTP1", package: "swift-nio-extras"),
+                .product(name: "NIOHTTPTypesHTTP2", package: "swift-nio-extras"),
+                .product(name: "NIOCertificateReloading", package: "swift-nio-extras"),
+                .product(
+                    name: "Configuration",
+                    package: "swift-configuration",
+                    condition: .when(traits: ["SwiftConfiguration"])
+                ),
+            ],
+            path: "./Tests/HTTPServer",
+            swiftSettings: extraSettings
+        ),
         .testTarget(
             name: "NetworkTypesTests",
             dependencies: [
@@ -95,7 +134,9 @@ let package = Package(
         .testTarget(
             name: "HTTPClientTests",
             dependencies: [
-                "HTTPClient"
+                "HTTPClient",
+                "HTTPServerForTesting",
+                .product(name: "Logging", package: "swift-log"),
             ],
             swiftSettings: extraSettings
         ),

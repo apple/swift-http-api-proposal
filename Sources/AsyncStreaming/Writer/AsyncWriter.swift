@@ -92,6 +92,7 @@ public protocol AsyncWriter<WriteElement, WriteFailure>: ~Copyable, ~Escapable {
 /// This error is thrown when an async writer signals that it cannot accept any more data
 /// by providing an empty output span, but there are still elements remaining to be written.
 public struct AsyncWriterWroteShortError: Error {
+    private let dummy: (any Sendable)? = nil  // TODO: This is just here to workaround https://github.com/swiftlang/swift/pull/86843
     public init() {}
 }
 
