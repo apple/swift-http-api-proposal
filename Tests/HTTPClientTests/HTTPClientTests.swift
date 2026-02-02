@@ -449,29 +449,6 @@ struct HTTPClientTests {
         }
     }
 
-    @Test(.enabled(if: false))
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    func timeout() async throws {
-        // TODO: This test is technically exercising Darwin-specific timeouts.
-        let request = HTTPRequest(
-            method: .get,
-            scheme: "http",
-            authority: "127.0.0.1:12345",
-            path: "/hang"
-        )
-
-        do {
-            try await HTTP.perform(
-                request: request,
-            ) { response, responseBodyAndTrailers in
-                assertionFailure("Expected error but got none")
-            }
-        } catch let error as NSError {
-            #expect(error.domain == NSURLErrorDomain)
-            #expect(error.code == NSURLErrorTimedOut)
-        }
-    }
-
     @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func stressTest() async throws {
