@@ -211,6 +211,7 @@ struct HTTPClientTests {
         }
     }
 
+    // TODO: Writing just an empty span causes a hang. The terminating chunk (size 0) is not written out on the wire.
     @Test(.enabled(if: false))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func empty_chunked_body() async throws {
@@ -223,8 +224,6 @@ struct HTTPClientTests {
         )
         try await HTTP.perform(
             request: request,
-
-            // TODO: This is causing the hang
             body: .restartable(knownLength: 0) { writer in
                 var writer = writer
                 try await writer.write(Span())
