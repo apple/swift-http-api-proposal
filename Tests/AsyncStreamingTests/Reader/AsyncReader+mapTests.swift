@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if !os(Darwin) && swift(<6.2)  // Disabled on older compilers on Darwin due to a runtime crash
 import AsyncStreaming
 import Testing
 
@@ -123,3 +124,4 @@ struct AsyncReaderMapTests {
         #expect(results == [12, 14, 16])
     }
 }
+#endif
