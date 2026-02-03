@@ -107,7 +107,15 @@ public final class HTTPConnectionPool: HTTPClient, Sendable {
         configuration: HTTPConnectionPoolConfiguration,
         body: (HTTPConnectionPool) async throws(Failure) -> Return
     ) async throws(Failure) -> Return {
-        try await body(HTTPConnectionPool(configuration: configuration))
+        let pool = HTTPConnectionPool(configuration: configuration)
+        do {
+            let result = try await body(pool)
+            await pool.cleanup()
+            return result
+        } catch {
+            await pool.cleanup()
+            throw error
+        }
     }
 
     #if canImport(Darwin)
@@ -117,6 +125,14 @@ public final class HTTPConnectionPool: HTTPClient, Sendable {
     private init(configuration: HTTPConnectionPoolConfiguration) {
         #if canImport(Darwin)
         self.client = URLSessionHTTPClient(poolConfiguration: configuration)
+        #endif
+    }
+
+    private func cleanup() async {
+        #if canImport(Darwin)
+        await self.client.invalidate()
+        #else
+        fatalError()
         #endif
     }
 

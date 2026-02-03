@@ -20,7 +20,7 @@ import NetworkTypes
 import Synchronization
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-final class URLSessionHTTPClient: HTTPClient, Sendable {
+final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
     typealias RequestWriter = URLSessionRequestStreamBridge
     typealias ResponseConcludingReader = URLSessionTaskDelegateBridge
 
@@ -55,19 +55,127 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
         }
     }
 
-    // TODO: Do we need to remove sessions again to avoid holding onto the memory forever
-    let sessions: Mutex<[SessionConfiguration: URLSession]> = .init([:])
+    final class Session: NSObject, URLSessionDelegate, IdleTimerEntry {
+        private weak let client: URLSessionHTTPClient?
+        let configuration: SessionConfiguration
+        private struct State {
+            var session: URLSession! = nil
+            var tasks: UInt8 = 0
+            var idleTime: ContinuousClock.Instant? = nil
+        }
 
-    func session(for options: HTTPRequestOptions) -> URLSession {
-        let sessionConfiguration = SessionConfiguration(options, poolConfiguration: self.poolConfiguration)
+        private let state: Mutex<State> = .init(.init())
+
+        var idleDuration: Duration? {
+            self.state.withLock {
+                if let idleTime = $0.idleTime {
+                    .now - idleTime
+                } else {
+                    nil
+                }
+            }
+        }
+
+        init(configuration: SessionConfiguration, client: URLSessionHTTPClient) {
+            self.client = client
+            self.configuration = configuration
+            super.init()
+            self.state.withLock {
+                $0.session = URLSession(configuration: configuration.configuration, delegate: self, delegateQueue: nil)
+            }
+        }
+
+        func startTask() -> URLSession {
+            self.state.withLock {
+                $0.tasks += 1
+                $0.idleTime = nil
+                return $0.session
+            }
+        }
+
+        func finishTask() {
+            self.state.withLock {
+                $0.tasks -= 1
+                if $0.tasks == 0 {
+                    $0.idleTime = .now
+                }
+            }
+        }
+
+        func idleTimeoutFired() {
+            self.invalidate()
+        }
+
+        func invalidate() {
+            self.client?.sessionInvalidating(self)
+            self.state.withLock {
+                $0.session.invalidateAndCancel()
+            }
+        }
+
+        func urlSession(_ session: URLSession, didBecomeInvalidWithError error: (any Error)?) {
+            self.client?.sessionInvalidated(self)
+        }
+    }
+
+    private struct Sessions: ~Copyable {
+        var sessions: [SessionConfiguration: Session] = [:]
+        var invalidatingSession: Set<Session> = []
+        var idleTimer: IdleTimer<URLSessionHTTPClient>? = nil
+        var invalidateContinuation: CheckedContinuation<Void, Never>? = nil
+    }
+
+    private let sessions: Mutex<Sessions> = .init(.init())
+
+    func session(for options: HTTPRequestOptions) -> Session {
+        let configuration = SessionConfiguration(options, poolConfiguration: self.poolConfiguration)
         return self.sessions.withLock {
-            if let session = $0[sessionConfiguration] {
+            if let session = $0.sessions[configuration] {
                 return session
             }
-            let session = URLSession(configuration: sessionConfiguration.configuration)
-            $0[sessionConfiguration] = session
+            let session = Session(configuration: configuration, client: self)
+            $0.sessions[configuration] = session
+            if $0.idleTimer == nil {
+                $0.idleTimer = .init(timeout: .seconds(5 * 60), provider: self)
+            }
             return session
         }
+    }
+
+    func sessionInvalidating(_ session: Session) {
+        self.sessions.withLock {
+            $0.sessions[session.configuration] = nil
+            $0.invalidatingSession.insert(session)
+        }
+    }
+
+    func sessionInvalidated(_ session: Session) {
+        self.sessions.withLock {
+            $0.invalidatingSession.remove(session)
+            if let continuation = $0.invalidateContinuation, $0.sessions.isEmpty && $0.invalidatingSession.isEmpty {
+                continuation.resume()
+            }
+        }
+    }
+
+    func invalidate() async {
+        await withCheckedContinuation { continuation in
+            let sessionsToInvalidate = self.sessions.withLock {
+                if $0.sessions.isEmpty && $0.invalidatingSession.isEmpty {
+                    continuation.resume()
+                } else {
+                    $0.invalidateContinuation = continuation
+                }
+                return $0.sessions.values
+            }
+            for session in sessionsToInvalidate {
+                session.invalidate()
+            }
+        }
+    }
+
+    var idleTimerEntries: some Sequence<Session> {
+        self.sessions.withLock { $0.sessions.values }
     }
 
     func request(for request: HTTPRequest, options: HTTPRequestOptions) throws -> URLRequest {
@@ -90,14 +198,17 @@ final class URLSessionHTTPClient: HTTPClient, Sendable {
         let task: URLSessionTask
         let delegateBridge: URLSessionTaskDelegateBridge
         if let body {
-            task = session.uploadTask(withStreamedRequest: request)
+            task = session.startTask().uploadTask(withStreamedRequest: request)
             delegateBridge = URLSessionTaskDelegateBridge(task: task, body: body)
         } else {
-            task = session.dataTask(with: request)
+            task = session.startTask().dataTask(with: request)
             delegateBridge = URLSessionTaskDelegateBridge(task: task, body: nil)
         }
         task.delegate = delegateBridge
         task.resume()
+        defer {
+            session.finishTask()
+        }
         // withTaskCancellationHandler does not support ~Copyable result type
         var result: Result<Return, any Error>? = nil
         try await withTaskCancellationHandler {
