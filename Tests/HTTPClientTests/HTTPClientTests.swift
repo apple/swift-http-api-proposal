@@ -720,25 +720,30 @@ struct HTTPClientTests {
 
     @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    func testHTTPBinConvenience() async throws {
+    func getConvenience() async throws {
         let (response, data) = try await HTTP.get(
-            url: URL(string: "https://httpbin.org/get")!,
+            url: URL(string: "http://127.0.0.1:12345/request")!,
             collectUpTo: .max
         )
         #expect(response.status == .ok)
-        #expect(!data.isEmpty)
+        let jsonRequest = try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
+        #expect(jsonRequest.method == "GET")
+        #expect(!jsonRequest.headers.isEmpty)
+        #expect(jsonRequest.body.isEmpty)
     }
 
-    @Test(.enabled(if: false))
+    @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    func testHTTPBinPostConvenience() async throws {
+    func postConvenience() async throws {
         let (response, data) = try await HTTP.post(
-            url: URL(string: "https://httpbin.org/post")!,
+            url: URL(string: "http://127.0.0.1:12345/request")!,
             bodyData: Data("Hello World".utf8),
             collectUpTo: .max
         )
         #expect(response.status == .ok)
-        let body = try #require(String(data: data, encoding: .utf8))
-        #expect(body.contains("Hello World"))
+        let jsonRequest = try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
+        #expect(jsonRequest.method == "POST")
+        #expect(!jsonRequest.headers.isEmpty)
+        #expect(jsonRequest.body == "Hello World")
     }
 }
