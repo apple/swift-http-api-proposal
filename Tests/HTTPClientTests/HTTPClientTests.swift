@@ -360,7 +360,11 @@ struct HTTPClientTests {
             // If gzip is not advertised by the client, a fallback to no-encoding
             // will occur, which should be supported.
             let contentEncoding = response.headerFields[.contentEncoding]
-            #expect(contentEncoding == nil || contentEncoding == "gzip" || contentEncoding == "identity")
+            withKnownIssue("gzip may not be supported by the client") {
+                #expect(contentEncoding == "gzip")
+            } when: {
+                contentEncoding == nil || contentEncoding == "identity"
+            }
 
             let (body, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
                 return String(copying: try UTF8Span(validating: span))
@@ -386,7 +390,11 @@ struct HTTPClientTests {
             // If deflate is not advertised by the client, a fallback to no-encoding
             // will occur, which should be supported.
             let contentEncoding = response.headerFields[.contentEncoding]
-            #expect(contentEncoding == nil || contentEncoding == "deflate" || contentEncoding == "identity")
+            withKnownIssue("deflate may not be supported by the client") {
+                #expect(contentEncoding == "deflate")
+            } when: {
+                contentEncoding == nil || contentEncoding == "identity"
+            }
 
             let (body, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
                 return String(copying: try UTF8Span(validating: span))
@@ -412,7 +420,11 @@ struct HTTPClientTests {
             // If brotli is not advertised by the client, a fallback to no-encoding
             // will occur, which should be supported.
             let contentEncoding = response.headerFields[.contentEncoding]
-            #expect(contentEncoding == nil || contentEncoding == "br" || contentEncoding == "identity")
+            withKnownIssue("brotli may not be supported by the client") {
+                #expect(contentEncoding == "br")
+            } when: {
+                contentEncoding == nil || contentEncoding == "identity"
+            }
 
             let (body, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
                 return String(copying: try UTF8Span(validating: span))
