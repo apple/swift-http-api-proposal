@@ -28,8 +28,9 @@ let testsEnabled: Bool = {
     #endif
 }()
 
-// Request as received by the server
-struct Request: Codable {
+// HTTP request as received by the server.
+// Encoded into JSON and written back to the client.
+struct JSONHTTPRequest: Codable {
     // Headers from the request
     let headers: [String: [String]]
 
@@ -44,7 +45,7 @@ struct Request: Codable {
 actor TestHTTPServer {
     let logger: Logger
     let server: NIOHTTPServer
-    var server_task: Task<Void, any Error>?
+    var serverTask: Task<Void, any Error>?
 
     init() {
         logger = Logger(label: "TestHTTPServer")
@@ -52,18 +53,18 @@ actor TestHTTPServer {
     }
 
     deinit {
-        if let server_task {
-            server_task.cancel()
+        if let serverTask {
+            serverTask.cancel()
         }
     }
 
     func serve() {
         // Since this is one server running for all test cases, only serve it once.
-        if server_task != nil {
+        if serverTask != nil {
             return
         }
         print("Serving HTTP on localhost:12345")
-        server_task = Task {
+        serverTask = Task {
             try await server.serve { request, requestContext, requestBodyAndTrailers, responseSender in
                 switch request.path {
                 case "/request":
@@ -72,11 +73,7 @@ actor TestHTTPServer {
                     // Collect the headers that were sent in with the request
                     var headers: [String: [String]] = [:]
                     for field in request.headerFields {
-                        if var header = headers[field.name.rawName] {
-                            header.append(field.value)
-                        } else {
-                            headers[field.name.rawName] = [field.value]
-                        }
+                        headers[field.name.rawName, default: []].append(field.value)
                     }
 
                     // Parse the body as a UTF8 string
@@ -87,12 +84,12 @@ actor TestHTTPServer {
                     let method = request.method.rawValue
 
                     // Construct the JSON request object and send it as a response
-                    let response = Request(headers: headers, body: body, method: method)
+                    let response = JSONHTTPRequest(headers: headers, body: body, method: method)
 
-                    let response_data = try JSONEncoder().encode(response)
-                    let response_span = response_data.span
+                    let responseData = try JSONEncoder().encode(response)
+                    let responseSpan = responseData.span
                     let writer = try await responseSender.send(HTTPResponse(status: .ok))
-                    try await writer.writeAndConclude(response_span, finalElement: nil)
+                    try await writer.writeAndConclude(responseSpan, finalElement: nil)
                 case "/200":
                     // OK
                     let writer = try await responseSender.send(HTTPResponse(status: .ok))
@@ -103,13 +100,15 @@ actor TestHTTPServer {
                     let acceptEncoding = request.headerFields[.acceptEncoding]
                     var bytes: [UInt8]
                     var headers: HTTPFields
-                    if let acceptEncoding, acceptEncoding.contains("gzip") {
+                    if let acceptEncoding,
+                        acceptEncoding.contains("gzip")
+                    {
                         // "TEST\n" as gzip
                         bytes = [
                             0x1f, 0x8b, 0x08, 0x00, 0xfd, 0xd6, 0x77, 0x69, 0x04, 0x03, 0x0b, 0x71, 0x0d, 0x0e,
                             0xe1, 0x02, 0x00, 0xbe, 0xd7, 0x83, 0xf7, 0x05, 0x00, 0x00, 0x00,
                         ]
-                        headers = HTTPFields([HTTPField(name: .contentEncoding, value: "gzip")])
+                        headers = [.contentEncoding: "gzip"]
                     } else {
                         // "TEST\n" as raw ASCII
                         bytes = [84, 69, 83, 84, 10]
@@ -124,10 +123,12 @@ actor TestHTTPServer {
                     let acceptEncoding = request.headerFields[.acceptEncoding]
                     var bytes: [UInt8]
                     var headers: HTTPFields
-                    if let acceptEncoding, acceptEncoding.contains("deflate") {
+                    if let acceptEncoding,
+                        acceptEncoding.contains("deflate")
+                    {
                         // "TEST\n" as deflate
                         bytes = [0x78, 0x9c, 0x0b, 0x71, 0x0d, 0x0e, 0xe1, 0x02, 0x00, 0x04, 0x68, 0x01, 0x4b]
-                        headers = HTTPFields([HTTPField(name: .contentEncoding, value: "deflate")])
+                        headers = [.contentEncoding: "deflate"]
                     } else {
                         // "TEST\n" as raw ASCII
                         bytes = [84, 69, 83, 84, 10]
@@ -142,10 +143,12 @@ actor TestHTTPServer {
                     let acceptEncoding = request.headerFields[.acceptEncoding]
                     var bytes: [UInt8]
                     var headers: HTTPFields
-                    if let acceptEncoding, acceptEncoding.contains("br") {
+                    if let acceptEncoding,
+                        acceptEncoding.contains("br")
+                    {
                         // "TEST\n" as brotli
                         bytes = [0x0f, 0x02, 0x80, 0x54, 0x45, 0x53, 0x54, 0x0a, 0x03]
-                        headers = HTTPFields([HTTPField(name: .contentEncoding, value: "br")])
+                        headers = [.contentEncoding: "br"]
                     } else {
                         // "TEST\n" as raw ASCII
                         bytes = [84, 69, 83, 84, 10]
@@ -164,44 +167,65 @@ actor TestHTTPServer {
                     let writer = try await responseSender.send(
                         HTTPResponse(status: .movedPermanently, headerFields: HTTPFields([HTTPField(name: .location, value: "/request")]))
                     )
-                    try await writer.writeAndConclude("".utf8.span, finalElement: nil)
+                    try await writer
+                        .writeAndConclude("".utf8.span, finalElement: nil)
                 case "/308":
                     // Redirect to /request
                     let writer = try await responseSender.send(
-                        HTTPResponse(status: .permanentRedirect, headerFields: HTTPFields([HTTPField(name: .location, value: "/request")]))
+                        HTTPResponse(
+                            status: .permanentRedirect,
+                            headerFields: HTTPFields(
+                                [HTTPField(name: .location, value: "/request")]
+                            )
+                        )
                     )
-                    try await writer.writeAndConclude("".utf8.span, finalElement: nil)
+                    try await writer
+                        .writeAndConclude("".utf8.span, finalElement: nil)
                 case "/404":
-                    let writer = try await responseSender.send(HTTPResponse(status: .notFound))
-                    try await writer.writeAndConclude("".utf8.span, finalElement: nil)
+                    let writer = try await responseSender.send(
+                        HTTPResponse(status: .notFound)
+                    )
+                    try await writer
+                        .writeAndConclude("".utf8.span, finalElement: nil)
                 case "/999":
-                    let writer = try await responseSender.send(HTTPResponse(status: .init(integerLiteral: 999)))
-                    try await writer.writeAndConclude("".utf8.span, finalElement: nil)
+                    let writer = try await responseSender.send(
+                        HTTPResponse(status: 999)
+                    )
+                    try await writer
+                        .writeAndConclude("".utf8.span, finalElement: nil)
                 case "/echo":
                     // Bad method
                     if request.method != .post {
-                        let writer = try await responseSender.send(HTTPResponse(status: .methodNotAllowed))
-                        try await writer.writeAndConclude("Incorrect method".utf8.span, finalElement: nil)
+                        let writer = try await responseSender.send(
+                            HTTPResponse(status: .methodNotAllowed)
+                        )
+                        try await writer
+                            .writeAndConclude(
+                                "Incorrect method".utf8.span,
+                                finalElement: nil
+                            )
                         return
                     }
 
                     // Needed since we are lacking call-once closures
                     var responseSender = Optional(responseSender)
 
-                    _ = try await requestBodyAndTrailers.consumeAndConclude { reader in
-                        // Needed since we are lacking call-once closures
-                        var reader = Optional(reader)
+                    _ =
+                        try await requestBodyAndTrailers
+                        .consumeAndConclude { reader in
+                            // Needed since we are lacking call-once closures
+                            var reader = Optional(reader)
 
-                        // This header stops MIME type sniffing, which can cause delays in receiving
-                        // the chunked bytes.
-                        let headers = HTTPFields([HTTPField(name: .xContentTypeOptions, value: "nosniff")])
-                        let responseBodyAndTrailers = try await responseSender.take()!.send(.init(status: .ok, headerFields: headers))
-                        try await responseBodyAndTrailers.produceAndConclude { responseBody in
-                            var responseBody = responseBody
-                            try await responseBody.write(reader.take()!)
-                            return nil
+                            // This header stops MIME type sniffing, which can cause delays in receiving
+                            // the chunked bytes.
+                            let headers: HTTPFields = [.xContentTypeOptions: "nosniff"]
+                            let responseBodyAndTrailers = try await responseSender.take()!.send(.init(status: .ok, headerFields: headers))
+                            try await responseBodyAndTrailers.produceAndConclude { responseBody in
+                                var responseBody = responseBody
+                                try await responseBody.write(reader.take()!)
+                                return nil
+                            }
                         }
-                    }
                 case "/stall":
                     // Wait for an hour (effectively never giving an answer)
                     try! await Task.sleep(for: .seconds(60 * 60))
@@ -275,12 +299,12 @@ struct HTTPClientTests {
 
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            let (json_request, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+            let (jsonRequest, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
                 let body = String(copying: try UTF8Span(validating: span))
                 let data = body.data(using: .utf8)!
-                return try JSONDecoder().decode(Request.self, from: data)
+                return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
             }
-            #expect(json_request.body.isEmpty)
+            #expect(jsonRequest.body.isEmpty)
         }
     }
 
@@ -433,12 +457,12 @@ struct HTTPClientTests {
             }
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            let (json_request, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+            let (jsonRequest, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
                 let body = String(copying: try UTF8Span(validating: span))
                 let data = body.data(using: .utf8)!
-                return try JSONDecoder().decode(Request.self, from: data)
+                return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
             }
-            #expect(json_request.headers["X-Foo"] == ["BARbaz"])
+            #expect(jsonRequest.headers["X-Foo"] == ["BARbaz"])
         }
     }
 
@@ -463,14 +487,14 @@ struct HTTPClientTests {
             options: options,
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            let (json_request, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+            let (jsonRequest, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
                 let body = String(copying: try UTF8Span(validating: span))
                 let data = body.data(using: .utf8)!
-                return try JSONDecoder().decode(Request.self, from: data)
+                return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
             }
-            #expect(json_request.method == "GET")
-            #expect(json_request.body.isEmpty)
-            #expect(!json_request.headers.isEmpty)
+            #expect(jsonRequest.method == "GET")
+            #expect(jsonRequest.body.isEmpty)
+            #expect(!jsonRequest.headers.isEmpty)
         }
     }
 
@@ -495,14 +519,14 @@ struct HTTPClientTests {
             options: options,
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            let (json_request, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+            let (jsonRequest, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
                 let body = String(copying: try UTF8Span(validating: span))
                 let data = body.data(using: .utf8)!
-                return try JSONDecoder().decode(Request.self, from: data)
+                return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
             }
-            #expect(json_request.method == "GET")
-            #expect(json_request.body.isEmpty)
-            #expect(!json_request.headers.isEmpty)
+            #expect(jsonRequest.method == "GET")
+            #expect(jsonRequest.body.isEmpty)
+            #expect(!jsonRequest.headers.isEmpty)
         }
     }
 
@@ -540,7 +564,7 @@ struct HTTPClientTests {
         try await HTTP.perform(
             request: request,
         ) { response, responseBodyAndTrailers in
-            #expect(response.status == .init(integerLiteral: 999))
+            #expect(response.status == 999)
             let (_, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
                 let isEmpty = span.isEmpty
                 #expect(isEmpty)
@@ -585,15 +609,11 @@ struct HTTPClientTests {
     @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func echoInterleave() async throws {
-        // This header stops MIME type sniffing, which can cause delays in receiving
-        // the chunked bytes.
-        let headers = HTTPFields([HTTPField(name: .xContentTypeOptions, value: "nosniff")])
         let request = HTTPRequest(
             method: .post,
             scheme: "http",
             authority: "127.0.0.1:12345",
-            path: "/echo",
-            headerFields: headers
+            path: "/echo"
         )
 
         // Used to ping-pong between the client-side writer and reader
