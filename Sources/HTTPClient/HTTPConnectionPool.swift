@@ -29,6 +29,8 @@ public struct HTTPConnectionPoolConfiguration: Hashable, Sendable {
     ///
     /// The default value is `6`.
     public var maximumConcurrentHTTP1ConnectionsPerHost: Int = 6
+
+    public init() {}
 }
 
 /// A connection pool-based HTTP client that manages persistent connections to HTTP servers.
