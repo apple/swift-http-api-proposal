@@ -26,9 +26,41 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
 
     let poolConfiguration: HTTPConnectionPoolConfiguration
 
-    init(poolConfiguration: HTTPConnectionPoolConfiguration) {
+    private init(poolConfiguration: HTTPConnectionPoolConfiguration) {
         self.poolConfiguration = poolConfiguration
     }
+
+    static func withClient<Return: ~Copyable, Failure: Error>(
+        poolConfiguration: HTTPConnectionPoolConfiguration,
+        _ body: (URLSessionHTTPClient) async throws(Failure) -> Return
+    ) async throws(Failure) -> Return {
+        // withTaskGroup does not support ~Copyable result type
+        var result: Result<Return, Failure>? = nil
+        await withTaskGroup { group in
+            let client = URLSessionHTTPClient(poolConfiguration: poolConfiguration)
+            group.addTask {
+                await IdleTimer.run(timeout: .seconds(5 * 60), provider: client)
+            }
+            do {
+                result = .success(try await body(client))
+            } catch let error as Failure {
+                result = .failure(error)
+            } catch {
+                fatalError()
+            }
+            await client.invalidate()
+            group.cancelAll()
+        }
+        return try result!.get()
+    }
+
+    static let shared: URLSessionHTTPClient = {
+        let client = URLSessionHTTPClient(poolConfiguration: .init())
+        Task.detached {
+            await IdleTimer.run(timeout: .seconds(5 * 60), provider: client)
+        }
+        return client
+    }()
 
     struct SessionConfiguration: Hashable {
         let poolConfiguration: HTTPConnectionPoolConfiguration
@@ -121,7 +153,6 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
     private struct Sessions: ~Copyable {
         var sessions: [SessionConfiguration: Session] = [:]
         var invalidatingSession: Set<Session> = []
-        var idleTimer: IdleTimer<URLSessionHTTPClient>? = nil
         var invalidateContinuation: CheckedContinuation<Void, Never>? = nil
     }
 
@@ -135,9 +166,6 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
             }
             let session = Session(configuration: configuration, client: self)
             $0.sessions[configuration] = session
-            if $0.idleTimer == nil {
-                $0.idleTimer = .init(timeout: .seconds(5 * 60), provider: self)
-            }
             return session
         }
     }
@@ -158,7 +186,7 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
         }
     }
 
-    func invalidate() async {
+    private func invalidate() async {
         await withCheckedContinuation { continuation in
             let sessionsToInvalidate = self.sessions.withLock {
                 if $0.sessions.isEmpty && $0.invalidatingSession.isEmpty {

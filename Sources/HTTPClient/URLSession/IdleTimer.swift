@@ -19,37 +19,27 @@ protocol IdleTimerEntry: ~Copyable {
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-protocol IdleTimerEntryProvider: AnyObject, Sendable {
+protocol IdleTimerEntryProvider: ~Copyable {
     associatedtype Entry: IdleTimerEntry
     associatedtype Entries: Sequence<Entry>
     var idleTimerEntries: Entries { get }
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-struct IdleTimer<Provider: IdleTimerEntryProvider>: ~Copyable {
-    private let task: Task<Void, any Error>
-
-    init(timeout: Duration, provider: Provider) {
-        self.task = Task { [weak provider] in
+enum IdleTimer {
+    static func run(timeout: Duration, provider: some IdleTimerEntryProvider) async {
+        do {
+            let entryTimeout = timeout * 0.8
             while true {
                 try await Task.sleep(for: timeout)
-                guard let provider else {
-                    break
+                for entry in provider.idleTimerEntries {
+                    if let duration = entry.idleDuration, duration > entryTimeout {
+                        entry.idleTimeoutFired()
+                    }
                 }
-                Self.cleanup(timeout: timeout * 0.8, provider: provider)
             }
+        } catch {
+            // Ignore the cancellation error
         }
-    }
-
-    private static func cleanup(timeout: Duration, provider: Provider) {
-        for entry in provider.idleTimerEntries {
-            if let duration = entry.idleDuration, duration > timeout {
-                entry.idleTimeoutFired()
-            }
-        }
-    }
-
-    deinit {
-        self.task.cancel()
     }
 }

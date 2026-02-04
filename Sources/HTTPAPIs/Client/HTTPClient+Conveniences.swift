@@ -21,7 +21,7 @@ public import struct Foundation.Data
 #endif
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-extension HTTPClient {
+extension HTTPClient where Self: ~Copyable {
     /// Performs an HTTP request and processes the response.
     ///
     /// This convenience method provides default values for `body` and `options` arguments,
