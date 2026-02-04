@@ -39,7 +39,7 @@ enum IdleTimer {
                 }
             }
         } catch {
-            // Ignore the cancellation error
+            // Catch the cancellation error outside the loop and ignore it.
         }
     }
 }

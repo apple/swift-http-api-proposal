@@ -41,12 +41,10 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
             group.addTask {
                 await IdleTimer.run(timeout: .seconds(5 * 60), provider: client)
             }
-            do {
+            do throws(Failure) {
                 result = .success(try await body(client))
-            } catch let error as Failure {
-                result = .failure(error)
             } catch {
-                fatalError()
+                result = .failure(error)
             }
             await client.invalidate()
             group.cancelAll()
@@ -56,6 +54,7 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
 
     static let shared: URLSessionHTTPClient = {
         let client = URLSessionHTTPClient(poolConfiguration: .init())
+        // This is the only expected unstructured task since the singleton client doesn't have a parent task to attach to.
         Task.detached {
             await IdleTimer.run(timeout: .seconds(5 * 60), provider: client)
         }
