@@ -68,6 +68,13 @@ where Writer.WriteElement == UInt8, Writer: SendableMetatype {
     /// the `Content-Length` header field.
     public let knownLength: Int64?
 
+    /// Whether the body has to be streamed, or can be collected into a buffer before sending.
+    ///
+    /// An HTTPClient backend implementation that does not support request body streaming will
+    /// throw if the body requires streaming. Both `restartable` and `seekable` bodies require
+    /// streaming by default.
+    public var requiresStreaming: Bool = true
+
     private enum WriteBody {
         case restartable(@Sendable (consuming Writer) async throws -> HTTPFields?)
         case seekable(@Sendable (Int64, consuming Writer) async throws -> HTTPFields?)
