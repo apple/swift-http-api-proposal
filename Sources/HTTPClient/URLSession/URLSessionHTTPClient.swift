@@ -72,8 +72,11 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
             self.poolConfiguration = poolConfiguration
         }
 
-        var configuration: URLSessionConfiguration {
-            let configuration = URLSessionConfiguration.default
+        func sessionConfiguration(storage: URLSessionConfiguration) -> URLSessionConfiguration {
+            let configuration = URLSessionConfiguration.ephemeral
+            configuration.httpCookieStorage = storage.httpCookieStorage
+            configuration.urlCredentialStorage = storage.urlCredentialStorage
+            configuration.urlCache = storage.urlCache
             configuration.usesClassicLoadingMode = false
             configuration.httpMaximumConnectionsPerHost = poolConfiguration.maximumConcurrentHTTP1ConnectionsPerHost
             if let version = self.minimumTLSVersion.tlsProtocolVersion {
@@ -107,12 +110,17 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
             }
         }
 
-        init(configuration: SessionConfiguration, client: URLSessionHTTPClient) {
+        init(
+            configuration: SessionConfiguration,
+            storage: URLSessionConfiguration,
+            client: URLSessionHTTPClient
+        ) {
             self.client = client
             self.configuration = configuration
             super.init()
             self.state.withLock {
-                $0.session = URLSession(configuration: configuration.configuration, delegate: self, delegateQueue: nil)
+                let configuration = configuration.sessionConfiguration(storage: storage)
+                $0.session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
             }
         }
 
@@ -150,6 +158,7 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
     }
 
     private struct Sessions: ~Copyable {
+        let storage = URLSessionConfiguration.ephemeral
         var sessions: [SessionConfiguration: Session] = [:]
         var invalidatingSession: Set<Session> = []
         var invalidateContinuation: CheckedContinuation<Void, Never>? = nil
@@ -163,7 +172,7 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
             if let session = $0.sessions[configuration] {
                 return session
             }
-            let session = Session(configuration: configuration, client: self)
+            let session = Session(configuration: configuration, storage: $0.storage, client: self)
             $0.sessions[configuration] = session
             return session
         }
