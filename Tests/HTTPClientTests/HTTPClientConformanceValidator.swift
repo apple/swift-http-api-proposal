@@ -27,22 +27,22 @@ import Foundation
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 protocol HTTPClientConformanceValidator<Client>: Sendable {
     associatedtype Client: HTTPClient & Sendable & ~Copyable where Client.RequestOptions: HTTPClientCapability.RedirectionHandler
-    
+
     func newClient() async -> Client
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 extension HTTPClientConformanceValidator {
-    func runAllConformanceTests() async throws  {
+    func runAllConformanceTests() async throws {
         let server = TestHTTPServer()
         await server.serve()
-        
+
         let cases = [
             Self.ok,
-            
+
             // TODO: Writing just an empty span causes an indefinite stall. The terminating chunk (size 0) is not written out on the wire.
             // Self.emptyChunkedBody,
-            
+
             Self.echoString,
             Self.gzip,
             Self.deflate,
@@ -55,21 +55,21 @@ extension HTTPClientConformanceValidator {
             Self.statusOutOfRangeButValid,
             Self.stressTest,
             Self.echoInterleave,
-            
+
             // TODO: These tests crash. It can be enabled once we have correctly dealt with task cancellation.
             // Self.cancelPreHeaders,
             // Self.cancelPreBody,
-            
+
             Self.getConvenience,
-            Self.postConvenience
+            Self.postConvenience,
         ]
-        
+
         for testCase in cases {
             let testCaseWithSelf = testCase(self)
             try await testCaseWithSelf()
         }
     }
-    
+
     func ok() async throws {
         let methods = [HTTPRequest.Method.head, .get, .put, .post, .delete]
         for method in methods {

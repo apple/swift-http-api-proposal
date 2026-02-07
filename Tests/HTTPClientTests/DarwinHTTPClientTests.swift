@@ -16,26 +16,26 @@ import HTTPClient
 import Testing
 
 let testsEnabled: Bool = {
-#if canImport(Darwin)
+    #if canImport(Darwin)
     true
-#else
+    #else
     false
-#endif
+    #endif
 }()
 
 @Suite
 struct DarwinHTTPClientTests: HTTPClientConformanceValidator {
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     typealias Client = HTTPConnectionPool
-    
+
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func newClient() async -> HTTPConnectionPool {
         return HTTPConnectionPool.shared
     }
-    
+
     @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func conformance() async throws {
-        try await runAllConformanceTests();
+        try await runAllConformanceTests()
     }
 }
