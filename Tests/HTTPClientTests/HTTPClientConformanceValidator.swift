@@ -24,51 +24,74 @@ import FoundationEssentials
 import Foundation
 #endif
 
-let testsEnabled: Bool = {
-    #if canImport(Darwin)
-    true
-    #else
-    false
-    #endif
-}()
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+protocol HTTPClientConformanceValidator<Client>: Sendable {
+    associatedtype Client: HTTPClient & Sendable & ~Copyable where Client.RequestOptions: HTTPClientCapability.RedirectionHandler
+    
+    func newClient() async -> Client
+}
 
-@Suite
-struct HTTPClientTests {
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    static let server = TestHTTPServer()
-
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    init() async {
-        await HTTPClientTests.server.serve()
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+extension HTTPClientConformanceValidator {
+    func runAllConformanceTests() async throws  {
+        let server = TestHTTPServer()
+        await server.serve()
+        
+        let cases = [
+            Self.ok,
+            
+            // TODO: Writing just an empty span causes an indefinite stall. The terminating chunk (size 0) is not written out on the wire.
+            // Self.emptyChunkedBody,
+            
+            Self.echoString,
+            Self.gzip,
+            Self.deflate,
+            Self.brotli,
+            Self.identity,
+            Self.customHeader,
+            Self.redirect301,
+            Self.redirect308,
+            Self.notFound,
+            Self.statusOutOfRangeButValid,
+            Self.stressTest,
+            Self.echoInterleave,
+            
+            // TODO: These tests crash. It can be enabled once we have correctly dealt with task cancellation.
+            // Self.cancelPreHeaders,
+            // Self.cancelPreBody,
+            
+            Self.getConvenience,
+            Self.postConvenience
+        ]
+        
+        for testCase in cases {
+            let testCaseWithSelf = testCase(self)
+            try await testCaseWithSelf()
+        }
     }
-
-    @Test(
-        .enabled(if: testsEnabled),
-        arguments: [HTTPRequest.Method.head, .get, .put, .post, .delete]
-    )
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    func ok(_ method: HTTPRequest.Method) async throws {
-        let request = HTTPRequest(
-            method: method,
-            scheme: "http",
-            authority: "127.0.0.1:12345",
-            path: "/200"
-        )
-        try await HTTP.perform(
-            request: request,
-        ) { response, responseBodyAndTrailers in
-            #expect(response.status == .ok)
-            let (body, trailers) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                return String(copying: try UTF8Span(validating: span))
+    
+    func ok() async throws {
+        let methods = [HTTPRequest.Method.head, .get, .put, .post, .delete]
+        for method in methods {
+            let request = HTTPRequest(
+                method: method,
+                scheme: "http",
+                authority: "127.0.0.1:12345",
+                path: "/200"
+            )
+            try await newClient().perform(
+                request: request,
+            ) { response, responseBodyAndTrailers in
+                #expect(response.status == .ok)
+                let (body, trailers) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                    return String(copying: try UTF8Span(validating: span))
+                }
+                #expect(body.isEmpty)
+                #expect(trailers == nil)
             }
-            #expect(body.isEmpty)
-            #expect(trailers == nil)
         }
     }
 
-    // TODO: Writing just an empty span causes an indefinite stall. The terminating chunk (size 0) is not written out on the wire.
-    @Test(.enabled(if: false))
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func emptyChunkedBody() async throws {
         let request = HTTPRequest(
             method: .post,
@@ -76,14 +99,13 @@ struct HTTPClientTests {
             authority: "127.0.0.1:12345",
             path: "/request"
         )
-        try await HTTP.perform(
+        try await newClient().perform(
             request: request,
             body: .restartable(knownLength: 0) { writer in
                 var writer = writer
                 try await writer.write(Span())
                 return nil
             }
-
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
             let (jsonRequest, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
@@ -95,8 +117,6 @@ struct HTTPClientTests {
         }
     }
 
-    @Test(.enabled(if: testsEnabled))
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func echoString() async throws {
         let request = HTTPRequest(
             method: .post,
@@ -104,7 +124,7 @@ struct HTTPClientTests {
             authority: "127.0.0.1:12345",
             path: "/echo"
         )
-        try await HTTP.perform(
+        try await newClient().perform(
             request: request,
             body: .restartable { writer in
                 var writer = writer
@@ -124,8 +144,6 @@ struct HTTPClientTests {
         }
     }
 
-    @Test(.enabled(if: testsEnabled))
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func gzip() async throws {
         let request = HTTPRequest(
             method: .get,
@@ -133,8 +151,8 @@ struct HTTPClientTests {
             authority: "127.0.0.1:12345",
             path: "/gzip"
         )
-        try await HTTP.perform(
-            request: request,
+        try await newClient().perform(
+            request: request
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
 
@@ -154,8 +172,6 @@ struct HTTPClientTests {
         }
     }
 
-    @Test(.enabled(if: testsEnabled))
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func deflate() async throws {
         let request = HTTPRequest(
             method: .get,
@@ -163,8 +179,8 @@ struct HTTPClientTests {
             authority: "127.0.0.1:12345",
             path: "/deflate"
         )
-        try await HTTP.perform(
-            request: request,
+        try await newClient().perform(
+            request: request
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
 
@@ -184,8 +200,6 @@ struct HTTPClientTests {
         }
     }
 
-    @Test(.enabled(if: testsEnabled))
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func brotli() async throws {
         let request = HTTPRequest(
             method: .get,
@@ -193,8 +207,8 @@ struct HTTPClientTests {
             authority: "127.0.0.1:12345",
             path: "/brotli",
         )
-        try await HTTP.perform(
-            request: request,
+        try await newClient().perform(
+            request: request
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
 
@@ -214,8 +228,6 @@ struct HTTPClientTests {
         }
     }
 
-    @Test(.enabled(if: testsEnabled))
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func identity() async throws {
         let request = HTTPRequest(
             method: .get,
@@ -223,7 +235,7 @@ struct HTTPClientTests {
             authority: "127.0.0.1:12345",
             path: "/identity",
         )
-        try await HTTP.perform(
+        try await newClient().perform(
             request: request,
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
@@ -236,8 +248,6 @@ struct HTTPClientTests {
         }
     }
 
-    @Test(.enabled(if: testsEnabled))
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func customHeader() async throws {
         let request = HTTPRequest(
             method: .post,
@@ -247,7 +257,7 @@ struct HTTPClientTests {
             headerFields: HTTPFields([HTTPField(name: .init("X-Foo")!, value: "BARbaz")])
         )
 
-        try await HTTP.perform(
+        try await newClient().perform(
             request: request,
             body: .restartable { writer in
                 var writer = writer
@@ -265,8 +275,6 @@ struct HTTPClientTests {
         }
     }
 
-    @Test(.enabled(if: testsEnabled))
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func redirect308() async throws {
         let request = HTTPRequest(
             method: .get,
@@ -275,13 +283,13 @@ struct HTTPClientTests {
             path: "/308"
         )
 
-        var options = HTTPRequestOptions()
+        var options = Client.RequestOptions()
         options.redirectionHandlerClosure = { response, newRequest in
             #expect(response.status == .permanentRedirect)
             return .follow(newRequest)
         }
 
-        try await HTTP.perform(
+        try await newClient().perform(
             request: request,
             options: options,
         ) { response, responseBodyAndTrailers in
@@ -297,8 +305,6 @@ struct HTTPClientTests {
         }
     }
 
-    @Test(.enabled(if: testsEnabled))
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func redirect301() async throws {
         let request = HTTPRequest(
             method: .get,
@@ -307,13 +313,13 @@ struct HTTPClientTests {
             path: "/301"
         )
 
-        var options = HTTPRequestOptions()
+        var options = Client.RequestOptions()
         options.redirectionHandlerClosure = { response, newRequest in
             #expect(response.status == .movedPermanently)
             return .follow(newRequest)
         }
 
-        try await HTTP.perform(
+        try await newClient().perform(
             request: request,
             options: options,
         ) { response, responseBodyAndTrailers in
@@ -329,8 +335,6 @@ struct HTTPClientTests {
         }
     }
 
-    @Test(.enabled(if: testsEnabled))
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func notFound() async throws {
         let request = HTTPRequest(
             method: .get,
@@ -339,7 +343,7 @@ struct HTTPClientTests {
             path: "/404"
         )
 
-        try await HTTP.perform(
+        try await newClient().perform(
             request: request,
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .notFound)
@@ -350,8 +354,6 @@ struct HTTPClientTests {
         }
     }
 
-    @Test(.enabled(if: testsEnabled))
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func statusOutOfRangeButValid() async throws {
         let request = HTTPRequest(
             method: .get,
@@ -360,7 +362,7 @@ struct HTTPClientTests {
             path: "/999"
         )
 
-        try await HTTP.perform(
+        try await newClient().perform(
             request: request,
         ) { response, responseBodyAndTrailers in
             #expect(response.status == 999)
@@ -371,8 +373,6 @@ struct HTTPClientTests {
         }
     }
 
-    @Test(.enabled(if: testsEnabled))
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func stressTest() async throws {
         let request = HTTPRequest(
             method: .get,
@@ -384,7 +384,7 @@ struct HTTPClientTests {
         try await withThrowingTaskGroup { group in
             for _ in 0..<100 {
                 group.addTask {
-                    try await HTTP.perform(
+                    try await newClient().perform(
                         request: request,
                     ) { response, responseBodyAndTrailers in
                         #expect(response.status == .ok)
@@ -405,8 +405,6 @@ struct HTTPClientTests {
         }
     }
 
-    @Test(.enabled(if: testsEnabled))
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func echoInterleave() async throws {
         let request = HTTPRequest(
             method: .post,
@@ -418,7 +416,7 @@ struct HTTPClientTests {
         // Used to ping-pong between the client-side writer and reader
         let writerWaiting: Mutex<CheckedContinuation<Void, Never>?> = .init(nil)
 
-        try await HTTP.perform(
+        try await newClient().perform(
             request: request,
             body: .restartable { writer in
                 var writer = writer
@@ -453,68 +451,57 @@ struct HTTPClientTests {
         }
     }
 
-    // TODO: This test crashes. It can be enabled once we have correctly dealt with task cancellation.
-    @Test(.enabled(if: false), .timeLimit(.minutes(1)))
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func cancelPreHeaders() async throws {
         // The /stall HTTP endpoint is not expected to return at all.
         // Because of the cancellation, we're expected to return from this task group
         // within 100ms.
-        try await withThrowingTaskGroup { group in
-            group.addTask {
-                let request = HTTPRequest(
-                    method: .get,
-                    scheme: "http",
-                    authority: "127.0.0.1:12345",
-                    path: "/stall",
-                )
+        let task = Task {
+            let request = HTTPRequest(
+                method: .get,
+                scheme: "http",
+                authority: "127.0.0.1:12345",
+                path: "/stall",
+            )
 
-                try await HTTP.perform(
-                    request: request,
-                ) { response, responseBodyAndTrailers in
-                    assertionFailure("Never expected to actually receive a response")
-                }
+            try await newClient().perform(
+                request: request,
+            ) { response, responseBodyAndTrailers in
+                assertionFailure("Never expected to actually receive a response")
             }
-            try await Task.sleep(for: .milliseconds(100))
-            group.cancelAll()
         }
+        try await Task.sleep(for: .milliseconds(100))
+        task.cancel()
+        try await task.value
     }
 
-    // TODO: This test crashes. It can be enabled once we have correctly dealt with task cancellation.
-    @Test(.enabled(if: false), .timeLimit(.minutes(1)))
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func cancelPreBody() async throws {
         // The /stall_body HTTP endpoint gives headers, but is not expected to return a
         // body. Because of the cancellation, we're expected to return from this task group
         // within 100ms.
-        try await withThrowingTaskGroup { group in
-            group.addTask {
-                let request = HTTPRequest(
-                    method: .get,
-                    scheme: "http",
-                    authority: "127.0.0.1:12345",
-                    path: "/stall_body",
-                )
+        let task = Task {
+            let request = HTTPRequest(
+                method: .get,
+                scheme: "http",
+                authority: "127.0.0.1:12345",
+                path: "/stall_body",
+            )
 
-                try await HTTP.perform(
-                    request: request,
-                ) { response, responseBodyAndTrailers in
-                    #expect(response.status == .ok)
-                    let _ = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                        assertionFailure("Not expected to receive a body")
-                    }
+            try await newClient().perform(
+                request: request,
+            ) { response, responseBodyAndTrailers in
+                #expect(response.status == .ok)
+                let _ = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                    assertionFailure("Not expected to receive a body")
                 }
             }
-
-            try await Task.sleep(for: .milliseconds(100))
-            group.cancelAll()
         }
+        try await Task.sleep(for: .milliseconds(100))
+        task.cancel()
+        try await task.value
     }
 
-    @Test(.enabled(if: testsEnabled))
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func getConvenience() async throws {
-        let (response, data) = try await HTTP.get(
+        let (response, data) = try await newClient().get(
             url: URL(string: "http://127.0.0.1:12345/request")!,
             collectUpTo: .max
         )
@@ -525,10 +512,8 @@ struct HTTPClientTests {
         #expect(jsonRequest.body.isEmpty)
     }
 
-    @Test(.enabled(if: testsEnabled))
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func postConvenience() async throws {
-        let (response, data) = try await HTTP.post(
+        let (response, data) = try await newClient().post(
             url: URL(string: "http://127.0.0.1:12345/request")!,
             bodyData: Data("Hello World".utf8),
             collectUpTo: .max
