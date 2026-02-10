@@ -56,7 +56,7 @@ final class URLSessionRequestStreamBridge: NSObject, StreamDelegate, Sendable {
         self.lockedState.withLock(\.writeFailed)
     }
 
-    func write(_ span: Span<UInt8>) async throws {
+    private func internalWrite(_ span: Span<UInt8>) async throws {
         self.lockedState.withLock { state in
             if !state.outputStreamOpened {
                 state.outputStreamOpened = true
@@ -140,10 +140,20 @@ extension URLSessionRequestStreamBridge: AsyncWriter {
             let result = try await array.append(count: 1024) { outputSpan in
                 try await body(&outputSpan)
             }
-            try await self.write(array.span)
+            try await self.internalWrite(array.span)
             return result
         } catch let error as Failure {
             throw .second(error)
+        } catch {
+            throw .first(error)
+        }
+    }
+
+    func write(
+        _ span: Span<UInt8>
+    ) async throws(EitherError<any Error, AsyncWriterWroteShortError>) {
+        do {
+            try await self.internalWrite(span)
         } catch {
             throw .first(error)
         }

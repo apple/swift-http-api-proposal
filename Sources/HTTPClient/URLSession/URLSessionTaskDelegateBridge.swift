@@ -269,6 +269,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                         self.requestBodyStreamFailed(with: error)
                     }
                 }
+                bridge.close()
             }
         }
     }
