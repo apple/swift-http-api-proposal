@@ -220,7 +220,11 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
         }
         request.allowsExpensiveNetworkAccess = options.allowsExpensiveNetworkAccess
         request.allowsConstrainedNetworkAccess = options.allowsConstrainedNetworkAccess
-        return request
+
+        // Disable Content-Type sniffing
+        let urlRequest = (request as NSURLRequest).mutableCopy() as! NSMutableURLRequest
+        URLProtocol.setProperty(false, forKey: "_kCFURLConnectionPropertyShouldSniff", in: urlRequest)
+        return urlRequest as URLRequest
     }
 
     func perform<Return: ~Copyable>(

@@ -221,11 +221,7 @@ actor TestHTTPServer {
                         .consumeAndConclude { reader in
                             // Needed since we are lacking call-once closures
                             var reader = Optional(reader)
-
-                            // This header stops MIME type sniffing, which can cause delays in receiving
-                            // the chunked bytes.
-                            let headers: HTTPFields = [.xContentTypeOptions: "nosniff"]
-                            let responseBodyAndTrailers = try await responseSender.take()!.send(.init(status: .ok, headerFields: headers))
+                            let responseBodyAndTrailers = try await responseSender.take()!.send(.init(status: .ok))
                             try await responseBodyAndTrailers.produceAndConclude { responseBody in
                                 var responseBody = responseBody
                                 try await responseBody.write(reader.take()!)
