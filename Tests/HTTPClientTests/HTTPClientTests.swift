@@ -672,8 +672,7 @@ struct HTTPClientTests {
         }
     }
 
-    // TODO: This test crashes. It can be enabled once we have correctly dealt with task cancellation.
-    @Test(.enabled(if: false), .timeLimit(.minutes(1)))
+    @Test(.enabled(if: testsEnabled), .timeLimit(.minutes(1)))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func cancelPreHeaders() async throws {
         // The /stall HTTP endpoint is not expected to return at all.
@@ -699,8 +698,7 @@ struct HTTPClientTests {
         }
     }
 
-    // TODO: This test crashes. It can be enabled once we have correctly dealt with task cancellation.
-    @Test(.enabled(if: false), .timeLimit(.minutes(1)))
+    @Test(.enabled(if: testsEnabled), .timeLimit(.minutes(1)))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func cancelPreBody() async throws {
         // The /stall_body HTTP endpoint gives headers, but is not expected to return a

@@ -56,13 +56,17 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
 
     private static let highWatermark = 256 * 1024
 
-    enum State {
-        case awaitingResponse
-        case awaitingData(CheckedContinuation<(Bool, Data?), any Error>)
-        case awaitingConsumption(Data, complete: Bool, error: (any Error)?, suspendedTask: URLSessionTask?)
+    private struct TaskState {
+        enum State {
+            case awaitingResponse
+            case awaitingData(CheckedContinuation<(Bool, Data?), any Error>)
+            case awaitingConsumption(Data, complete: Bool, error: (any Error)?, suspendedTask: URLSessionTask?)
+        }
+        var state: State = .awaitingResponse
+        var completionContinuation: CheckedContinuation<Void, Never>? = nil
     }
 
-    let state: Mutex<State> = .init(.awaitingResponse)
+    private let state: Mutex<TaskState> = .init(.init())
 
     func urlSession(
         _ session: URLSession,
@@ -72,16 +76,16 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
     ) {
         let oldState = self.state.withLock { state in
             defer {
-                switch state {
+                switch state.state {
                 case .awaitingResponse:
-                    state = .awaitingConsumption(Data(), complete: false, error: nil, suspendedTask: nil)
+                    state.state = .awaitingConsumption(Data(), complete: false, error: nil, suspendedTask: nil)
                 case .awaitingData, .awaitingConsumption:
                     break
                 }
             }
             return state
         }
-        switch oldState {
+        switch oldState.state {
         case .awaitingResponse:
             self.continuation.yield(.response(response))
         case .awaitingData, .awaitingConsumption:
@@ -93,19 +97,19 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
     func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
         let oldState = self.state.withLock { state in
             defer {
-                switch state {
+                switch state.state {
                 case .awaitingData:
-                    state = .awaitingConsumption(data, complete: false, error: nil, suspendedTask: nil)
+                    state.state = .awaitingConsumption(data, complete: false, error: nil, suspendedTask: nil)
                 case .awaitingResponse:
                     // We don't support data before response
-                    state = .awaitingConsumption(Data(), complete: true, error: nil, suspendedTask: nil)
+                    state.state = .awaitingConsumption(Data(), complete: true, error: nil, suspendedTask: nil)
                 case .awaitingConsumption(let existingData, let complete, let error, var suspendedTask):
                     let newData = existingData + data
                     if newData.count > Self.highWatermark && suspendedTask == nil {
                         dataTask.suspend()
                         suspendedTask = dataTask
                     }
-                    state = .awaitingConsumption(
+                    state.state = .awaitingConsumption(
                         newData,
                         complete: complete,
                         error: error,
@@ -115,7 +119,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
             }
             return state
         }
-        switch oldState {
+        switch oldState.state {
         case .awaitingData(let continuation):
             continuation.resume(returning: (false, nil))
         case .awaitingResponse:
@@ -130,18 +134,19 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: (any Error)?) {
         let oldState = self.state.withLock { state in
             defer {
-                switch state {
+                switch state.state {
                 case .awaitingData:
-                    state = .awaitingConsumption(Data(), complete: true, error: error, suspendedTask: nil)
+                    state.state = .awaitingConsumption(Data(), complete: true, error: error, suspendedTask: nil)
                 case .awaitingResponse:
-                    state = .awaitingConsumption(Data(), complete: true, error: nil, suspendedTask: nil)
+                    state.state = .awaitingConsumption(Data(), complete: true, error: nil, suspendedTask: nil)
                 case .awaitingConsumption(let existingData, _, let error, _):
-                    state = .awaitingConsumption(existingData, complete: true, error: error, suspendedTask: nil)
+                    state.state = .awaitingConsumption(existingData, complete: true, error: error, suspendedTask: nil)
                 }
+                state.completionContinuation = nil
             }
             return state
         }
-        switch oldState {
+        switch oldState.state {
         case .awaitingResponse:
             self.continuation.yield(.error(error ?? URLError(.unknown)))
         case .awaitingData(let continuation):
@@ -149,6 +154,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
         case .awaitingConsumption:
             break
         }
+        oldState.completionContinuation?.resume()
         self.continuation.finish()
     }
 
@@ -161,7 +167,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
             while true {
                 let (shouldReturn, result): (Bool, Data?) = try await withCheckedThrowingContinuation { continuation in
                     self.state.withLock { state in
-                        switch state {
+                        switch state.state {
                         case .awaitingConsumption(let existingData, let complete, let error, let suspendedTask):
                             if !existingData.isEmpty {
                                 let (dataToReturn, remainingData) =
@@ -171,7 +177,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                                         (existingData, Data())
                                     }
                                 let shouldResume = remainingData.count <= Self.highWatermark
-                                state = .awaitingConsumption(
+                                state.state = .awaitingConsumption(
                                     remainingData,
                                     complete: complete,
                                     error: existingData.isEmpty ? nil : error,
@@ -186,7 +192,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                             } else if complete {
                                 continuation.resume(returning: (true, nil))
                             } else {
-                                state = .awaitingData(continuation)
+                                state.state = .awaitingData(continuation)
                             }
                         case .awaitingResponse:
                             fatalError("Unexpected state")
@@ -410,6 +416,20 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
             }
         }
         await self.requestBodyTask.withLock { $0 }?.value
+        await self.completion()
+    }
+
+    private func completion() async {
+        self.task?.cancel()
+        await withCheckedContinuation { continuation in
+            self.state.withLock { state in
+                if case .awaitingConsumption(_, true, _, _) = state.state {
+                    continuation.resume()
+                } else {
+                    state.completionContinuation = continuation
+                }
+            }
+        }
     }
 }
 #endif
