@@ -30,7 +30,7 @@ extension HTTP {
     ///   - request: The HTTP request header to send.
     ///   - body: The optional request body to send. Defaults to no body.
     ///   - options: The options for this request. Defaults to an empty initialized options.
-    ///   - client: The HTTP client to use for the request. Defaults to `HTTPConnectionPool.shared`.
+    ///   - client: The HTTP client to use for the request. Defaults to `DefaultHTTPClient.shared`.
     ///   - responseHandler: The closure to process the response. This closure is invoked
     ///     when the response header is received and can read the response body.
     ///
@@ -42,7 +42,7 @@ extension HTTP {
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<Client.RequestWriter>? = nil,
         options: Client.RequestOptions = .init(),
-        on client: borrowing Client = HTTPConnectionPool.shared,
+        on client: borrowing Client = DefaultHTTPClient.shared,
         responseHandler: (HTTPResponse, consuming Client.ResponseConcludingReader) async throws -> Return,
     ) async throws -> Return {
         return try await client.perform(request: request, body: body, options: options, responseHandler: responseHandler)
@@ -57,7 +57,7 @@ extension HTTP {
     ///   - url: The URL to send the GET request to.
     ///   - headerFields: The HTTP header fields to include in the request. Defaults to an empty collection.
     ///   - options: The options for this request. Defaults to an empty initialized options.
-    ///   - client: The HTTP client to use for the request. Defaults to `HTTPConnectionPool.shared`.
+    ///   - client: The HTTP client to use for the request. Defaults to `DefaultHTTPClient.shared`.
     ///   - limit: The maximum number of bytes to collect from the response body.
     ///
     /// - Returns: A tuple containing the HTTP response header and the collected response body data.
@@ -68,7 +68,7 @@ extension HTTP {
         url: URL,
         headerFields: HTTPFields = [:],
         options: Client.RequestOptions = .init(),
-        on client: borrowing Client = HTTPConnectionPool.shared,
+        on client: borrowing Client = DefaultHTTPClient.shared,
         collectUpTo limit: Int,
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
         try await client.get(url: url, headerFields: headerFields, options: options, collectUpTo: limit)
@@ -84,7 +84,7 @@ extension HTTP {
     ///   - headerFields: The HTTP header fields to include in the request. Defaults to an empty collection.
     ///   - bodyData: The request body data to send.
     ///   - options: The options for this request. Defaults to an empty initialized options.
-    ///   - client: The HTTP client to use for the request. Defaults to `HTTPConnectionPool.shared`.
+    ///   - client: The HTTP client to use for the request. Defaults to `DefaultHTTPClient.shared`.
     ///   - limit: The maximum number of bytes to collect from the response body.
     ///
     /// - Returns: A tuple containing the HTTP response header and the collected response body data.
@@ -96,7 +96,7 @@ extension HTTP {
         headerFields: HTTPFields = [:],
         bodyData: Data,
         options: Client.RequestOptions = .init(),
-        on client: borrowing Client = HTTPConnectionPool.shared,
+        on client: borrowing Client = DefaultHTTPClient.shared,
         collectUpTo limit: Int,
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
         try await client.post(url: url, headerFields: headerFields, bodyData: bodyData, options: options, collectUpTo: limit)
@@ -112,7 +112,7 @@ extension HTTP {
     ///   - headerFields: The HTTP header fields to include in the request. Defaults to an empty collection.
     ///   - bodyData: The request body data to send.
     ///   - options: The options for this request. Defaults to an empty initialized options.
-    ///   - client: The HTTP client to use for the request. Defaults to `HTTPConnectionPool.shared`.
+    ///   - client: The HTTP client to use for the request. Defaults to `DefaultHTTPClient.shared`.
     ///   - limit: The maximum number of bytes to collect from the response body.
     ///
     /// - Returns: A tuple containing the HTTP response header and the collected response body data.
@@ -124,7 +124,7 @@ extension HTTP {
         headerFields: HTTPFields = [:],
         bodyData: Data,
         options: Client.RequestOptions = .init(),
-        on client: borrowing Client = HTTPConnectionPool.shared,
+        on client: borrowing Client = DefaultHTTPClient.shared,
         collectUpTo limit: Int,
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
         try await client.put(url: url, headerFields: headerFields, bodyData: bodyData, options: options, collectUpTo: limit)
@@ -140,7 +140,7 @@ extension HTTP {
     ///   - headerFields: The HTTP header fields to include in the request. Defaults to an empty collection.
     ///   - bodyData: The optional request body data to send. Defaults to no body.
     ///   - options: The options for this request. Defaults to an empty initialized options.
-    ///   - client: The HTTP client to use for the request. Defaults to `HTTPConnectionPool.shared`.
+    ///   - client: The HTTP client to use for the request. Defaults to `DefaultHTTPClient.shared`.
     ///   - limit: The maximum number of bytes to collect from the response body.
     ///
     /// - Returns: A tuple containing the HTTP response header and the collected response body data.
@@ -152,7 +152,7 @@ extension HTTP {
         headerFields: HTTPFields = [:],
         bodyData: Data? = nil,
         options: Client.RequestOptions = .init(),
-        on client: borrowing Client = HTTPConnectionPool.shared,
+        on client: borrowing Client = DefaultHTTPClient.shared,
         collectUpTo limit: Int,
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
         try await client.delete(url: url, headerFields: headerFields, bodyData: bodyData, options: options, collectUpTo: limit)
@@ -168,7 +168,7 @@ extension HTTP {
     ///   - headerFields: The HTTP header fields to include in the request. Defaults to an empty collection.
     ///   - bodyData: The request body data to send.
     ///   - options: The options for this request. Defaults to an empty initialized options.
-    ///   - client: The HTTP client to use for the request. Defaults to `HTTPConnectionPool.shared`.
+    ///   - client: The HTTP client to use for the request. Defaults to `DefaultHTTPClient.shared`.
     ///   - limit: The maximum number of bytes to collect from the response body.
     ///
     /// - Returns: A tuple containing the HTTP response header and the collected response body data.
@@ -180,7 +180,7 @@ extension HTTP {
         headerFields: HTTPFields = [:],
         bodyData: Data,
         options: Client.RequestOptions = .init(),
-        on client: borrowing Client = HTTPConnectionPool.shared,
+        on client: borrowing Client = DefaultHTTPClient.shared,
         collectUpTo limit: Int,
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
         try await client.patch(url: url, headerFields: headerFields, bodyData: bodyData, options: options, collectUpTo: limit)
