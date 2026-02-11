@@ -326,13 +326,15 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                         guard let httpResponse = response.httpResponse,
                             let httpRequest = request.httpRequest
                         else {
-                            completionHandler(nil)
                             throw HTTPTypeConversionError.failedToConvertURLTypeToHTTPTypes
+                        }
+                        guard httpRequest.schemeSupported else {
+                            completionHandler(nil)
+                            break
                         }
                         switch try await redirectionHandler.handleRedirection(response: httpResponse, newRequest: httpRequest) {
                         case .follow(let finalRequest):
                             guard let urlRequest = URLRequest(httpRequest: finalRequest) else {
-                                completionHandler(nil)
                                 throw HTTPTypeConversionError.failedToConvertHTTPTypesToURLType
                             }
                             completionHandler(urlRequest)

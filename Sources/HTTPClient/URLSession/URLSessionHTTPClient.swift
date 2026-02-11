@@ -229,6 +229,9 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
         options: HTTPRequestOptions,
         responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return
     ) async throws -> Return {
+        guard request.schemeSupported else {
+            throw HTTPTypeConversionError.unsupportedScheme
+        }
         let request = try self.request(for: request, options: options)
         let session = self.session(for: options)
         let task: URLSessionTask

@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift HTTP API Proposal open source project
 //
-// Copyright (c) 2025 Apple Inc. and the Swift HTTP API Proposal project authors
+// Copyright (c) 2026 Apple Inc. and the Swift HTTP API Proposal project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -12,12 +12,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if canImport(Darwin)
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-enum HTTPTypeConversionError: Error {
-    case unsupportedScheme
-    case failedToConvertHTTPTypesToURLType
-    case failedToConvertURLTypeToHTTPTypes
-}
+import HTTPTypes
 
-#endif
+extension HTTPRequest {
+    var schemeSupported: Bool {
+        guard let scheme = self.scheme?.lowercased() else {
+            return false
+        }
+        return scheme == "https" || scheme == "http" || scheme == "https+unix" || scheme == "http+unix"
+    }
+}
