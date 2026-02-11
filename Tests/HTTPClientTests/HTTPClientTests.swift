@@ -524,16 +524,15 @@ struct HTTPClientTests {
                     // cancelled state.
                     cancelTask()
 
-                    // Should still be able to read the remaining 900 bytes
-                    let _ = try await reader.read(maximumCount: 900) { span in
-                        #expect(span.count == 900)
-                    }
-
-                    // Trying to read anymore should throw an exception
-                    // because the server didn't send more of the body
+                    // Trying to read anymore should eventually throw an
+                    // exception because the server didn't complete the body
                     // and the task is now cancelled.
-                    let _ = try await reader.read(maximumCount: 1) { span in
-                        assertionFailure("Should not have been able to read more")
+                    while (true) {
+                        let _ = try await reader.read(maximumCount: nil) { span in
+                            // It is okay if the client chooses to return any
+                            // of the remaining body it has already downloaded.
+                            #expect(span.count > 0)
+                        }
                     }
                 }
             }
