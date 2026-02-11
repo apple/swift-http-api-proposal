@@ -480,34 +480,73 @@ struct HTTPClientTests {
         }
     }
 
-    // TODO: This test crashes. It can be enabled once we have correctly dealt with task cancellation.
-    @Test(.enabled(if: false), .timeLimit(.minutes(1)))
+    @Test(.enabled(if: testsEnabled), .timeLimit(.minutes(1)))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    func cancelPreBody() async throws {
-        // The /stall_body HTTP endpoint gives headers, but is not expected to return a
-        // body. Because of the cancellation, we're expected to return from this task group
-        // within 100ms.
-        try await withThrowingTaskGroup { group in
-            group.addTask {
-                let request = HTTPRequest(
-                    method: .get,
-                    scheme: "http",
-                    authority: "127.0.0.1:12345",
-                    path: "/stall_body",
-                )
+    func cancelPartialBody() async throws {
+        // This mutex allows the task to cancel itself.
+        let task_mutex: Mutex<Task<Void, any Error>?> = .init(nil)
 
-                try await HTTP.perform(
-                    request: request,
-                ) { response, responseBodyAndTrailers in
-                    #expect(response.status == .ok)
-                    let _ = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                        assertionFailure("Not expected to receive a body")
+        // Spins on the task mutex until its set and then cancels it.
+        func cancelTask() {
+            var success = false
+            while !success {
+                task_mutex.withLock {
+                    if let task = $0 {
+                        task.cancel()
+                        success = true
                     }
                 }
             }
+        }
 
-            try await Task.sleep(for: .milliseconds(100))
-            group.cancelAll()
+        let task = Task {
+            // The /stall_body HTTP endpoint gives headers and an incomplete 1000-byte body.
+            let request = HTTPRequest(
+                method: .get,
+                scheme: "http",
+                authority: "127.0.0.1:12345",
+                path: "/stall_body",
+            )
+
+            try await HTTP.perform(
+                request: request,
+            ) { response, responseBodyAndTrailers in
+                #expect(response.status == .ok)
+                let _ = try await responseBodyAndTrailers.consumeAndConclude { reader in
+                    var reader = reader
+
+                    // Read the first 100 bytes of the body
+                    let _ = try await reader.read(maximumCount: 100) { span in
+                        #expect(span.count == 100)
+                    }
+
+                    // The task cancels itself so that the next read occurs in a
+                    // cancelled state.
+                    cancelTask()
+
+                    // Trying to read anymore should eventually throw an
+                    // exception because the server didn't complete the body
+                    // and the task is now cancelled.
+                    while true {
+                        let _ = try await reader.read(maximumCount: nil) { span in
+                            // It is okay if the client chooses to return any
+                            // of the remaining body it has already downloaded.
+                            #expect(span.count > 0)
+                        }
+                    }
+                }
+            }
+        }
+
+        // Sets the task mutex, allowing the task to cancel itself.
+        task_mutex.withLock {
+            $0 = task
+        }
+
+        // The task should throw an error because it tried to read when
+        // there was no more data and the task was cancelled.
+        await #expect(throws: (any Error).self) {
+            try await task.value
         }
     }
 
