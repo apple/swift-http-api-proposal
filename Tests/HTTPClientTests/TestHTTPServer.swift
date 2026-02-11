@@ -221,11 +221,20 @@ actor TestHTTPServer {
                     try! await Task.sleep(for: .seconds(60 * 60))
                     assertionFailure("Not expected to complete hour-long wait")
                 case "/stall_body":
-                    // Send the headers, but not the body
-                    let _ = try await responseSender.send(.init(status: .ok))
-                    // Wait for an hour (effectively never giving an answer)
-                    try! await Task.sleep(for: .seconds(60 * 60))
-                    assertionFailure("Not expected to complete hour-long wait")
+                    // Send headers and partial body
+                    let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
+
+                    try await responseBodyAndTrailers.produceAndConclude { responseBody in
+                        var responseBody = responseBody
+                        try await responseBody.write([UInt8](repeating: UInt8(ascii: "A"), count: 1000).span)
+
+                        // Wait for an hour (effectively never giving an answer)
+                        try! await Task.sleep(for: .seconds(60 * 60))
+
+                        assertionFailure("Not expected to complete hour-long wait")
+
+                        return nil
+                    }
                 default:
                     let writer = try await responseSender.send(HTTPResponse(status: .internalServerError))
                     try await writer.writeAndConclude("Bad/unknown path".utf8.span, finalElement: nil)
