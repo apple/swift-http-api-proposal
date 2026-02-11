@@ -15,6 +15,8 @@
 import HTTPClient
 import Testing
 
+import protocol HTTPClientConformance.HTTPClientConformanceValidator
+
 let testsEnabled: Bool = {
     #if canImport(Darwin)
     true

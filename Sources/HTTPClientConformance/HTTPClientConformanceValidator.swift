@@ -13,7 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import HTTPClient
+public import HTTPClient
 import HTTPTypes
 import Synchronization
 import Testing
@@ -25,7 +25,7 @@ import Foundation
 #endif
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-protocol HTTPClientConformanceValidator<Client>: Sendable {
+public protocol HTTPClientConformanceValidator<Client>: Sendable {
     associatedtype Client: HTTPClient & Sendable & ~Copyable where Client.RequestOptions: HTTPClientCapability.RedirectionHandler
 
     func newClient() async -> Client
@@ -33,7 +33,7 @@ protocol HTTPClientConformanceValidator<Client>: Sendable {
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 extension HTTPClientConformanceValidator {
-    func runAllConformanceTests() async throws {
+    public func runAllConformanceTests() async throws {
         let server = TestHTTPServer()
         await server.serve()
 
@@ -70,7 +70,7 @@ extension HTTPClientConformanceValidator {
         }
     }
 
-    func ok() async throws {
+    public func ok() async throws {
         let methods = [HTTPRequest.Method.head, .get, .put, .post, .delete]
         for method in methods {
             let request = HTTPRequest(
@@ -92,7 +92,7 @@ extension HTTPClientConformanceValidator {
         }
     }
 
-    func emptyChunkedBody() async throws {
+    public func emptyChunkedBody() async throws {
         let request = HTTPRequest(
             method: .post,
             scheme: "http",
@@ -117,7 +117,7 @@ extension HTTPClientConformanceValidator {
         }
     }
 
-    func echoString() async throws {
+    public func echoString() async throws {
         let request = HTTPRequest(
             method: .post,
             scheme: "http",
@@ -144,7 +144,7 @@ extension HTTPClientConformanceValidator {
         }
     }
 
-    func gzip() async throws {
+    public func gzip() async throws {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -172,7 +172,7 @@ extension HTTPClientConformanceValidator {
         }
     }
 
-    func deflate() async throws {
+    public func deflate() async throws {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -200,7 +200,7 @@ extension HTTPClientConformanceValidator {
         }
     }
 
-    func brotli() async throws {
+    public func brotli() async throws {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -228,7 +228,7 @@ extension HTTPClientConformanceValidator {
         }
     }
 
-    func identity() async throws {
+    public func identity() async throws {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -248,7 +248,7 @@ extension HTTPClientConformanceValidator {
         }
     }
 
-    func customHeader() async throws {
+    public func customHeader() async throws {
         let request = HTTPRequest(
             method: .post,
             scheme: "http",
@@ -275,7 +275,7 @@ extension HTTPClientConformanceValidator {
         }
     }
 
-    func redirect308() async throws {
+    public func redirect308() async throws {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -305,7 +305,7 @@ extension HTTPClientConformanceValidator {
         }
     }
 
-    func redirect301() async throws {
+    public func redirect301() async throws {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -335,7 +335,7 @@ extension HTTPClientConformanceValidator {
         }
     }
 
-    func notFound() async throws {
+    public func notFound() async throws {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -354,7 +354,7 @@ extension HTTPClientConformanceValidator {
         }
     }
 
-    func statusOutOfRangeButValid() async throws {
+    public func statusOutOfRangeButValid() async throws {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -373,7 +373,7 @@ extension HTTPClientConformanceValidator {
         }
     }
 
-    func stressTest() async throws {
+    public func stressTest() async throws {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -405,7 +405,7 @@ extension HTTPClientConformanceValidator {
         }
     }
 
-    func echoInterleave() async throws {
+    public func echoInterleave() async throws {
         let request = HTTPRequest(
             method: .post,
             scheme: "http",
@@ -451,7 +451,7 @@ extension HTTPClientConformanceValidator {
         }
     }
 
-    func cancelPreHeaders() async throws {
+    public func cancelPreHeaders() async throws {
         // The /stall HTTP endpoint is not expected to return at all.
         // Because of the cancellation, we're expected to return from this task group
         // within 100ms.
@@ -474,7 +474,7 @@ extension HTTPClientConformanceValidator {
         try await task.value
     }
 
-    func cancelPreBody() async throws {
+    public func cancelPreBody() async throws {
         // The /stall_body HTTP endpoint gives headers, but is not expected to return a
         // body. Because of the cancellation, we're expected to return from this task group
         // within 100ms.
@@ -500,7 +500,7 @@ extension HTTPClientConformanceValidator {
         try await task.value
     }
 
-    func getConvenience() async throws {
+    public func getConvenience() async throws {
         let (response, data) = try await newClient().get(
             url: URL(string: "http://127.0.0.1:12345/request")!,
             collectUpTo: .max
@@ -512,7 +512,7 @@ extension HTTPClientConformanceValidator {
         #expect(jsonRequest.body.isEmpty)
     }
 
-    func postConvenience() async throws {
+    public func postConvenience() async throws {
         let (response, data) = try await newClient().post(
             url: URL(string: "http://127.0.0.1:12345/request")!,
             bodyData: Data("Hello World".utf8),

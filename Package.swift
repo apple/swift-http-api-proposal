@@ -95,9 +95,10 @@ let package = Package(
             swiftSettings: extraSettings
         ),
 
-        // MARK: Tests
+        // MARK: Conformance Testing
 
-        // This target is borrowed from `swift-http-server` and is only used for tests
+        // This target is borrowed from `swift-http-server` and is only used by
+        // the conformance test suite
         .target(
             name: "HTTPServerForTesting",
             dependencies: [
@@ -124,6 +125,17 @@ let package = Package(
             path: "./Tests/HTTPServer",
             swiftSettings: extraSettings
         ),
+        .target(
+            name: "HTTPClientConformance",
+            dependencies: [
+                "HTTPServerForTesting",
+                .product(name: "Logging", package: "swift-log"),
+            ],
+            swiftSettings: extraSettings
+        ),
+
+        // MARK: Tests
+
         .testTarget(
             name: "NetworkTypesTests",
             dependencies: [
@@ -152,8 +164,7 @@ let package = Package(
             name: "HTTPClientTests",
             dependencies: [
                 "HTTPClient",
-                "HTTPServerForTesting",
-                .product(name: "Logging", package: "swift-log"),
+                "HTTPClientConformance",
             ],
             swiftSettings: extraSettings
         ),
