@@ -527,7 +527,7 @@ struct HTTPClientTests {
                     // Trying to read anymore should eventually throw an
                     // exception because the server didn't complete the body
                     // and the task is now cancelled.
-                    while (true) {
+                    while true {
                         let _ = try await reader.read(maximumCount: nil) { span in
                             // It is okay if the client chooses to return any
                             // of the remaining body it has already downloaded.
