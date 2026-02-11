@@ -51,6 +51,16 @@ public struct HTTPConnectionPool: HTTPClient, Sendable, ~Copyable {
             #endif
         }
 
+        public mutating func write(
+            _ span: Span<UInt8>
+        ) async throws(EitherError<any Error, AsyncWriterWroteShortError>) {
+            #if canImport(Darwin)
+            try await self.actual.write(span)
+            #else
+            fatalError()
+            #endif
+        }
+
         #if canImport(Darwin)
         let actual: URLSessionHTTPClient.RequestWriter
         #endif
