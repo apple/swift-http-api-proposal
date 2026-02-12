@@ -52,9 +52,8 @@ public func runAllConformanceTests<Client: HTTPClient & Sendable & ~Copyable>(
     // TODO: Writing just an empty span causes an indefinite stall. The terminating chunk (size 0) is not written out on the wire.
     // try await emptyChunkedBody(try await clientFactory())
 
-    // TODO: These tests crash. It can be enabled once we have correctly dealt with task cancellation.
-    // try await cancelPreHeaders(try await clientFactory())
-    // try await cancelPreBody(try await clientFactory())
+    try await cancelPreHeaders(try await clientFactory())
+    try await cancelPreBody(try await clientFactory())
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
