@@ -97,11 +97,14 @@ let package = Package(
 
         // MARK: Conformance Testing
 
-        // This target is borrowed from `swift-http-server` and is only used by
-        // the conformance test suite
         .target(
-            name: "HTTPServerForTesting",
+            name: "HTTPClientConformance",
             dependencies: [
+                "HTTPClient",
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+
+                // These dependencies are needed by the `swift-http-server` that
+                // we borrowed.
                 "AsyncStreaming",
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "BasicContainers", package: "swift-collections"),
@@ -121,17 +124,6 @@ let package = Package(
                     package: "swift-configuration",
                     condition: .when(traits: ["SwiftConfiguration"])
                 ),
-            ],
-            path: "./Tests/HTTPServer",
-            swiftSettings: extraSettings
-        ),
-        .target(
-            name: "HTTPClientConformance",
-            dependencies: [
-                "HTTPClient",
-                "HTTPServerForTesting",
-                .product(name: "HTTPTypes", package: "swift-http-types"),
-                .product(name: "Logging", package: "swift-log"),
             ],
             swiftSettings: extraSettings
         ),
