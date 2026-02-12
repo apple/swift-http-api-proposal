@@ -485,21 +485,7 @@ struct HTTPClientTests {
     func cancelPartialBody() async throws {
         await withThrowingTaskGroup { group in
             // Used by the task to notify when the task group should be cancelled
-            let shouldCancelTaskGroup: Mutex<CheckedContinuation<Void, Never>?> = .init(nil)
-
-            // Unblocks the continuation causing the cancellation of the task group
-            func cancelTaskGroup() {
-                while true {
-                    let success = shouldCancelTaskGroup.withLock {
-                        guard let continuation = $0 else {
-                            return false
-                        }
-                        continuation.resume()
-                        return true
-                    }
-                    if success { break }
-                }
-            }
+            let (stream, continuation) = AsyncStream<Void>.makeStream()
 
             group.addTask {
                 // The /stall_body HTTP endpoint gives headers and an incomplete 1000-byte body.
@@ -523,7 +509,7 @@ struct HTTPClientTests {
                         }
 
                         // Now trigger the task group cancellation.
-                        cancelTaskGroup()
+                        continuation.yield()
 
                         // Trying to read should eventually throw an
                         // exception because the server didn't complete the body
@@ -543,9 +529,8 @@ struct HTTPClientTests {
             }
 
             // Wait to be notified about cancelling the task group
-            await withCheckedContinuation { continuation in
-                shouldCancelTaskGroup.withLock { $0 = continuation }
-            }
+            var iter = stream.makeAsyncIterator()
+            await iter.next()!
 
             // Now cancel the task group
             group.cancelAll()
