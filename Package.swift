@@ -46,6 +46,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-configuration", from: "1.0.0"),
     ],
     targets: [
+        // MARK: Libraries
         .target(
             name: "HTTPAPIs",
             dependencies: [
@@ -95,12 +96,16 @@ let package = Package(
             swiftSettings: extraSettings
         ),
 
-        // MARK: Tests
+        // MARK: Conformance Testing
 
-        // This target is borrowed from `swift-http-server` and is only used for tests
         .target(
-            name: "HTTPServerForTesting",
+            name: "HTTPClientConformance",
             dependencies: [
+                "HTTPClient",
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+
+                // These dependencies are needed by the `swift-http-server` that
+                // we borrowed.
                 "AsyncStreaming",
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "BasicContainers", package: "swift-collections"),
@@ -121,9 +126,11 @@ let package = Package(
                     condition: .when(traits: ["SwiftConfiguration"])
                 ),
             ],
-            path: "./Tests/HTTPServer",
             swiftSettings: extraSettings
         ),
+
+        // MARK: Tests
+
         .testTarget(
             name: "NetworkTypesTests",
             dependencies: [
@@ -152,8 +159,7 @@ let package = Package(
             name: "HTTPClientTests",
             dependencies: [
                 "HTTPClient",
-                "HTTPServerForTesting",
-                .product(name: "Logging", package: "swift-log"),
+                "HTTPClientConformance",
             ],
             swiftSettings: extraSettings
         ),
@@ -162,6 +168,24 @@ let package = Package(
             dependencies: [
                 "Middleware"
             ],
+            swiftSettings: extraSettings
+        ),
+
+        // MARK: Examples
+        .executableTarget(
+            name: "EchoServer",
+            dependencies: [
+                "HTTPAPIs"
+            ],
+            path: "Examples/EchoServer",
+            swiftSettings: extraSettings
+        ),
+        .executableTarget(
+            name: "ProxyServer",
+            dependencies: [
+                "HTTPAPIs"
+            ],
+            path: "Examples/ProxyServer",
             swiftSettings: extraSettings
         ),
     ]

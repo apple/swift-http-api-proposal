@@ -29,8 +29,7 @@ extension TestClientAndServer {
                 // Needed since we are lacking call-once closures
                 var responseBody = responseBody
                 return try await requestBodyAndTrailers.take()!.consumeAndConclude { reader in
-                    var reader: RequestConcludingReader.Underlying? = consume reader
-                    try await responseBody.write(reader.take()!)
+                    try await responseBody.write(reader)
                 }
             }
         }
