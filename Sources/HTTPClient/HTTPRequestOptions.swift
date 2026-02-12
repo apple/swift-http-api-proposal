@@ -32,8 +32,6 @@ public struct HTTPRequestOptions: HTTPClientCapability.RedirectionHandler, HTTPC
     public var maximumTLSVersion: TLSVersion = .v1_3
     public var allowsExpensiveNetworkAccess: Bool = true
     public var allowsConstrainedNetworkAccess: Bool = true
-
-    public init() {}
 }
 
 #if canImport(Darwin)

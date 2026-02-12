@@ -41,7 +41,7 @@ extension HTTP {
     public static func perform<Client: HTTPClient & ~Copyable, Return: ~Copyable>(
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<Client.RequestWriter>? = nil,
-        options: Client.RequestOptions = .init(),
+        options: Client.RequestOptions? = nil,
         on client: borrowing Client = DefaultHTTPClient.shared,
         responseHandler: (HTTPResponse, consuming Client.ResponseConcludingReader) async throws -> Return,
     ) async throws -> Return {
@@ -67,7 +67,7 @@ extension HTTP {
     public static func get<Client: HTTPClient & ~Copyable>(
         url: URL,
         headerFields: HTTPFields = [:],
-        options: Client.RequestOptions = .init(),
+        options: Client.RequestOptions? = nil,
         on client: borrowing Client = DefaultHTTPClient.shared,
         collectUpTo limit: Int,
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
@@ -95,7 +95,7 @@ extension HTTP {
         url: URL,
         headerFields: HTTPFields = [:],
         bodyData: Data,
-        options: Client.RequestOptions = .init(),
+        options: Client.RequestOptions? = nil,
         on client: borrowing Client = DefaultHTTPClient.shared,
         collectUpTo limit: Int,
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
@@ -123,7 +123,7 @@ extension HTTP {
         url: URL,
         headerFields: HTTPFields = [:],
         bodyData: Data,
-        options: Client.RequestOptions = .init(),
+        options: Client.RequestOptions? = nil,
         on client: borrowing Client = DefaultHTTPClient.shared,
         collectUpTo limit: Int,
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
@@ -151,7 +151,7 @@ extension HTTP {
         url: URL,
         headerFields: HTTPFields = [:],
         bodyData: Data? = nil,
-        options: Client.RequestOptions = .init(),
+        options: Client.RequestOptions? = nil,
         on client: borrowing Client = DefaultHTTPClient.shared,
         collectUpTo limit: Int,
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
@@ -179,7 +179,7 @@ extension HTTP {
         url: URL,
         headerFields: HTTPFields = [:],
         bodyData: Data,
-        options: Client.RequestOptions = .init(),
+        options: Client.RequestOptions? = nil,
         on client: borrowing Client = DefaultHTTPClient.shared,
         collectUpTo limit: Int,
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
