@@ -33,13 +33,13 @@ public struct HTTPConnectionPoolConfiguration: Hashable, Sendable {
     public init() {}
 }
 
-/// A connection pool-based HTTP client that manages persistent connections to HTTP servers.
+/// The default HTTP client that manages persistent connections to HTTP servers.
 ///
-/// `HTTPConnectionPool` provides an efficient HTTP client implementation that reuses
+/// `DefaultHTTPClient` provides an efficient HTTP client implementation that reuses
 /// connections across multiple requests. It supports HTTP/1.1, HTTP/2, and HTTP/3 protocols,
 /// automatically handling connection management, protocol negotiation, and resource cleanup.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-public struct HTTPConnectionPool: HTTPClient, Sendable, ~Copyable {
+public struct DefaultHTTPClient: HTTPClient, Sendable, ~Copyable {
     public struct RequestWriter: AsyncWriter, ~Copyable {
         public mutating func write<Result, Failure>(
             _ body: (inout OutputSpan<UInt8>) async throws(Failure) -> Result
@@ -102,32 +102,32 @@ public struct HTTPConnectionPool: HTTPClient, Sendable, ~Copyable {
     }
 
     /// A shared connection pool instance with default configuration.
-    public static var shared: HTTPConnectionPool {
+    public static var shared: DefaultHTTPClient {
         #if canImport(Darwin)
-        HTTPConnectionPool(client: URLSessionHTTPClient.shared)
+        DefaultHTTPClient(client: URLSessionHTTPClient.shared)
         #else
         fatalError()
         #endif
     }
 
-    /// Creates a connection pool with custom configuration and executes a closure with it.
+    /// Creates a client with custom pool configuration and executes a closure with it.
     ///
     /// This method provides a scoped way to use a custom-configured connection pool.
     /// The pool is automatically cleaned up after the closure completes.
     ///
     /// - Parameters:
-    ///   - configuration: The configuration to use for the connection pool.
+    ///   - poolConfiguration: The configuration to use for the connection pool.
     ///   - body: A closure that receives the configured connection pool and performs
     ///     HTTP operations with it.
     /// - Returns: The value returned by the `body` closure.
     /// - Throws: Any error thrown by the `body` closure.
-    public static func withHTTPConnectionPool<Return: ~Copyable, Failure: Error>(
-        configuration: HTTPConnectionPoolConfiguration,
-        body: (borrowing HTTPConnectionPool) async throws(Failure) -> Return
+    public static func withClient<Return: ~Copyable, Failure: Error>(
+        poolConfiguration: HTTPConnectionPoolConfiguration,
+        body: (borrowing DefaultHTTPClient) async throws(Failure) -> Return
     ) async throws(Failure) -> Return {
         #if canImport(Darwin)
-        try await URLSessionHTTPClient.withClient(poolConfiguration: configuration) { client throws(Failure) in
-            try await body(HTTPConnectionPool(client: client))
+        try await URLSessionHTTPClient.withClient(poolConfiguration: poolConfiguration) { client throws(Failure) in
+            try await body(DefaultHTTPClient(client: client))
         }
         #else
         fatalError()

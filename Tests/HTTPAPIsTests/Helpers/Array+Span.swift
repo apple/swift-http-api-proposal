@@ -12,12 +12,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if canImport(Darwin)
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-enum HTTPTypeConversionError: Error {
-    case unsupportedScheme
-    case failedToConvertHTTPTypesToURLType
-    case failedToConvertURLTypeToHTTPTypes
-}
+extension Array {
+    init(_ span: Span<Element>) {
+        self.init()
+        for index in span.indices {
+            self.append(span[index])
+        }
+    }
 
-#endif
+    mutating func append(span: Span<Element>) {
+        for index in span.indices {
+            self.append(span[index])
+        }
+    }
+}
