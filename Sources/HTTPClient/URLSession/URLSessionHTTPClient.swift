@@ -26,8 +26,9 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
 
     let poolConfiguration: HTTPConnectionPoolConfiguration
 
-    private init(poolConfiguration: HTTPConnectionPoolConfiguration) {
+    private init(poolConfiguration: HTTPConnectionPoolConfiguration, shared: Bool) {
         self.poolConfiguration = poolConfiguration
+        self.sessions = .init(.init(shared: shared))
     }
 
     static func withClient<Return: ~Copyable, Failure: Error>(
@@ -37,7 +38,7 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
         // withTaskGroup does not support ~Copyable result type
         var result: Result<Return, Failure>? = nil
         await withTaskGroup { group in
-            let client = URLSessionHTTPClient(poolConfiguration: poolConfiguration)
+            let client = URLSessionHTTPClient(poolConfiguration: poolConfiguration, shared: false)
             group.addTask {
                 await IdleTimer.run(timeout: .seconds(5 * 60), provider: client)
             }
@@ -53,7 +54,7 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
     }
 
     static let shared: URLSessionHTTPClient = {
-        let client = URLSessionHTTPClient(poolConfiguration: .init())
+        let client = URLSessionHTTPClient(poolConfiguration: .init(), shared: true)
         // This is the only expected unstructured task since the singleton client doesn't have a parent task to attach to.
         Task.detached {
             await IdleTimer.run(timeout: .seconds(5 * 60), provider: client)
@@ -61,7 +62,7 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
         return client
     }()
 
-    struct SessionConfiguration: Hashable {
+    fileprivate struct SessionConfiguration: Hashable {
         let poolConfiguration: HTTPConnectionPoolConfiguration
         let minimumTLSVersion: TLSVersion
         let maximumTLSVersion: TLSVersion
@@ -72,11 +73,17 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
             self.poolConfiguration = poolConfiguration
         }
 
-        func sessionConfiguration(storage: URLSessionConfiguration) -> URLSessionConfiguration {
-            let configuration = URLSessionConfiguration.ephemeral
-            configuration.httpCookieStorage = storage.httpCookieStorage
-            configuration.urlCredentialStorage = storage.urlCredentialStorage
-            configuration.urlCache = storage.urlCache
+        func sessionConfiguration(storage: Sessions.Storage) -> URLSessionConfiguration {
+            let configuration: URLSessionConfiguration
+            switch storage {
+            case .persistent:
+                configuration = .default
+            case .ephemeral(let storageConfiguration):
+                configuration = URLSessionConfiguration.ephemeral
+                configuration.httpCookieStorage = storageConfiguration.httpCookieStorage
+                configuration.urlCredentialStorage = storageConfiguration.urlCredentialStorage
+                configuration.urlCache = storageConfiguration.urlCache
+            }
             configuration.usesClassicLoadingMode = false
             configuration.httpMaximumConnectionsPerHost = poolConfiguration.maximumConcurrentHTTP1ConnectionsPerHost
             if let version = self.minimumTLSVersion.tlsProtocolVersion {
@@ -91,7 +98,7 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
 
     final class Session: NSObject, URLSessionDelegate, IdleTimerEntry {
         private weak let client: URLSessionHTTPClient?
-        let configuration: SessionConfiguration
+        fileprivate let configuration: SessionConfiguration
         private struct State {
             var session: URLSession! = nil
             var tasks: UInt8 = 0
@@ -110,9 +117,9 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
             }
         }
 
-        init(
+        fileprivate init(
             configuration: SessionConfiguration,
-            storage: URLSessionConfiguration,
+            storage: Sessions.Storage,
             client: URLSessionHTTPClient
         ) {
             self.client = client
@@ -124,7 +131,7 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
             }
         }
 
-        func startTask() -> URLSession {
+        fileprivate func startTask() -> URLSession {
             self.state.withLock {
                 $0.tasks += 1
                 $0.idleTime = nil
@@ -132,7 +139,7 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
             }
         }
 
-        func finishTask() {
+        fileprivate func finishTask() {
             self.state.withLock {
                 $0.tasks -= 1
                 if $0.tasks == 0 {
@@ -145,7 +152,7 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
             self.invalidate()
         }
 
-        func invalidate() {
+        fileprivate func invalidate() {
             self.client?.sessionInvalidating(self)
             self.state.withLock {
                 $0.session.invalidateAndCancel()
@@ -157,17 +164,25 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
         }
     }
 
-    private struct Sessions: ~Copyable {
-        let storage = URLSessionConfiguration.ephemeral
+    fileprivate struct Sessions: ~Copyable {
+        enum Storage {
+            case persistent
+            case ephemeral(URLSessionConfiguration)
+        }
+        let storage: Storage
         var sessions: [SessionConfiguration: Session] = [:]
         var invalidatingSession: Set<Session> = []
         var invalidateContinuation: CheckedContinuation<Void, Never>? = nil
         var invalidated = false
+
+        init(shared: Bool) {
+            self.storage = shared ? .persistent : .ephemeral(.ephemeral)
+        }
     }
 
-    private let sessions: Mutex<Sessions> = .init(.init())
+    private let sessions: Mutex<Sessions>
 
-    func session(for options: HTTPRequestOptions) -> Session {
+    private func session(for options: HTTPRequestOptions) -> Session {
         let configuration = SessionConfiguration(options, poolConfiguration: self.poolConfiguration)
         return self.sessions.withLock {
             if $0.invalidated {
@@ -182,14 +197,14 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
         }
     }
 
-    func sessionInvalidating(_ session: Session) {
+    private func sessionInvalidating(_ session: Session) {
         self.sessions.withLock {
             $0.sessions[session.configuration] = nil
             $0.invalidatingSession.insert(session)
         }
     }
 
-    func sessionInvalidated(_ session: Session) {
+    private func sessionInvalidated(_ session: Session) {
         self.sessions.withLock {
             $0.invalidatingSession.remove(session)
             if let continuation = $0.invalidateContinuation, $0.sessions.isEmpty && $0.invalidatingSession.isEmpty {
@@ -220,7 +235,7 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
         self.sessions.withLock { $0.sessions.values }
     }
 
-    func request(for request: HTTPRequest, options: HTTPRequestOptions) throws -> URLRequest {
+    private func request(for request: HTTPRequest, options: HTTPRequestOptions) throws -> URLRequest {
         guard var request = URLRequest(httpRequest: request) else {
             throw HTTPTypeConversionError.failedToConvertHTTPTypesToURLType
         }
