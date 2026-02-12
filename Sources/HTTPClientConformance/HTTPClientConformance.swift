@@ -52,8 +52,8 @@ public func runAllConformanceTests<Client: HTTPClient & Sendable & ~Copyable>(
     // TODO: Writing just an empty span causes an indefinite stall. The terminating chunk (size 0) is not written out on the wire.
     // try await emptyChunkedBody(try await clientFactory())
 
-    try await cancelPreHeaders(try await clientFactory())
-    try await cancelPreBody(try await clientFactory())
+    try await cancelPreHeaders(clientFactory)
+    try await cancelPreBody(clientFactory)
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
@@ -455,63 +455,97 @@ func echoInterleave<Client: HTTPClient & Sendable & ~Copyable>(_ client: consumi
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-func cancelPreHeaders<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming Client) async throws {
-    // The /stall HTTP endpoint is not expected to return at all.
-    // Because of the cancellation, we're expected to return from this task group
-    // within 100ms.
-    let task = Task {
-        let request = HTTPRequest(
-            method: .get,
-            scheme: "http",
-            authority: "127.0.0.1:12345",
-            path: "/stall",
-        )
+func cancelPreHeaders<Client: HTTPClient & Sendable & ~Copyable>(_ clientFactory: () async throws -> Client) async throws {
+    try await withThrowingTaskGroup { group in
+        let client = try await clientFactory()
 
-        try await client.perform(
-            request: request,
-        ) { response, responseBodyAndTrailers in
-            assertionFailure("Never expected to actually receive a response")
+        group.addTask {
+            // The /stall HTTP endpoint is not expected to return at all.
+            // Because of the cancellation, we're expected to return from this task group
+            // within 100ms.
+            let request = HTTPRequest(
+                method: .get,
+                scheme: "http",
+                authority: "127.0.0.1:12345",
+                path: "/stall",
+            )
+
+            try await client.perform(
+                request: request,
+            ) { response, responseBodyAndTrailers in
+                assertionFailure("Never expected to actually receive a response")
+            }
         }
-    }
-    try await Task.sleep(for: .milliseconds(100))
-    task.cancel()
 
-    // We expect the task to throw an error because the server did not complete
-    // the request and the task is now cancelled.
-    await #expect(throws: (any Error).self) {
-        try await task.value
+        // Wait for a short amount of time for the request to be made.
+        try await Task.sleep(for: .milliseconds(100))
+
+        // Now cancel the task group
+        group.cancelAll()
+
+        // This should result in the task throwing an exception because
+        // the server didn't send any headers or body and the task is now
+        // cancelled.
+        await #expect(throws: (any Error).self) {
+            try await group.next()
+        }
     }
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-func cancelPreBody<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming Client) async throws {
-    // The /stall_body HTTP endpoint gives headers, but is not expected to return a
-    // body. Because of the cancellation, we're expected to return from this task group
-    // within 100ms.
-    let task = Task {
-        let request = HTTPRequest(
-            method: .get,
-            scheme: "http",
-            authority: "127.0.0.1:12345",
-            path: "/stall_body",
-        )
+func cancelPreBody<Client: HTTPClient & Sendable & ~Copyable>(_ clientFactory: () async throws -> Client) async throws {
+    try await withThrowingTaskGroup { group in
+        // Used by the task to notify when the task group should be cancelled
+        let (stream, continuation) = AsyncStream<Void>.makeStream()
+        let client = try await clientFactory()
 
-        try await client.perform(
-            request: request,
-        ) { response, responseBodyAndTrailers in
-            #expect(response.status == .ok)
-            let _ = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                assertionFailure("Not expected to receive a body")
+        group.addTask {
+            // The /stall_body HTTP endpoint gives headers and an incomplete 1000-byte body.
+            let request = HTTPRequest(
+                method: .get,
+                scheme: "http",
+                authority: "127.0.0.1:12345",
+                path: "/stall_body",
+            )
+
+            try await client.perform(
+                request: request,
+            ) { response, responseBodyAndTrailers in
+                #expect(response.status == .ok)
+                let _ = try await responseBodyAndTrailers.consumeAndConclude { reader in
+                    var reader = reader
+
+                    // Now trigger the task group cancellation.
+                    continuation.yield()
+
+                    // The client may choose to return however much of the body it already
+                    // has downloaded, but eventually it must throw an exception because
+                    // the response is incomplete and the task has been cancelled.
+                    while true {
+                        // TODO: There is a bug if we use `.collect(upTo: .max)` instead of read.
+                        // `.collect(upTo: .max)` returns 1000 byte span and then 0 byte span
+                        // which is unexpected. We should not see a 0-byte span because that
+                        // means that the stream ended cleanly, which clearly did not happen
+                        // here. The server didn't complete the request and we cancelled the
+                        // task, so throwing an exception is the correct thing to do here.
+                        try await reader.read(maximumCount: nil) {
+                            #expect($0.count > 0)
+                        }
+                    }
+                }
             }
         }
-    }
-    try await Task.sleep(for: .milliseconds(100))
-    task.cancel()
 
-    // We expect the task to throw an error because the server did not complete
-    // the request and the task is now cancelled.
-    await #expect(throws: (any Error).self) {
-        try await task.value
+        // Wait to be notified about cancelling the task group
+        await stream.first { true }
+
+        // Now cancel the task group
+        group.cancelAll()
+
+        // This should result in the task throwing an exception.
+        await #expect(throws: (any Error).self) {
+            try await group.next()
+        }
     }
 }
 
