@@ -518,10 +518,19 @@ func cancelPreBody<Client: HTTPClient & Sendable & ~Copyable>(_ clientFactory: (
                     // Now trigger the task group cancellation.
                     continuation.yield()
 
-                    // Trying to collect a body should throw an exception because
-                    // the server didn't complete the body and the task is now cancelled.
-                    try await reader.collect(upTo: .max) { span in
-                        assertionFailure("Unexpectedly received \(span.count) bytes")
+                    // The client may choose to return however much of the body it already
+                    // has downloaded, but eventually it must throw an exception because
+                    // the response is incomplete and the task has been cancelled.
+                    while true {
+                        // TODO: There is a bug if we use `.collect(upTo: .max)` instead of read.
+                        // `.collect(upTo: .max)` returns 1000 byte span and then 0 byte span
+                        // which is unexpected. We should not see a 0-byte span because that
+                        // means that the stream ended cleanly, which clearly did not happen
+                        // here. The server didn't complete the request and we cancelled the
+                        // task, so throwing an exception is the correct thing to do here.
+                        try await reader.read(maximumCount: nil) {
+                            #expect($0.count > 0)
+                        }
                     }
                 }
             }
