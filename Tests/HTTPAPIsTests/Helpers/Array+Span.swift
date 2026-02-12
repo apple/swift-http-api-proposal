@@ -12,11 +12,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-extension Optional where Wrapped: ~Copyable {
-    @inlinable
-    mutating func takeSending() -> sending Self {
-        let result = consume self
-        self = nil
-        return result
+extension Array {
+    init(_ span: Span<Element>) {
+        self.init()
+        for index in span.indices {
+            self.append(span[index])
+        }
+    }
+
+    mutating func append(span: Span<Element>) {
+        for index in span.indices {
+            self.append(span[index])
+        }
     }
 }
