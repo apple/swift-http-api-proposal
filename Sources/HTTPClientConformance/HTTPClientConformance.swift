@@ -32,7 +32,7 @@ public func runAllConformanceTests<Client: HTTPClient & Sendable & ~Copyable>(
     let server = TestHTTPServer()
     await server.serve()
 
-    // Run all the convenience test cases
+    // Run all the test cases
     try await ok(try await clientFactory())
     try await echoString(try await clientFactory())
     try await gzip(try await clientFactory())
