@@ -483,70 +483,77 @@ struct HTTPClientTests {
     @Test(.enabled(if: testsEnabled), .timeLimit(.minutes(1)))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func cancelPartialBody() async throws {
-        // This mutex allows the task to cancel itself.
-        let task_mutex: Mutex<Task<Void, any Error>?> = .init(nil)
+        await withThrowingTaskGroup { group in
+            // Used by the task to notify when the task group should be cancelled
+            let shouldCancelTaskGroup: Mutex<CheckedContinuation<Void, Never>?> = .init(nil)
 
-        // Spins on the task mutex until its set and then cancels it.
-        func cancelTask() {
-            var success = false
-            while !success {
-                task_mutex.withLock {
-                    if let task = $0 {
-                        task.cancel()
-                        success = true
+            // Unblocks the continuation causing the cancellation of the task group
+            func cancelTaskGroup() {
+                while true {
+                    let success = shouldCancelTaskGroup.withLock {
+                        guard let continuation = $0 else {
+                            return false
+                        }
+                        continuation.resume()
+                        return true
                     }
+                    if success { break }
                 }
             }
-        }
 
-        let task = Task {
-            // The /stall_body HTTP endpoint gives headers and an incomplete 1000-byte body.
-            let request = HTTPRequest(
-                method: .get,
-                scheme: "http",
-                authority: "127.0.0.1:12345",
-                path: "/stall_body",
-            )
+            group.addTask {
+                // The /stall_body HTTP endpoint gives headers and an incomplete 1000-byte body.
+                let request = HTTPRequest(
+                    method: .get,
+                    scheme: "http",
+                    authority: "127.0.0.1:12345",
+                    path: "/stall_body",
+                )
 
-            try await HTTP.perform(
-                request: request,
-            ) { response, responseBodyAndTrailers in
-                #expect(response.status == .ok)
-                let _ = try await responseBodyAndTrailers.consumeAndConclude { reader in
-                    var reader = reader
+                try await HTTP.perform(
+                    request: request,
+                ) { response, responseBodyAndTrailers in
+                    #expect(response.status == .ok)
+                    let _ = try await responseBodyAndTrailers.consumeAndConclude { reader in
+                        var reader = reader
 
-                    // Read the first 100 bytes of the body
-                    let _ = try await reader.read(maximumCount: 100) { span in
-                        #expect(span.count == 100)
-                    }
+                        // Get just one byte to start reading some of the body.
+                        let _ = try await reader.read(maximumCount: 1) { span in
+                            #expect(span.count == 1)
+                        }
 
-                    // The task cancels itself so that the next read occurs in a
-                    // cancelled state.
-                    cancelTask()
+                        // Now trigger the task group cancellation.
+                        cancelTaskGroup()
 
-                    // Trying to read anymore should eventually throw an
-                    // exception because the server didn't complete the body
-                    // and the task is now cancelled.
-                    while true {
-                        let _ = try await reader.read(maximumCount: nil) { span in
-                            // It is okay if the client chooses to return any
-                            // of the remaining body it has already downloaded.
-                            #expect(span.count > 0)
+                        // Trying to read should eventually throw an
+                        // exception because the server didn't complete the body
+                        // and the task is now cancelled.
+                        while true {
+                            let _ = try await reader.read(maximumCount: nil) { span in
+                                // It is okay if the client chooses to return any
+                                // of the remaining body it has already downloaded.
+                                // An empty span, however, is never acceptable, because
+                                // that implies a graceful "end of the stream", which
+                                // this is definitely not.
+                                #expect(span.count > 0)
+                            }
                         }
                     }
                 }
             }
-        }
 
-        // Sets the task mutex, allowing the task to cancel itself.
-        task_mutex.withLock {
-            $0 = task
-        }
+            // Wait to be notified about cancelling the task group
+            await withCheckedContinuation { continuation in
+                shouldCancelTaskGroup.withLock { $0 = continuation }
+            }
 
-        // The task should throw an error because it tried to read when
-        // there was no more data and the task was cancelled.
-        await #expect(throws: (any Error).self) {
-            try await task.value
+            // Now cancel the task group
+            group.cancelAll()
+
+            // This should result in the task throwing an exception.
+            await #expect(throws: (any Error).self) {
+                try await group.next()
+            }
         }
     }
 
