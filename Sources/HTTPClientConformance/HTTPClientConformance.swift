@@ -475,7 +475,12 @@ func cancelPreHeaders<Client: HTTPClient & Sendable & ~Copyable>(_ client: consu
     }
     try await Task.sleep(for: .milliseconds(100))
     task.cancel()
-    try await task.value
+
+    // We expect the task to throw an error because the server did not complete
+    // the request and the task is now cancelled.
+    await #expect(throws: (any Error).self) {
+        try await task.value
+    }
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
@@ -502,7 +507,12 @@ func cancelPreBody<Client: HTTPClient & Sendable & ~Copyable>(_ client: consumin
     }
     try await Task.sleep(for: .milliseconds(100))
     task.cancel()
-    try await task.value
+
+    // We expect the task to throw an error because the server did not complete
+    // the request and the task is now cancelled.
+    await #expect(throws: (any Error).self) {
+        try await task.value
+    }
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
