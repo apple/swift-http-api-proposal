@@ -128,7 +128,9 @@ let package = Package(
         .target(
             name: "HTTPClientConformance",
             dependencies: [
+                "HTTPClient",
                 "HTTPServerForTesting",
+                .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "Logging", package: "swift-log"),
             ],
             swiftSettings: extraSettings
