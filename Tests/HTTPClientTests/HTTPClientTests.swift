@@ -503,34 +503,20 @@ struct HTTPClientTests {
                     let _ = try await responseBodyAndTrailers.consumeAndConclude { reader in
                         var reader = reader
 
-                        // Get just one byte to start reading some of the body.
-                        let _ = try await reader.read(maximumCount: 1) { span in
-                            #expect(span.count == 1)
-                        }
-
                         // Now trigger the task group cancellation.
                         continuation.yield()
 
-                        // Trying to read should eventually throw an
-                        // exception because the server didn't complete the body
-                        // and the task is now cancelled.
-                        while true {
-                            let _ = try await reader.read(maximumCount: nil) { span in
-                                // It is okay if the client chooses to return any
-                                // of the remaining body it has already downloaded.
-                                // An empty span, however, is never acceptable, because
-                                // that implies a graceful "end of the stream", which
-                                // this is definitely not.
-                                #expect(span.count > 0)
-                            }
+                        // Trying to collect a body should throw an exception because
+                        // the server didn't complete the body and the task is now cancelled.
+                        try await reader.collect(upTo: .max) { span in
+                            assertionFailure("Unexpectedly received \(span.count) bytes")
                         }
                     }
                 }
             }
 
             // Wait to be notified about cancelling the task group
-            var iter = stream.makeAsyncIterator()
-            await iter.next()!
+            await stream.first { true }
 
             // Now cancel the task group
             group.cancelAll()
