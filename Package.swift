@@ -32,6 +32,10 @@ let package = Package(
             url: "https://github.com/FranzBusch/swift-collections.git",
             branch: "fb-async"
         ),
+        .package(
+            url: "https://github.com/FranzBusch/swift-async-algorithms.git",
+            branch: "fb-nonisolated-nonsending"
+        ),
         .package(url: "https://github.com/apple/swift-http-types.git", from: "1.5.1"),
         .package(url: "https://github.com/apple/swift-certificates.git", from: "1.16.0"),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
@@ -42,6 +46,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-configuration", from: "1.0.0"),
     ],
     targets: [
+        // MARK: Libraries
         .target(
             name: "HTTPAPIs",
             dependencies: [
@@ -79,7 +84,10 @@ let package = Package(
         .target(
             name: "AsyncStreaming",
             dependencies: [
-                .product(name: "BasicContainers", package: "swift-collections")
+                .product(
+                    name: "BasicContainers",
+                    package: "swift-collections"
+                )
             ],
             swiftSettings: extraSettings
         ),
@@ -88,12 +96,16 @@ let package = Package(
             swiftSettings: extraSettings
         ),
 
-        // MARK: Tests
+        // MARK: Conformance Testing
 
-        // This target is borrowed from `swift-http-server` and is only used for tests
         .target(
-            name: "HTTPServerForTesting",
+            name: "HTTPClientConformance",
             dependencies: [
+                "HTTPClient",
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+
+                // These dependencies are needed by the `swift-http-server` that
+                // we borrowed.
                 "AsyncStreaming",
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "BasicContainers", package: "swift-collections"),
@@ -114,9 +126,11 @@ let package = Package(
                     condition: .when(traits: ["SwiftConfiguration"])
                 ),
             ],
-            path: "./Tests/HTTPServer",
             swiftSettings: extraSettings
         ),
+
+        // MARK: Tests
+
         .testTarget(
             name: "NetworkTypesTests",
             dependencies: [
@@ -132,11 +146,20 @@ let package = Package(
             swiftSettings: extraSettings
         ),
         .testTarget(
+            name: "HTTPAPIsTests",
+            dependencies: [
+                "HTTPAPIs",
+                "AsyncStreaming",
+                "NetworkTypes",
+                .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+            ],
+            swiftSettings: extraSettings
+        ),
+        .testTarget(
             name: "HTTPClientTests",
             dependencies: [
                 "HTTPClient",
-                "HTTPServerForTesting",
-                .product(name: "Logging", package: "swift-log"),
+                "HTTPClientConformance",
             ],
             swiftSettings: extraSettings
         ),
@@ -145,6 +168,24 @@ let package = Package(
             dependencies: [
                 "Middleware"
             ],
+            swiftSettings: extraSettings
+        ),
+
+        // MARK: Examples
+        .executableTarget(
+            name: "EchoServer",
+            dependencies: [
+                "HTTPAPIs"
+            ],
+            path: "Examples/EchoServer",
+            swiftSettings: extraSettings
+        ),
+        .executableTarget(
+            name: "ProxyServer",
+            dependencies: [
+                "HTTPAPIs"
+            ],
+            path: "Examples/ProxyServer",
             swiftSettings: extraSettings
         ),
     ]

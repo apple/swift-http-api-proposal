@@ -162,6 +162,7 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
         var sessions: [SessionConfiguration: Session] = [:]
         var invalidatingSession: Set<Session> = []
         var invalidateContinuation: CheckedContinuation<Void, Never>? = nil
+        var invalidated = false
     }
 
     private let sessions: Mutex<Sessions> = .init(.init())
@@ -169,6 +170,9 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
     func session(for options: HTTPRequestOptions) -> Session {
         let configuration = SessionConfiguration(options, poolConfiguration: self.poolConfiguration)
         return self.sessions.withLock {
+            if $0.invalidated {
+                fatalError("DefaultHTTPClient used outside its scope")
+            }
             if let session = $0.sessions[configuration] {
                 return session
             }
@@ -190,6 +194,7 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
             $0.invalidatingSession.remove(session)
             if let continuation = $0.invalidateContinuation, $0.sessions.isEmpty && $0.invalidatingSession.isEmpty {
                 continuation.resume()
+                $0.invalidateContinuation = nil
             }
         }
     }
@@ -197,6 +202,7 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
     private func invalidate() async {
         await withCheckedContinuation { continuation in
             let sessionsToInvalidate = self.sessions.withLock {
+                $0.invalidated = true
                 if $0.sessions.isEmpty && $0.invalidatingSession.isEmpty {
                     continuation.resume()
                 } else {

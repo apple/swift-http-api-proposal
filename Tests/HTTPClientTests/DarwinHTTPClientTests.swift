@@ -12,11 +12,25 @@
 //
 //===----------------------------------------------------------------------===//
 
-extension Optional where Wrapped: ~Copyable {
-    @inlinable
-    mutating func takeSending() -> sending Self {
-        let result = consume self
-        self = nil
-        return result
+import HTTPClient
+import HTTPClientConformance
+import Testing
+
+let testsEnabled: Bool = {
+    #if canImport(Darwin)
+    true
+    #else
+    false
+    #endif
+}()
+
+@Suite
+struct DarwinHTTPClientTests {
+    @Test(.enabled(if: testsEnabled))
+    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+    func conformance() async throws {
+        try await runAllConformanceTests {
+            return HTTPConnectionPool.shared
+        }
     }
 }
