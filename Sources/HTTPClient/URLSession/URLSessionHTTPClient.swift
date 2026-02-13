@@ -74,12 +74,13 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
         }
 
         func sessionConfiguration(storage: Sessions.Storage) -> URLSessionConfiguration {
-            let configuration: URLSessionConfiguration = switch storage {
-            case .persistent:
-                .default
-            case .ephemeral(let storageConfiguration):
-                storageConfiguration.copy() as! URLSessionConfiguration
-            }
+            let configuration: URLSessionConfiguration =
+                switch storage {
+                case .persistent:
+                    .default
+                case .ephemeral(let storageConfiguration):
+                    storageConfiguration.copy() as! URLSessionConfiguration
+                }
             configuration.usesClassicLoadingMode = false
             configuration.httpMaximumConnectionsPerHost = poolConfiguration.maximumConcurrentHTTP1ConnectionsPerHost
             if let version = self.minimumTLSVersion.tlsProtocolVersion {
