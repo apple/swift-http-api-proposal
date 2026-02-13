@@ -35,6 +35,9 @@ public protocol HTTPClient<RequestOptions>: ~Copyable {
     associatedtype ResponseConcludingReader: ConcludingAsyncReader, ~Copyable, SendableMetatype
     where ResponseConcludingReader.Underlying.ReadElement == UInt8, ResponseConcludingReader.FinalElement == HTTPFields?
 
+    /// The default request options for `perform`.
+    var defaultRequestOptions: RequestOptions { get }
+
     /// Performs an HTTP request and processes the response.
     ///
     /// This method executes the HTTP request with the specified options, then invokes
@@ -57,7 +60,4 @@ public protocol HTTPClient<RequestOptions>: ~Copyable {
         options: RequestOptions?,
         responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return
     ) async throws -> Return
-
-    /// The default request options for `perform`.
-    var defaultRequestOptions: RequestOptions { get }
 }
