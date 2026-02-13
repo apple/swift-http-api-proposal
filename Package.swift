@@ -22,6 +22,7 @@ let package = Package(
         .library(name: "HTTPServer", targets: ["HTTPServer"]),
         .library(name: "AsyncStreaming", targets: ["AsyncStreaming"]),
         .library(name: "NetworkTypes", targets: ["NetworkTypes"]),
+        .library(name: "HTTPClientConformance", targets: ["HTTPClientConformance"])
     ],
     traits: [
         .trait(name: "SwiftConfiguration"),
