@@ -82,6 +82,10 @@ actor TestHTTPServer {
                 case "/200":
                     // OK
                     let writer = try await responseSender.send(HTTPResponse(status: .ok))
+
+                    // Do not write a response body for a HEAD request
+                    if request.method == .head { break }
+
                     try await writer.writeAndConclude("".utf8.span, finalElement: nil)
                 case "/gzip":
                     // If the client didn't say that they supported this encoding,
