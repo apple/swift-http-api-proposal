@@ -16,6 +16,7 @@ import AsyncStreaming
 import Foundation
 import HTTPTypes
 import Logging
+import Testing
 
 // HTTP request as received by the server.
 // Encoded into JSON and written back to the client.
@@ -215,6 +216,53 @@ actor TestHTTPServer {
                                 return nil
                             }
                         }
+                case "/speak":
+                    // Used to ping-pong between the client-side writer and reader
+                    let (writerWaiting, continuation) = AsyncStream<Void>.makeStream()
+
+                    // Needed since we are lacking call-once closures
+                    var requestBodyAndTrailers = Optional(requestBodyAndTrailers)
+
+                    // This task checks that the server read exactly 1000 2-byte chunks of "AB"
+                    let readTask = Task {
+                        let _ = try await requestBodyAndTrailers.take()!.consumeAndConclude { reader in
+                            var numberOfChunks = 0
+
+                            try await reader.forEach { span in
+                                numberOfChunks += 1
+                                #expect(span.count == 2)
+                                #expect(span[0] == UInt8(ascii: "A"))
+                                #expect(span[1] == UInt8(ascii: "B"))
+
+                                // Unblock the writer
+                                continuation.yield()
+                            }
+
+                            continuation.finish()
+                            #expect(numberOfChunks == 1000)
+                        }
+                    }
+
+                    // Send the headers for the response
+                    let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
+
+                    // Server writes 1000 2-byte chunks of "AB"
+                    try await responseBodyAndTrailers.produceAndConclude {
+                        var writer = $0
+
+                        for _ in 0..<1000 {
+                            // TODO: There's a bug that prevents a single byte from being
+                            // successfully written out as a chunk. So write 2 bytes for now.
+                            try await writer.write("AB".utf8.span)
+
+                            // Only proceed once the server receives the echoed data back.
+                            await writerWaiting.first(where: { true })
+                        }
+                        return nil
+                    }
+
+                    // Wait for the read task to complete as well
+                    try await readTask.value
                 case "/stall":
                     // Wait for an hour (effectively never giving an answer)
                     try! await Task.sleep(for: .seconds(60 * 60))

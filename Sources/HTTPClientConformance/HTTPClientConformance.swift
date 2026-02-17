@@ -48,12 +48,14 @@ public func runAllConformanceTests<Client: HTTPClient & Sendable & ~Copyable>(
     try await echoInterleave(try await clientFactory())
     try await getConvenience(try await clientFactory())
     try await postConvenience(try await clientFactory())
+    try await cancelPreHeaders(clientFactory)
+    try await cancelPreBody(clientFactory)
 
     // TODO: Writing just an empty span causes an indefinite stall. The terminating chunk (size 0) is not written out on the wire.
     // try await emptyChunkedBody(try await clientFactory())
 
-    try await cancelPreHeaders(clientFactory)
-    try await cancelPreBody(clientFactory)
+    // TODO: This hangs with URLSession but passes with AsyncHTTPClient. The terminating chunk from server is not processed by the client.
+    // try await speakInterleave(try await clientFactory())
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
@@ -448,6 +450,48 @@ func echoInterleave<Client: HTTPClient & Sendable & ~Copyable>(_ client: consumi
                 continuation.yield()
             }
             #expect(numberOfChunks == 1000)
+        }
+    }
+}
+
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+func speakInterleave<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming Client) async throws {
+    let request = HTTPRequest(
+        method: .post,
+        scheme: "http",
+        authority: "127.0.0.1:12345",
+        path: "/speak"
+    )
+
+    let (stream, continuation) = AsyncStream<String>.makeStream()
+
+    try await client.perform(
+        request: request,
+        body: .restartable { writer in
+            var writer = writer
+            var iterator = stream.makeAsyncIterator()
+
+            // Wait for a chunk from the server
+            while let chunk = await iterator.next() {
+                // Write it back to the server
+                try await writer.write(chunk.utf8.span)
+            }
+            return nil
+        }
+    ) { response, responseBodyAndTrailers in
+        #expect(response.status == .ok)
+        let _ = try await responseBodyAndTrailers.consumeAndConclude { reader in
+            // Read all chunks from server
+            try await reader.forEach { span in
+                let chunk = String(copying: try UTF8Span(validating: span))
+                #expect(chunk == "AB")
+
+                // Give chunk to the writer to echo back
+                continuation.yield(chunk)
+            }
+
+            // No more chunks from server. Stop writing as well.
+            continuation.finish()
         }
     }
 }
