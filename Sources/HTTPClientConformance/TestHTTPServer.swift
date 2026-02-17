@@ -16,7 +16,6 @@ import AsyncStreaming
 import Foundation
 import HTTPTypes
 import Logging
-import Testing
 
 // HTTP request as received by the server.
 // Encoded into JSON and written back to the client.
@@ -230,16 +229,18 @@ actor TestHTTPServer {
 
                             try await reader.forEach { span in
                                 numberOfChunks += 1
-                                #expect(span.count == 2)
-                                #expect(span[0] == UInt8(ascii: "A"))
-                                #expect(span[1] == UInt8(ascii: "B"))
+                                if span.count != 2 || span[0] != UInt8(ascii: "A") || span[1] != UInt8(ascii: "B") {
+                                    assertionFailure("Received unexpected span")
+                                }
 
                                 // Unblock the writer
                                 continuation.yield()
                             }
 
                             continuation.finish()
-                            #expect(numberOfChunks == 1000)
+                            if numberOfChunks != 1000 {
+                                assertionFailure("Received \(numberOfChunks) chunks, not 1000")
+                            }
                         }
                     }
 
