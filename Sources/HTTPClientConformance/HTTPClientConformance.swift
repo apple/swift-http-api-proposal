@@ -417,7 +417,7 @@ func echoInterleave<Client: HTTPClient & Sendable & ~Copyable>(_ client: consumi
     )
 
     // Used to ping-pong between the client-side writer and reader
-    let writerWaiting: Mutex<CheckedContinuation<Void, Never>?> = .init(nil)
+    let (writerWaiting, continuation) = AsyncStream<Void>.makeStream()
 
     try await client.perform(
         request: request,
@@ -430,9 +430,7 @@ func echoInterleave<Client: HTTPClient & Sendable & ~Copyable>(_ client: consumi
                 try await writer.write("AB".utf8.span)
 
                 // Only proceed once the client receives the echo.
-                await withCheckedContinuation { continuation in
-                    writerWaiting.withLock { $0 = continuation }
-                }
+                await writerWaiting.first(where: { true })
             }
             return nil
         }
@@ -447,7 +445,7 @@ func echoInterleave<Client: HTTPClient & Sendable & ~Copyable>(_ client: consumi
                 #expect(span[1] == UInt8(ascii: "B"))
 
                 // Unblock the writer
-                writerWaiting.withLock { $0!.resume() }
+                continuation.yield()
             }
             #expect(numberOfChunks == 1000)
         }
