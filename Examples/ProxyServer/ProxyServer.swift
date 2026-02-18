@@ -27,7 +27,7 @@ struct ProxyServer {
         fatalError("Waiting for a concrete HTTP server implementation")
     }
 
-    static func proxy(server: some HTTPServer, client: some HTTPClient & Sendable) async throws {
+    static func proxy(server: some HTTPServer, client: some HTTPClient) async throws {
         try await server.serve { request, requestContext, serverRequestBodyAndTrailers, responseSender in
             // We need to use a mutex here to move the requestBodyAndTrailers into the
             // @Sendable restartable body

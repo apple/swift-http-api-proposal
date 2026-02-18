@@ -20,7 +20,7 @@ import NetworkTypes
 import Synchronization
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider, Sendable {
+final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
     typealias RequestWriter = URLSessionRequestStreamBridge
     typealias ResponseConcludingReader = URLSessionTaskDelegateBridge
 
