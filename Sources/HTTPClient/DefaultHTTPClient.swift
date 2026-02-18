@@ -159,6 +159,10 @@ public struct DefaultHTTPClient: HTTPClient, ~Copyable {
         fatalError()
         #endif
     }
+
+    public var defaultRequestOptions: HTTPRequestOptions {
+        .init()
+    }
 }
 
 #endif

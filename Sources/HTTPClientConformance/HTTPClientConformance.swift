@@ -279,7 +279,7 @@ where Client.RequestOptions: HTTPClientCapability.RedirectionHandler {
         path: "/308"
     )
 
-    var options = Client.RequestOptions()
+    var options = client.defaultRequestOptions
     options.redirectionHandlerClosure = { response, newRequest in
         #expect(response.status == .permanentRedirect)
         return .follow(newRequest)
@@ -311,7 +311,7 @@ where Client.RequestOptions: HTTPClientCapability.RedirectionHandler {
         path: "/301"
     )
 
-    var options = Client.RequestOptions()
+    var options = client.defaultRequestOptions
     options.redirectionHandlerClosure = { response, newRequest in
         #expect(response.status == .movedPermanently)
         return .follow(newRequest)

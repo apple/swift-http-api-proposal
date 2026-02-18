@@ -160,6 +160,10 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
         )
     }
 
+    var defaultRequestOptions: RequestOptions {
+        .init()
+    }
+
     func serve(
         handler: some HTTPServerRequestHandler<AsyncChannelConcludingAsyncReader, AsyncChannelConcludingAsyncWriter>
     ) async throws {

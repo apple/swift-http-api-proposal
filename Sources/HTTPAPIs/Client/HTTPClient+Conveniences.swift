@@ -40,9 +40,10 @@ extension HTTPClient where Self: ~Copyable {
     public func perform<Return: ~Copyable>(
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<RequestWriter>? = nil,
-        options: RequestOptions = .init(),
+        options: RequestOptions? = nil,
         responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return,
     ) async throws -> Return {
+        let options = options ?? self.defaultRequestOptions
         return try await self.perform(request: request, body: body, options: options, responseHandler: responseHandler)
     }
 
@@ -63,10 +64,11 @@ extension HTTPClient where Self: ~Copyable {
     public func get(
         url: URL,
         headerFields: HTTPFields = [:],
-        options: RequestOptions = .init(),
+        options: RequestOptions? = nil,
         collectUpTo limit: Int,
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
         let request = HTTPRequest(url: url, headerFields: headerFields)
+        let options = options ?? self.defaultRequestOptions
         return try await self.perform(request: request, body: nil, options: options) { response, body in
             (
                 response,
@@ -94,10 +96,11 @@ extension HTTPClient where Self: ~Copyable {
         url: URL,
         headerFields: HTTPFields = [:],
         bodyData: Data,
-        options: RequestOptions = .init(),
+        options: RequestOptions? = nil,
         collectUpTo limit: Int,
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
         let request = HTTPRequest(method: .post, url: url, headerFields: headerFields)
+        let options = options ?? self.defaultRequestOptions
         return try await self.perform(request: request, body: .data(bodyData), options: options) { response, body in
             (
                 response,
@@ -125,10 +128,11 @@ extension HTTPClient where Self: ~Copyable {
         url: URL,
         headerFields: HTTPFields = [:],
         bodyData: Data,
-        options: RequestOptions = .init(),
+        options: RequestOptions? = nil,
         collectUpTo limit: Int,
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
         let request = HTTPRequest(method: .put, url: url, headerFields: headerFields)
+        let options = options ?? self.defaultRequestOptions
         return try await self.perform(request: request, body: .data(bodyData), options: options) { response, body in
             (
                 response,
@@ -156,10 +160,11 @@ extension HTTPClient where Self: ~Copyable {
         url: URL,
         headerFields: HTTPFields = [:],
         bodyData: Data? = nil,
-        options: RequestOptions = .init(),
+        options: RequestOptions? = nil,
         collectUpTo limit: Int,
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
         let request = HTTPRequest(method: .delete, url: url, headerFields: headerFields)
+        let options = options ?? self.defaultRequestOptions
         return try await self.perform(request: request, body: bodyData.map { .data($0) }, options: options) { response, body in
             (
                 response,
@@ -187,10 +192,11 @@ extension HTTPClient where Self: ~Copyable {
         url: URL,
         headerFields: HTTPFields = [:],
         bodyData: Data,
-        options: RequestOptions = .init(),
+        options: RequestOptions? = nil,
         collectUpTo limit: Int,
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
         let request = HTTPRequest(method: .patch, url: url, headerFields: headerFields)
+        let options = options ?? self.defaultRequestOptions
         return try await self.perform(request: request, body: .data(bodyData), options: options) { response, body in
             (
                 response,
