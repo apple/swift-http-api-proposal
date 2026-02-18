@@ -26,7 +26,8 @@ let package = Package(
     ],
     traits: [
         .trait(name: "SwiftConfiguration"),
-        .default(enabledTraits: ["SwiftConfiguration"]),
+        .trait(name: "ServiceLifecycle"),
+        .default(enabledTraits: ["SwiftConfiguration", "ServiceLifecycle"]),
     ],
     dependencies: [
         .package(
@@ -45,6 +46,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.30.0"),
         .package(url: "https://github.com/apple/swift-nio-http2.git", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-configuration", from: "1.0.0"),
+        .package(url: "https://github.com/swift-server/swift-service-lifecycle.git", from: "2.9.1"),
     ],
     targets: [
         // MARK: Libraries
@@ -54,6 +56,7 @@ let package = Package(
                 "AsyncStreaming",
                 "NetworkTypes",
                 .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "ServiceLifecycle", package: "swift-service-lifecycle", condition: .when(traits: ["ServiceLifecycle"])),
             ],
             swiftSettings: extraSettings
         ),
