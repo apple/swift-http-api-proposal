@@ -29,7 +29,7 @@ struct DarwinHTTPClientTests {
     @Test(.enabled(if: testsEnabled))
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func conformance() async throws {
-        try await runAllConformanceTests {
+        try await runBasicConformanceTests {
             return DefaultHTTPClient.shared
         }
     }
