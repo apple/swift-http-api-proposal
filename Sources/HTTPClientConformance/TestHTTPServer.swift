@@ -208,54 +208,35 @@ func serve(server: NIOHTTPServer) async throws {
                     }
                 }
         case "/speak":
-            // Used to ping-pong between the client-side writer and reader
-            let (writerWaiting, continuation) = AsyncStream<Void>.makeStream()
+            // Send the headers for the response
+            let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
 
             // Needed since we are lacking call-once closures
             var requestBodyAndTrailers = Optional(requestBodyAndTrailers)
 
-            // This task checks that the server read exactly 1000 2-byte chunks of "AB"
-            let readTask = Task {
-                let _ = try await requestBodyAndTrailers.take()!.consumeAndConclude { reader in
-                    var numberOfChunks = 0
-
-                    try await reader.forEach { span in
-                        numberOfChunks += 1
-                        if span.count != 2 || span[0] != UInt8(ascii: "A") || span[1] != UInt8(ascii: "B") {
-                            assertionFailure("Received unexpected span")
-                        }
-
-                        // Unblock the writer
-                        continuation.yield()
-                    }
-
-                    continuation.finish()
-                    if numberOfChunks != 1000 {
-                        assertionFailure("Received \(numberOfChunks) chunks, not 1000")
-                    }
-                }
-            }
-
-            // Send the headers for the response
-            let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
-
-            // Server writes 1000 2-byte chunks of "AB"
             try await responseBodyAndTrailers.produceAndConclude {
                 var writer = $0
+                let _ = try await requestBodyAndTrailers.take()!.consumeAndConclude {
+                    var reader = $0
 
-                for _ in 0..<1000 {
-                    // TODO: There's a bug that prevents a single byte from being
-                    // successfully written out as a chunk. So write 2 bytes for now.
-                    try await writer.write("AB".utf8.span)
+                    // Server writes 1000 2-byte chunks of "AB" and expects each
+                    // chunk to be written back by the client before proceeding
+                    // with the next one.
+                    for i in 0..<1000 {
+                        // TODO: There's a bug that prevents a single byte from being
+                        // successfully written out as a chunk. So write 2 bytes for now
+                        try await writer.write("AB".utf8.span)
 
-                    // Only proceed once the server receives the echoed data back.
-                    await writerWaiting.first(where: { true })
+                        // Wait for the client to write the same chunk to the request body
+                        try await reader.read(maximumCount: 2) { span in
+                            if span.count != 2 || span[0] != UInt8(ascii: "A") || span[1] != UInt8(ascii: "B") {
+                                assertionFailure("Received unexpected span")
+                            }
+                        }
+                    }
                 }
                 return nil
             }
-
-            // Wait for the read task to complete as well
-            try await readTask.value
         case "/stall":
             // Wait for an hour (effectively never giving an answer)
             try await Task.sleep(for: .seconds(60 * 60))
