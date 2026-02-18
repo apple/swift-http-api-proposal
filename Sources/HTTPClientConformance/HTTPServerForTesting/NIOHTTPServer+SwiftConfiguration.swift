@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if SwiftConfiguration
+#if Configuration
 public import Configuration
 import NIOCertificateReloading
 import SwiftASN1
@@ -343,4 +343,4 @@ extension CertificateVerificationMode {
         }
     }
 }
-#endif  // SwiftConfiguration
+#endif  // Configuration
