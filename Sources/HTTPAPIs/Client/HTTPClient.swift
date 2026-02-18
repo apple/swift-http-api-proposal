@@ -22,7 +22,7 @@
 /// ``HTTPClient`` provides asynchronous request execution with streaming request
 /// and response bodies.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-public protocol HTTPClient<RequestOptions>: ~Copyable {
+public protocol HTTPClient<RequestOptions>: Sendable, ~Copyable {
     associatedtype RequestOptions: HTTPClientCapability.RequestOptions
 
     /// The type used to write request body data and trailers.

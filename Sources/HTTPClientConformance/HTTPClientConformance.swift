@@ -25,7 +25,7 @@ import Foundation
 #endif
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-public func runAllConformanceTests<Client: HTTPClient & Sendable & ~Copyable>(
+public func runAllConformanceTests<Client: HTTPClient & ~Copyable>(
     _ clientFactory: () async throws -> Client
 ) async throws where Client.RequestOptions: HTTPClientCapability.RedirectionHandler {
     // Start the server that the conformance tests will interact with
@@ -57,7 +57,7 @@ public func runAllConformanceTests<Client: HTTPClient & Sendable & ~Copyable>(
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-func ok<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming Client) async throws {
+func ok<Client: HTTPClient & ~Copyable>(_ client: consuming Client) async throws {
     let methods = [HTTPRequest.Method.head, .get, .put, .post, .delete]
     for method in methods {
         let request = HTTPRequest(
@@ -80,7 +80,7 @@ func ok<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming Client) a
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-func emptyChunkedBody<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming Client) async throws {
+func emptyChunkedBody<Client: HTTPClient & ~Copyable>(_ client: consuming Client) async throws {
     let request = HTTPRequest(
         method: .post,
         scheme: "http",
@@ -106,7 +106,7 @@ func emptyChunkedBody<Client: HTTPClient & Sendable & ~Copyable>(_ client: consu
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-func echoString<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming Client) async throws {
+func echoString<Client: HTTPClient & ~Copyable>(_ client: consuming Client) async throws {
     let request = HTTPRequest(
         method: .post,
         scheme: "http",
@@ -134,7 +134,7 @@ func echoString<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming C
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-func gzip<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming Client) async throws {
+func gzip<Client: HTTPClient & ~Copyable>(_ client: consuming Client) async throws {
     let request = HTTPRequest(
         method: .get,
         scheme: "http",
@@ -163,7 +163,7 @@ func gzip<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming Client)
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-func deflate<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming Client) async throws {
+func deflate<Client: HTTPClient & ~Copyable>(_ client: consuming Client) async throws {
     let request = HTTPRequest(
         method: .get,
         scheme: "http",
@@ -192,7 +192,7 @@ func deflate<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming Clie
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-func brotli<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming Client) async throws {
+func brotli<Client: HTTPClient & ~Copyable>(_ client: consuming Client) async throws {
     let request = HTTPRequest(
         method: .get,
         scheme: "http",
@@ -221,7 +221,7 @@ func brotli<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming Clien
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-func identity<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming Client) async throws {
+func identity<Client: HTTPClient & ~Copyable>(_ client: consuming Client) async throws {
     let request = HTTPRequest(
         method: .get,
         scheme: "http",
@@ -242,7 +242,7 @@ func identity<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming Cli
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-func customHeader<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming Client) async throws {
+func customHeader<Client: HTTPClient & ~Copyable>(_ client: consuming Client) async throws {
     let request = HTTPRequest(
         method: .post,
         scheme: "http",
@@ -270,7 +270,7 @@ func customHeader<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-func redirect308<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming Client) async throws
+func redirect308<Client: HTTPClient & ~Copyable>(_ client: consuming Client) async throws
 where Client.RequestOptions: HTTPClientCapability.RedirectionHandler {
     let request = HTTPRequest(
         method: .get,
@@ -302,7 +302,7 @@ where Client.RequestOptions: HTTPClientCapability.RedirectionHandler {
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-func redirect301<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming Client) async throws
+func redirect301<Client: HTTPClient & ~Copyable>(_ client: consuming Client) async throws
 where Client.RequestOptions: HTTPClientCapability.RedirectionHandler {
     let request = HTTPRequest(
         method: .get,
@@ -334,7 +334,7 @@ where Client.RequestOptions: HTTPClientCapability.RedirectionHandler {
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-func notFound<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming Client) async throws {
+func notFound<Client: HTTPClient & ~Copyable>(_ client: consuming Client) async throws {
     let request = HTTPRequest(
         method: .get,
         scheme: "http",
@@ -354,7 +354,7 @@ func notFound<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming Cli
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-func statusOutOfRangeButValid<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming Client) async throws {
+func statusOutOfRangeButValid<Client: HTTPClient & ~Copyable>(_ client: consuming Client) async throws {
     let request = HTTPRequest(
         method: .get,
         scheme: "http",
@@ -374,7 +374,7 @@ func statusOutOfRangeButValid<Client: HTTPClient & Sendable & ~Copyable>(_ clien
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-func stressTest<Client: HTTPClient & Sendable & ~Copyable>(_ clientFactory: () async throws -> Client) async throws {
+func stressTest<Client: HTTPClient & ~Copyable>(_ clientFactory: () async throws -> Client) async throws {
     let request = HTTPRequest(
         method: .get,
         scheme: "http",
@@ -408,7 +408,7 @@ func stressTest<Client: HTTPClient & Sendable & ~Copyable>(_ clientFactory: () a
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-func echoInterleave<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming Client) async throws {
+func echoInterleave<Client: HTTPClient & ~Copyable>(_ client: consuming Client) async throws {
     let request = HTTPRequest(
         method: .post,
         scheme: "http",
@@ -455,7 +455,7 @@ func echoInterleave<Client: HTTPClient & Sendable & ~Copyable>(_ client: consumi
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-func cancelPreHeaders<Client: HTTPClient & Sendable & ~Copyable>(_ clientFactory: () async throws -> Client) async throws {
+func cancelPreHeaders<Client: HTTPClient & ~Copyable>(_ clientFactory: () async throws -> Client) async throws {
     try await withThrowingTaskGroup { group in
         let client = try await clientFactory()
 
@@ -493,7 +493,7 @@ func cancelPreHeaders<Client: HTTPClient & Sendable & ~Copyable>(_ clientFactory
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-func cancelPreBody<Client: HTTPClient & Sendable & ~Copyable>(_ clientFactory: () async throws -> Client) async throws {
+func cancelPreBody<Client: HTTPClient & ~Copyable>(_ clientFactory: () async throws -> Client) async throws {
     try await withThrowingTaskGroup { group in
         // Used by the task to notify when the task group should be cancelled
         let (stream, continuation) = AsyncStream<Void>.makeStream()
@@ -544,7 +544,7 @@ func cancelPreBody<Client: HTTPClient & Sendable & ~Copyable>(_ clientFactory: (
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-func getConvenience<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming Client) async throws {
+func getConvenience<Client: HTTPClient & ~Copyable>(_ client: consuming Client) async throws {
     let (response, data) = try await client.get(
         url: URL(string: "http://127.0.0.1:12345/request")!,
         collectUpTo: .max
@@ -557,7 +557,7 @@ func getConvenience<Client: HTTPClient & Sendable & ~Copyable>(_ client: consumi
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-func postConvenience<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming Client) async throws {
+func postConvenience<Client: HTTPClient & ~Copyable>(_ client: consuming Client) async throws {
     let (response, data) = try await client.post(
         url: URL(string: "http://127.0.0.1:12345/request")!,
         bodyData: Data("Hello World".utf8),
