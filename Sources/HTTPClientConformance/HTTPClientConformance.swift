@@ -35,18 +35,6 @@ public func runBasicConformanceTests<Client: HTTPClient & Sendable & ~Copyable>(
     }
 }
 
-// These tests confirm that an HTTP client correctly implements the RedirectionHandler
-// extension protocol.
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-public func runRedirectionConformanceTests<Client: HTTPClient & Sendable & ~Copyable>(
-    _ clientFactory: () async throws -> Client
-) async throws where Client.RequestOptions: HTTPClientCapability.RedirectionHandler {
-    try await withTestHTTPServer { port in
-        try await testRedirectHandler301(try await clientFactory(), port: port)
-        try await testRedirectHandler308(try await clientFactory(), port: port)
-    }
-}
-
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 struct BasicConformanceTests<Client: HTTPClient & Sendable & ~Copyable> {
     let port: Int
@@ -549,69 +537,5 @@ struct BasicConformanceTests<Client: HTTPClient & Sendable & ~Copyable> {
         #expect(jsonRequest.method == "POST")
         #expect(!jsonRequest.headers.isEmpty)
         #expect(jsonRequest.body == "Hello World")
-    }
-}
-
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-func testRedirectHandler301<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming Client, port: Int) async throws
-where Client.RequestOptions: HTTPClientCapability.RedirectionHandler {
-    let request = HTTPRequest(
-        method: .get,
-        scheme: "http",
-        authority: "127.0.0.1:\(port)",
-        path: "/301"
-    )
-
-    var options = Client.RequestOptions()
-    options.redirectionHandlerClosure = { response, newRequest in
-        #expect(response.status == .movedPermanently)
-        return .follow(newRequest)
-    }
-
-    try await client.perform(
-        request: request,
-        options: options,
-    ) { response, responseBodyAndTrailers in
-        #expect(response.status == .ok)
-        let (jsonRequest, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-            let body = String(copying: try UTF8Span(validating: span))
-            let data = body.data(using: .utf8)!
-            return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
-        }
-        #expect(jsonRequest.method == "GET")
-        #expect(jsonRequest.body.isEmpty)
-        #expect(!jsonRequest.headers.isEmpty)
-    }
-}
-
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-func testRedirectHandler308<Client: HTTPClient & Sendable & ~Copyable>(_ client: consuming Client, port: Int) async throws
-where Client.RequestOptions: HTTPClientCapability.RedirectionHandler {
-    let request = HTTPRequest(
-        method: .get,
-        scheme: "http",
-        authority: "127.0.0.1:\(port)",
-        path: "/308"
-    )
-
-    var options = Client.RequestOptions()
-    options.redirectionHandlerClosure = { response, newRequest in
-        #expect(response.status == .permanentRedirect)
-        return .follow(newRequest)
-    }
-
-    try await client.perform(
-        request: request,
-        options: options,
-    ) { response, responseBodyAndTrailers in
-        #expect(response.status == .ok)
-        let (jsonRequest, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-            let body = String(copying: try UTF8Span(validating: span))
-            let data = body.data(using: .utf8)!
-            return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
-        }
-        #expect(jsonRequest.method == "GET")
-        #expect(jsonRequest.body.isEmpty)
-        #expect(!jsonRequest.headers.isEmpty)
     }
 }

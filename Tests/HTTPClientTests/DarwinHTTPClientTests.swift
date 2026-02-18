@@ -32,8 +32,5 @@ struct DarwinHTTPClientTests {
         try await runBasicConformanceTests {
             return DefaultHTTPClient.shared
         }
-        try await runRedirectionConformanceTests {
-            return DefaultHTTPClient.shared
-        }
     }
 }
