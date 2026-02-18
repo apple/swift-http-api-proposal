@@ -57,9 +57,19 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
     private static let highWatermark = 256 * 1024
 
     private struct TaskState {
+        // This describes the current state of the HTTP response and also the waiting relationship
+        // between external client invoking the API and URLSession.
         enum State {
+            // The initial state prior to receiving the response. No URLSession callbacks have
+            // been fired. This is the state in which response headers are received and redirection
+            // or authentication is processed.
             case awaitingResponse
+            // The client is waiting on URLSession. The client is expecting response body data,
+            // but URLSession has not received any that it can send out to the client. When
+            // URLSession does receive an update, the provided continuation must be fired.
             case awaitingData(CheckedContinuation<(Bool, Data?), any Error>)
+            // URLSession is waiting for the client. URLSession has updated the response body
+            // with more data/completion/error but the client has not consumed/processed this.
             case awaitingConsumption(Data, complete: Bool, error: (any Error)?, suspendedTask: URLSessionTask?)
         }
         var state: State = .awaitingResponse
@@ -139,7 +149,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                     state.state = .awaitingConsumption(Data(), complete: true, error: error, suspendedTask: nil)
                 case .awaitingResponse:
                     state.state = .awaitingConsumption(Data(), complete: true, error: nil, suspendedTask: nil)
-                case .awaitingConsumption(let existingData, _, let error, _):
+                case .awaitingConsumption(let existingData, _, _, _):
                     state.state = .awaitingConsumption(existingData, complete: true, error: error, suspendedTask: nil)
                 }
                 state.completionContinuation = nil
