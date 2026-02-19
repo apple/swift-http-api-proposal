@@ -25,8 +25,8 @@ let package = Package(
         .library(name: "HTTPClientConformance", targets: ["HTTPClientConformance"]),
     ],
     traits: [
-        .trait(name: "SwiftConfiguration"),
-        .default(enabledTraits: ["SwiftConfiguration"]),
+        .trait(name: "Configuration"),
+        .default(enabledTraits: ["Configuration"]),
     ],
     dependencies: [
         .package(
@@ -124,7 +124,7 @@ let package = Package(
                 .product(
                     name: "Configuration",
                     package: "swift-configuration",
-                    condition: .when(traits: ["SwiftConfiguration"])
+                    condition: .when(traits: ["Configuration"])
                 ),
             ],
             swiftSettings: extraSettings
