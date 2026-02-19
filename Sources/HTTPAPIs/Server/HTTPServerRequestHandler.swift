@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+public import AsyncStreaming
 public import HTTPTypes
 
 /// A protocol that defines the contract for handling HTTP server requests.

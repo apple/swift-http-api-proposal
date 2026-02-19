@@ -12,10 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-// We are using exported imports so that developers don't have to
-// import multiple modules just to execute an HTTP request
-@_exported public import AsyncStreaming
-@_exported public import HTTPTypes
+public import AsyncStreaming
+public import HTTPTypes
 
 /// A protocol that defines the interface for an HTTP client.
 ///

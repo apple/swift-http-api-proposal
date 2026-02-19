@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+public import AsyncStreaming
 public import HTTPTypes
 
 /// A closure-based implementation of ``HTTPServerRequestHandler``.

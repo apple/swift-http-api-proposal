@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+public import AsyncStreaming
 public import HTTPTypes
 
 /// A struct that ensures a single non-informational HTTP response is sent per request.
