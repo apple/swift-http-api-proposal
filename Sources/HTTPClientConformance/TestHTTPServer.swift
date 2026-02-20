@@ -207,6 +207,36 @@ func serve(server: NIOHTTPServer) async throws {
                         return nil
                     }
                 }
+        case "/speak":
+            // Send the headers for the response
+            let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
+
+            // Needed since we are lacking call-once closures
+            var requestBodyAndTrailers = Optional(requestBodyAndTrailers)
+
+            try await responseBodyAndTrailers.produceAndConclude {
+                var writer = $0
+                let _ = try await requestBodyAndTrailers.take()!.consumeAndConclude {
+                    var reader = $0
+
+                    // Server writes 1000 2-byte chunks of "AB" and expects each
+                    // chunk to be written back by the client before proceeding
+                    // with the next one.
+                    for i in 0..<1000 {
+                        // TODO: There's a bug that prevents a single byte from being
+                        // successfully written out as a chunk. So write 2 bytes for now
+                        try await writer.write("AB".utf8.span)
+
+                        // Wait for the client to write the same chunk to the request body
+                        try await reader.read(maximumCount: 2) { span in
+                            if span.count != 2 || span[0] != UInt8(ascii: "A") || span[1] != UInt8(ascii: "B") {
+                                assertionFailure("Received unexpected span")
+                            }
+                        }
+                    }
+                }
+                return nil
+            }
         case "/stall":
             // Wait for an hour (effectively never giving an answer)
             try await Task.sleep(for: .seconds(60 * 60))
@@ -220,7 +250,7 @@ func serve(server: NIOHTTPServer) async throws {
                 try await responseBody.write([UInt8](repeating: UInt8(ascii: "A"), count: 1000).span)
 
                 // Wait for an hour (effectively never giving an answer)
-                try! await Task.sleep(for: .seconds(60 * 60))
+                try await Task.sleep(for: .seconds(60 * 60))
 
                 assertionFailure("Not expected to complete hour-long wait")
 

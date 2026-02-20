@@ -58,6 +58,9 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         try await testCancelPreHeaders()
         try await testCancelPreBody()
 
+        // TODO: URLSession client hangs when it receives the complete response body before it writes its complete request body.
+        // try await testSpeakInterleave()
+
         // TODO: Writing just an empty span causes an indefinite stall. The terminating chunk (size 0) is not written out on the wire.
         // try await testEmptyChunkedBody()
     }
@@ -386,7 +389,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         )
 
         // Used to ping-pong between the client-side writer and reader
-        let writerWaiting: Mutex<CheckedContinuation<Void, Never>?> = .init(nil)
+        let (writerWaiting, continuation) = AsyncStream<Void>.makeStream()
 
         try await client.perform(
             request: request,
@@ -399,9 +402,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
                     try await writer.write("AB".utf8.span)
 
                     // Only proceed once the client receives the echo.
-                    await withCheckedContinuation { continuation in
-                        writerWaiting.withLock { $0 = continuation }
-                    }
+                    await writerWaiting.first(where: { true })
                 }
                 return nil
             }
@@ -416,9 +417,52 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
                     #expect(span[1] == UInt8(ascii: "B"))
 
                     // Unblock the writer
-                    writerWaiting.withLock { $0!.resume() }
+                    continuation.yield()
                 }
                 #expect(numberOfChunks == 1000)
+            }
+        }
+    }
+
+    func testSpeakInterleave() async throws {
+        let request = HTTPRequest(
+            method: .post,
+            scheme: "http",
+            authority: "127.0.0.1:\(port)",
+            path: "/speak"
+        )
+
+        let client = try await clientFactory()
+
+        let (stream, continuation) = AsyncStream<String>.makeStream()
+
+        try await client.perform(
+            request: request,
+            body: .restartable { writer in
+                var writer = writer
+                var iterator = stream.makeAsyncIterator()
+
+                // Wait for a chunk from the server
+                while let chunk = await iterator.next() {
+                    // Write it back to the server
+                    try await writer.write(chunk.utf8.span)
+                }
+                return nil
+            }
+        ) { response, responseBodyAndTrailers in
+            #expect(response.status == .ok)
+            let _ = try await responseBodyAndTrailers.consumeAndConclude { reader in
+                // Read all chunks from server
+                try await reader.forEach { span in
+                    let chunk = String(copying: try UTF8Span(validating: span))
+                    #expect(chunk == "AB")
+
+                    // Give chunk to the writer to echo back
+                    continuation.yield(chunk)
+                }
+
+                // No more chunks from server. Stop writing as well.
+                continuation.finish()
             }
         }
     }
