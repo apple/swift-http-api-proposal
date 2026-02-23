@@ -33,6 +33,82 @@ public func runBasicConformanceTests<Client: HTTPClient & ~Copyable>(
     try await withTestHTTPServer { port in
         try await BasicConformanceTests(port: port, clientFactory: clientFactory).run()
     }
+    try await withBadHTTPServer { port in
+        try await BadServerConformanceTests(port: port, clientFactory: clientFactory).run()
+    }
+}
+
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+struct BadServerConformanceTests<Client: HTTPClient & ~Copyable> {
+    let port: Int
+    let clientFactory: () async throws -> Client
+
+    func run() async throws {
+        try await testNotHTTP()
+        try await testLFOnly()
+        try await testBadHttpCase()
+        try await testNoReason()
+    }
+
+    func testNotHTTP() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:\(port)",
+            path: "/not_http"
+        )
+        await #expect(throws: (any Error).self) {
+            try await client.perform(
+                request: request,
+            ) { _, _ in }
+        }
+    }
+
+    func testLFOnly() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:\(port)",
+            path: "/lf_only"
+        )
+        try await client.perform(
+            request: request,
+        ) { response, _ in
+            #expect(response.status == .ok)
+        }
+    }
+
+    func testNoReason() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:\(port)",
+            path: "/no_reason"
+        )
+        try await client.perform(
+            request: request,
+        ) { response, _ in
+            #expect(response.status == .ok)
+        }
+    }
+
+    func testBadHttpCase() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:\(port)",
+            path: "/http_case"
+        )
+        await #expect(throws: (any Error).self) {
+            try await client.perform(
+                request: request,
+            ) { _, _ in }
+        }
+    }
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
