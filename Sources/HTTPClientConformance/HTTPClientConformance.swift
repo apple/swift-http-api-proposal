@@ -59,6 +59,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         try await testCancelPreBody()
         try await testClientSendsUncommonHeaderValues()
         try await testInfiniteRedirect()
+        try await testHeadWithContentLength()
 
         // TODO: Writing just an empty span causes an indefinite stall. The terminating chunk (size 0) is not written out on the wire.
         // try await testEmptyChunkedBody()
@@ -587,5 +588,25 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         #expect(jsonRequest.method == "POST")
         #expect(!jsonRequest.headers.isEmpty)
         #expect(jsonRequest.body == "Hello World")
+    }
+
+    func testHeadWithContentLength() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .head,
+            scheme: "http",
+            authority: "127.0.0.1:\(port)",
+            path: "/head_with_cl"
+        )
+        try await client.perform(
+            request: request,
+        ) { response, responseBodyAndTrailers in
+            #expect(response.status == .ok)
+            let (body, trailers) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                return String(copying: try UTF8Span(validating: span))
+            }
+            #expect(body.isEmpty)
+            #expect(trailers == nil)
+        }
     }
 }

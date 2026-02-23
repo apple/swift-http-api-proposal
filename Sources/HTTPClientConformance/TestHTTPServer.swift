@@ -71,6 +71,16 @@ func serve(server: NIOHTTPServer) async throws {
             let responseSpan = responseData.span
             let writer = try await responseSender.send(HTTPResponse(status: .ok))
             try await writer.writeAndConclude(responseSpan, finalElement: nil)
+        case "/head_with_cl":
+            if request.method != .head {
+                try await responseSender.send(HTTPResponse(status: .methodNotAllowed))
+                break
+            }
+
+            // OK with a theoretical 1000-byte body
+            try await responseSender.send(HTTPResponse(status: .ok, headerFields: [
+                .contentLength: "1000"
+            ]))
         case "/200":
             // OK
             let writer = try await responseSender.send(HTTPResponse(status: .ok))
@@ -234,7 +244,7 @@ func serve(server: NIOHTTPServer) async throws {
                 try await responseBody.write([UInt8](repeating: UInt8(ascii: "A"), count: 1000).span)
 
                 // Wait for an hour (effectively never giving an answer)
-                try! await Task.sleep(for: .seconds(60 * 60))
+                try await Task.sleep(for: .seconds(60 * 60))
 
                 assertionFailure("Not expected to complete hour-long wait")
 
