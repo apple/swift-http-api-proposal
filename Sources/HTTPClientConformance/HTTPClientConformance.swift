@@ -57,6 +57,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         try await testPostConvenience()
         try await testCancelPreHeaders()
         try await testCancelPreBody()
+        try await testClientSendsUncommonHeaderValues()
 
         // TODO: Writing just an empty span causes an indefinite stall. The terminating chunk (size 0) is not written out on the wire.
         // try await testEmptyChunkedBody()
@@ -420,6 +421,36 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
                 }
                 #expect(numberOfChunks == 1000)
             }
+        }
+    }
+
+    func testClientSendsUncommonHeaderValues() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .post,
+            scheme: "http",
+            authority: "127.0.0.1:\(port)",
+            path: "/request",
+            headerFields: HTTPFields([
+                HTTPField(name: .init("X-Header-1")!, value: "line1\r\n line2"),
+                HTTPField(name: .init("X-Header-2")!, value: "test     "),
+                HTTPField(name: .init("X-Header-3")!, value: ""),
+            ])
+        )
+
+        try await client.perform(
+            request: request,
+        ) { response, responseBodyAndTrailers in
+            #expect(response.status == .ok)
+            let (jsonRequest, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                let body = String(copying: try UTF8Span(validating: span))
+                let data = body.data(using: .utf8)!
+                return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
+            }
+
+            #expect(jsonRequest.headers["X-Header-1"] == ["line1   line2"])
+            #expect(jsonRequest.headers["X-Header-2"] == ["test"])
+            #expect(jsonRequest.headers["X-Header-3"] == [""])
         }
     }
 
