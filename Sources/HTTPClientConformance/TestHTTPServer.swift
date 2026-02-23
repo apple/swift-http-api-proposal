@@ -219,17 +219,16 @@ func serve(server: NIOHTTPServer) async throws {
                 let _ = try await requestBodyAndTrailers.take()!.consumeAndConclude {
                     var reader = $0
 
-                    // Server writes 1000 2-byte chunks of "AB" and expects each
+                    // Server writes 1000 1-byte chunks of "A" and expects each
                     // chunk to be written back by the client before proceeding
                     // with the next one.
                     for i in 0..<1000 {
-                        // TODO: There's a bug that prevents a single byte from being
-                        // successfully written out as a chunk. So write 2 bytes for now
-                        try await writer.write("AB".utf8.span)
+                        // Write a single-byte chunk
+                        try await writer.write("A".utf8.span)
 
                         // Wait for the client to write the same chunk to the request body
-                        try await reader.read(maximumCount: 2) { span in
-                            if span.count != 2 || span[0] != UInt8(ascii: "A") || span[1] != UInt8(ascii: "B") {
+                        try await reader.read(maximumCount: 1) { span in
+                            if span.count != 1 || span[0] != UInt8(ascii: "A") {
                                 assertionFailure("Received unexpected span")
                             }
                         }

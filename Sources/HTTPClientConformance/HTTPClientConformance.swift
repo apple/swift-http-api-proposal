@@ -52,13 +52,15 @@ struct BasicConformanceTests<Client: HTTPClient & Sendable & ~Copyable> {
         try await testNotFound()
         try await testStatusOutOfRangeButValid()
         try await testStressTest()
-        try await testEchoInterleave()
         try await testGetConvenience()
         try await testPostConvenience()
         try await testCancelPreHeaders()
         try await testCancelPreBody()
 
-        // TODO: URLSession client hangs when it receives the complete response body before it writes its complete request body.
+        // TODO: URLSession client hangs because of a bug where single bytes cannot be sent.
+        // try await testEchoInterleave()
+
+        // TODO: URLSession client hangs because of a bug where single bytes cannot be sent and requests cannot outlive responses.
         // try await testSpeakInterleave()
 
         // TODO: Writing just an empty span causes an indefinite stall. The terminating chunk (size 0) is not written out on the wire.
@@ -397,9 +399,8 @@ struct BasicConformanceTests<Client: HTTPClient & Sendable & ~Copyable> {
                 var writer = writer
 
                 for _ in 0..<1000 {
-                    // TODO: There's a bug that prevents a single byte from being
-                    // successfully written out as a chunk. So write 2 bytes for now.
-                    try await writer.write("AB".utf8.span)
+                    // Write a 1-byte chunk
+                    try await writer.write("A".utf8.span)
 
                     // Only proceed once the client receives the echo.
                     await writerWaiting.first(where: { true })
@@ -412,9 +413,8 @@ struct BasicConformanceTests<Client: HTTPClient & Sendable & ~Copyable> {
                 var numberOfChunks = 0
                 try await reader.forEach { span in
                     numberOfChunks += 1
-                    #expect(span.count == 2)
+                    #expect(span.count == 1)
                     #expect(span[0] == UInt8(ascii: "A"))
-                    #expect(span[1] == UInt8(ascii: "B"))
 
                     // Unblock the writer
                     continuation.yield()
@@ -455,7 +455,7 @@ struct BasicConformanceTests<Client: HTTPClient & Sendable & ~Copyable> {
                 // Read all chunks from server
                 try await reader.forEach { span in
                     let chunk = String(copying: try UTF8Span(validating: span))
-                    #expect(chunk == "AB")
+                    #expect(chunk == "A")
 
                     // Give chunk to the writer to echo back
                     continuation.yield(chunk)
