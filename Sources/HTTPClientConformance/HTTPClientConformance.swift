@@ -320,7 +320,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         await #expect(throws: (any Error).self) {
             try await client.perform(
                 request: request,
-            ) {_,_ in }
+            ) { _, _ in }
         }
     }
 

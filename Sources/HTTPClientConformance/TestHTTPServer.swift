@@ -78,9 +78,14 @@ func serve(server: NIOHTTPServer) async throws {
             }
 
             // OK with a theoretical 1000-byte body
-            try await responseSender.send(HTTPResponse(status: .ok, headerFields: [
-                .contentLength: "1000"
-            ]))
+            try await responseSender.send(
+                HTTPResponse(
+                    status: .ok,
+                    headerFields: [
+                        .contentLength: "1000"
+                    ]
+                )
+            )
         case "/200":
             // OK
             let writer = try await responseSender.send(HTTPResponse(status: .ok))
