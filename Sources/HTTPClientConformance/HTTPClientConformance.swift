@@ -58,6 +58,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         try await testCancelPreHeaders()
         try await testCancelPreBody()
         try await testClientSendsUncommonHeaderValues()
+        try await testInfiniteRedirect()
 
         // TODO: Writing just an empty span causes an indefinite stall. The terminating chunk (size 0) is not written out on the wire.
         // try await testEmptyChunkedBody()
@@ -301,6 +302,24 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
                 #expect(jsonRequest.body.isEmpty)
                 #expect(!jsonRequest.headers.isEmpty)
             }
+        }
+    }
+
+    func testInfiniteRedirect() async throws {
+        let client = try await clientFactory()
+
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:\(port)",
+            path: "/redirect_ping"
+        )
+
+        // Infinite redirection should cause an error to be thrown
+        await #expect(throws: (any Error).self) {
+            try await client.perform(
+                request: request,
+            ) {_,_ in }
         }
     }
 

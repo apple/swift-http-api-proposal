@@ -147,6 +147,20 @@ func serve(server: NIOHTTPServer) async throws {
             // Used to check that a client can handle fallback to no encoding.
             let writer = try await responseSender.send(HTTPResponse(status: .ok))
             try await writer.writeAndConclude("TEST\n".utf8.span, finalElement: nil)
+        case "/redirect_ping":
+            // Infinite redirection as a result of arriving here
+            let writer = try await responseSender.send(
+                HTTPResponse(status: .movedPermanently, headerFields: HTTPFields([HTTPField(name: .location, value: "/redirect_pong")]))
+            )
+            try await writer
+                .writeAndConclude("".utf8.span, finalElement: nil)
+        case "/redirect_pong":
+            // Infinite redirection as a result of arriving here
+            let writer = try await responseSender.send(
+                HTTPResponse(status: .movedPermanently, headerFields: HTTPFields([HTTPField(name: .location, value: "/redirect_ping")]))
+            )
+            try await writer
+                .writeAndConclude("".utf8.span, finalElement: nil)
         case "/301":
             // Redirect to /request
             let writer = try await responseSender.send(
