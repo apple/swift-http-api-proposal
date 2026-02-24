@@ -620,10 +620,16 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
             request: request,
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            let headers = response.headerFields[values: .init("X-Test")!]
+            let values = response.headerFields[values: .init("X-Test")!]
 
-            // Clients may choose to coalesce the values into a single header by comma-separation
-            #expect(headers == ["one", "two"] || headers == ["one, two"])
+            // If the values are comma-separated, break them up.
+            var split_values: [Substring] = []
+            for value in values {
+                let iter_splits = value.split(separator: /(\s)*,(\s)*/)
+                split_values.append(contentsOf: iter_splits)
+            }
+
+            #expect(split_values == ["one", "two"])
         }
     }
 
@@ -648,10 +654,16 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
                 return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
             }
 
-            let headers = jsonRequest.headers["X-Test"]
+            let values = jsonRequest.headers["X-Test"]!
 
-            // Clients may choose to coalesce the values into a single header by comma-separation
-            #expect(headers == ["one", "two"] || headers == ["one, two"])
+            // If the values are comma-separated, break them up.
+            var split_values: [Substring] = []
+            for value in values {
+                let iter_splits = value.split(separator: /(\s)*,(\s)*/)
+                split_values.append(contentsOf: iter_splits)
+            }
+
+            #expect(split_values == ["one", "two"])
         }
     }
 }
