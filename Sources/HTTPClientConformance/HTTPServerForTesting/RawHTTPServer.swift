@@ -12,16 +12,19 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Foundation
 import NIOCore
 import NIOHTTP1
 import NIOPosix
-import Foundation
 
 @available(macOS 14, iOS 17, tvOS 17, watchOS 10, *)
 public actor RawHTTPServer {
-    let server_channel: NIOAsyncChannel<NIOAsyncChannel<
-        HTTPServerRequestPart, IOData
-    >, Never>
+    let server_channel:
+        NIOAsyncChannel<
+            NIOAsyncChannel<
+                HTTPServerRequestPart, IOData
+            >, Never
+        >
 
     var port: Int {
         server_channel.channel.localAddress!.port!
@@ -31,19 +34,19 @@ public actor RawHTTPServer {
         server_channel = try await ServerBootstrap(
             group: .singletonMultiThreadedEventLoopGroup
         )
-            .bind(
-                host: "127.0.0.1",
-                port: 0,
-            ) { channel in
-                channel.eventLoop.makeCompletedFuture {
-                    let requestDecoder = ByteToMessageHandler(HTTPRequestDecoder(leftOverBytesStrategy: .forwardBytes))
-                    channel.pipeline.addHandler(requestDecoder)
+        .bind(
+            host: "127.0.0.1",
+            port: 0,
+        ) { channel in
+            channel.eventLoop.makeCompletedFuture {
+                let requestDecoder = ByteToMessageHandler(HTTPRequestDecoder(leftOverBytesStrategy: .forwardBytes))
+                channel.pipeline.addHandler(requestDecoder)
 
-                    return try NIOAsyncChannel<
-                        HTTPServerRequestPart, IOData
-                    >(wrappingChannelSynchronously: channel)
-                }
+                return try NIOAsyncChannel<
+                    HTTPServerRequestPart, IOData
+                >(wrappingChannelSynchronously: channel)
             }
+        }
     }
 
     func run(handler: @Sendable @escaping (HTTPRequestHead) async throws -> Data) async throws {
@@ -58,7 +61,7 @@ public actor RawHTTPServer {
                         }
 
                         // Get the response from the handler
-                        let response = try await handler(head);
+                        let response = try await handler(head)
 
                         // Write the response out
                         let data = IOData.byteBuffer(ByteBuffer(bytes: response))

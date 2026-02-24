@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import NIOHTTP1
 import Foundation
+import NIOHTTP1
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public func withBadHTTPServer(perform: (Int) async throws -> Void) async throws {
@@ -46,14 +46,14 @@ func handler(request: HTTPRequestHead) -> Data {
             "HTTP/1.1 204 No Content",
             "Content-Length: 1000",
             "",
-            ""
+            "",
         ])
     case "/304_with_cl":
         return linesToData([
             "HTTP/1.1 304 Not Modified",
             "Content-Length: 1000",
             "",
-            ""
+            "",
         ])
     default:
         return "HTTP/1.1 500 Internal Server Error\r\n\r\n".data(using: .ascii)!
