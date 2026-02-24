@@ -246,6 +246,35 @@ func serve(server: NIOHTTPServer) async throws {
                         return nil
                     }
                 }
+        case "/speak":
+            // Send the headers for the response
+            let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
+
+            // Needed since we are lacking call-once closures
+            var requestBodyAndTrailers = Optional(requestBodyAndTrailers)
+
+            try await responseBodyAndTrailers.produceAndConclude {
+                var writer = $0
+                let _ = try await requestBodyAndTrailers.take()!.consumeAndConclude {
+                    var reader = $0
+
+                    // Server writes 1000 1-byte chunks of "A" and expects each
+                    // chunk to be written back by the client before proceeding
+                    // with the next one.
+                    for i in 0..<1000 {
+                        // Write a single-byte chunk
+                        try await writer.write("A".utf8.span)
+
+                        // Wait for the client to write the same chunk to the request body
+                        try await reader.read(maximumCount: 1) { span in
+                            if span.count != 1 || span[0] != UInt8(ascii: "A") {
+                                assertionFailure("Received unexpected span")
+                            }
+                        }
+                    }
+                }
+                return nil
+            }
         case "/stall":
             // Wait for an hour (effectively never giving an answer)
             try await Task.sleep(for: .seconds(60 * 60))
