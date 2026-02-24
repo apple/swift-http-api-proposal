@@ -48,6 +48,8 @@ struct BadServerConformanceTests<Client: HTTPClient & ~Copyable> {
         try await testLFOnly()
         try await testBadHttpCase()
         try await testNoReason()
+        try await test204WithContentLength()
+        try await test304WithContentLength()
     }
 
     func testNotHTTP() async throws {
@@ -107,6 +109,44 @@ struct BadServerConformanceTests<Client: HTTPClient & ~Copyable> {
             try await client.perform(
                 request: request,
             ) { _, _ in }
+        }
+    }
+
+    func test204WithContentLength() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:\(port)",
+            path: "/204_with_cl"
+        )
+        try await client.perform(
+            request: request
+        ) { response, responseBodyAndTrailers in
+            #expect(response.status == .noContent)
+            let (_, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                let isEmpty = span.isEmpty
+                #expect(isEmpty)
+            }
+        }
+    }
+
+    func test304WithContentLength() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:\(port)",
+            path: "/304_with_cl"
+        )
+        try await client.perform(
+            request: request
+        ) { response, responseBodyAndTrailers in
+            #expect(response.status == .notModified)
+            let (_, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                let isEmpty = span.isEmpty
+                #expect(isEmpty)
+            }
         }
     }
 }

@@ -27,6 +27,10 @@ public func withBadHTTPServer(perform: (Int) async throws -> Void) async throws 
     }
 }
 
+func linesToData(_ lines: [String]) -> Data {
+    return lines.joined(separator: "\r\n").data(using: .ascii)!
+}
+
 func handler(request: HTTPRequestHead) -> Data {
     switch request.uri {
     case "/not_http":
@@ -37,6 +41,20 @@ func handler(request: HTTPRequestHead) -> Data {
         return "Http/1.1 200 OK\r\n\r\n".data(using: .ascii)!
     case "/no_reason":
         return "HTTP/1.1 200\r\n\r\n".data(using: .ascii)!
+    case "/204_with_cl":
+        return linesToData([
+            "HTTP/1.1 204 No Content",
+            "Content-Length: 1000",
+            "",
+            ""
+        ])
+    case "/304_with_cl":
+        return linesToData([
+            "HTTP/1.1 304 Not Modified",
+            "Content-Length: 1000",
+            "",
+            ""
+        ])
     default:
         return "HTTP/1.1 500 Internal Server Error\r\n\r\n".data(using: .ascii)!
     }
