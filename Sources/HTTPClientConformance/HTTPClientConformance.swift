@@ -27,7 +27,7 @@ import Foundation
 // These tests confirm that a basic HTTP client (no extension protocols supported)
 // conforms to the minimum expectations of the HTTP client API.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-public func runBasicConformanceTests<Client: HTTPClient & Sendable & ~Copyable>(
+public func runBasicConformanceTests<Client: HTTPClient & ~Copyable>(
     _ clientFactory: @escaping () async throws -> Client
 ) async throws {
     try await withTestHTTPServer { port in
@@ -36,7 +36,7 @@ public func runBasicConformanceTests<Client: HTTPClient & Sendable & ~Copyable>(
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-struct BasicConformanceTests<Client: HTTPClient & Sendable & ~Copyable> {
+struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
     let port: Int
     let clientFactory: () async throws -> Client
 
