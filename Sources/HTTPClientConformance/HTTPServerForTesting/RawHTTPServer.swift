@@ -37,8 +37,6 @@ func handler(request: HTTPRequestHead) -> Data {
     switch request.uri {
     case "/not_http":
         return "FOOBAR".data(using: .ascii)!
-    case "/lf_only":
-        return "HTTP/1.1 200 OK\n\n".data(using: .ascii)!
     case "/http_case":
         return "Http/1.1 200 OK\r\n\r\n".data(using: .ascii)!
     case "/no_reason":

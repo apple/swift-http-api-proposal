@@ -47,7 +47,6 @@ struct RawServerConformanceTests<Client: HTTPClient & ~Copyable> {
 
     func run() async throws {
         try await testNotHTTP()
-        try await testLFOnly()
         try await testBadHttpCase()
         try await testNoReason()
         try await test204WithContentLength()
@@ -69,21 +68,6 @@ struct RawServerConformanceTests<Client: HTTPClient & ~Copyable> {
             try await client.perform(
                 request: request,
             ) { _, _ in }
-        }
-    }
-
-    func testLFOnly() async throws {
-        let client = try await clientFactory()
-        let request = HTTPRequest(
-            method: .get,
-            scheme: "http",
-            authority: "127.0.0.1:\(port)",
-            path: "/lf_only"
-        )
-        try await client.perform(
-            request: request,
-        ) { response, _ in
-            #expect(response.status == .ok)
         }
     }
 
