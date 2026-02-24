@@ -31,15 +31,17 @@ public func runBasicConformanceTests<Client: HTTPClient & ~Copyable>(
     _ clientFactory: @escaping () async throws -> Client
 ) async throws {
     try await withTestHTTPServer { port in
+        print("Test HTTP Server port: \(port)")
         try await BasicConformanceTests(port: port, clientFactory: clientFactory).run()
     }
-    try await withBadHTTPServer { port in
-        try await BadServerConformanceTests(port: port, clientFactory: clientFactory).run()
+    try await withRawHTTPServer { port in
+        print("Raw HTTP Server: \(port)")
+        try await RawServerConformanceTests(port: port, clientFactory: clientFactory).run()
     }
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-struct BadServerConformanceTests<Client: HTTPClient & ~Copyable> {
+struct RawServerConformanceTests<Client: HTTPClient & ~Copyable> {
     let port: Int
     let clientFactory: () async throws -> Client
 
@@ -50,6 +52,9 @@ struct BadServerConformanceTests<Client: HTTPClient & ~Copyable> {
         try await testNoReason()
         try await test204WithContentLength()
         try await test304WithContentLength()
+        try await testIncompleteBody()
+        try await testNoLengthHint()
+        try await testConflictingContentLength()
     }
 
     func testNotHTTP() async throws {
@@ -147,6 +152,72 @@ struct BadServerConformanceTests<Client: HTTPClient & ~Copyable> {
                 let isEmpty = span.isEmpty
                 #expect(isEmpty)
             }
+        }
+    }
+
+    func testIncompleteBody() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:\(port)",
+            path: "/incomplete_body"
+        )
+
+        // An incomplete body based on content-length results in error
+        await #expect(throws: (any Error).self) {
+            try await client.perform(
+                request: request
+            ) { response, responseBodyAndTrailers in
+                #expect(response.status == .ok)
+                let (_, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                    let isEmpty = span.isEmpty
+                    #expect(isEmpty)
+                }
+            }
+        }
+    }
+
+    func testConflictingContentLength() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:\(port)",
+            path: "/conflicting_cl"
+        )
+
+        // Conflicting content-length results in error
+        await #expect(throws: (any Error).self) {
+            try await client.perform(
+                request: request
+            ) { response, responseBodyAndTrailers in
+                #expect(response.status == .ok)
+                let (_, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                    let isEmpty = span.isEmpty
+                    #expect(isEmpty)
+                }
+            }
+        }
+    }
+
+    func testNoLengthHint() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:\(port)",
+            path: "/no_length_hint"
+        )
+
+        try await client.perform(
+            request: request
+        ) { response, responseBodyAndTrailers in
+            #expect(response.status == .ok)
+            let (body, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                return String(copying: try UTF8Span(validating: span))
+            }
+            #expect(body == "1234")
         }
     }
 }

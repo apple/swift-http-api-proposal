@@ -17,8 +17,73 @@ import NIOCore
 import NIOHTTP1
 import NIOPosix
 
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+public func withRawHTTPServer(perform: (Int) async throws -> Void) async throws {
+    try await withThrowingTaskGroup {
+        let server = try await RawHTTPServer()
+        $0.addTask {
+            try await server.run(handler: handler)
+        }
+        try await perform(server.port)
+        $0.cancelAll()
+    }
+}
+
+func linesToData(_ lines: [String]) -> Data {
+    return lines.joined(separator: "\r\n").data(using: .ascii)!
+}
+
+func handler(request: HTTPRequestHead) -> Data {
+    switch request.uri {
+    case "/not_http":
+        return "FOOBAR".data(using: .ascii)!
+    case "/lf_only":
+        return "HTTP/1.1 200 OK\n\n".data(using: .ascii)!
+    case "/http_case":
+        return "Http/1.1 200 OK\r\n\r\n".data(using: .ascii)!
+    case "/no_reason":
+        return "HTTP/1.1 200\r\n\r\n".data(using: .ascii)!
+    case "/204_with_cl":
+        return linesToData([
+            "HTTP/1.1 204 No Content",
+            "Content-Length: 1000",
+            "",
+            "",
+        ])
+    case "/304_with_cl":
+        return linesToData([
+            "HTTP/1.1 304 Not Modified",
+            "Content-Length: 1000",
+            "",
+            "",
+        ])
+    case "/incomplete_body":
+        return linesToData([
+            "HTTP/1.1 200 OK",
+            "Content-Length: 1000",
+            "",
+            "1234",
+        ])
+    case "/no_length_hint":
+        return linesToData([
+            "HTTP/1.1 200 OK",
+            "",
+            "1234",
+        ])
+    case "/conflicting_cl":
+        return linesToData([
+            "HTTP/1.1 200 OK",
+            "Content-Length: 10, 4",
+            "",
+            "1234",
+        ])
+    default:
+        return "HTTP/1.1 500 Internal Server Error\r\n\r\n".data(using: .ascii)!
+    }
+}
+
 @available(macOS 14, iOS 17, tvOS 17, watchOS 10, *)
-public actor RawHTTPServer {
+actor RawHTTPServer {
     let server_channel:
         NIOAsyncChannel<
             NIOAsyncChannel<
