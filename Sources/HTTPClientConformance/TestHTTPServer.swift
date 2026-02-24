@@ -157,6 +157,16 @@ func serve(server: NIOHTTPServer) async throws {
 
             let writer = try await responseSender.send(HTTPResponse(status: .ok, headerFields: headers))
             try await writer.writeAndConclude(bytes.span, finalElement: nil)
+        case "/header_multivalue":
+            try await responseSender.send(
+                HTTPResponse(
+                    status: .ok,
+                    headerFields: [
+                        .init("X-Test")!: "one",
+                        .init("X-Test")!: "two",
+                    ]
+                )
+            )
         case "/identity":
             // This will always write out the body with no encoding.
             // Used to check that a client can handle fallback to no encoding.

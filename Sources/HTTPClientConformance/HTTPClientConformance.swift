@@ -57,9 +57,11 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         try await testPostConvenience()
         try await testCancelPreHeaders()
         try await testCancelPreBody()
-        try await testClientSendsUncommonHeaderValues()
+        try await testClientSendsEmptyHeaderValue()
         try await testInfiniteRedirect()
         try await testHeadWithContentLength()
+        try await testServerSendsMultiValueHeader()
+        try await testClientSendsMultiValueHeader()
 
         // TODO: Writing just an empty span causes an indefinite stall. The terminating chunk (size 0) is not written out on the wire.
         // try await testEmptyChunkedBody()
@@ -444,18 +446,16 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         }
     }
 
-    func testClientSendsUncommonHeaderValues() async throws {
+    func testClientSendsEmptyHeaderValue() async throws {
         let client = try await clientFactory()
         let request = HTTPRequest(
             method: .post,
             scheme: "http",
             authority: "127.0.0.1:\(port)",
             path: "/request",
-            headerFields: HTTPFields([
-                HTTPField(name: .init("X-Header-1")!, value: "line1\r\n line2"),
-                HTTPField(name: .init("X-Header-2")!, value: "test     "),
-                HTTPField(name: .init("X-Header-3")!, value: ""),
-            ])
+            headerFields: [
+                .init("X-Test")!: ""
+            ]
         )
 
         try await client.perform(
@@ -468,9 +468,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
                 return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
             }
 
-            #expect(jsonRequest.headers["X-Header-1"] == ["line1   line2"])
-            #expect(jsonRequest.headers["X-Header-2"] == ["test"])
-            #expect(jsonRequest.headers["X-Header-3"] == [""])
+            #expect(jsonRequest.headers["X-Test"] == [""])
         }
     }
 
@@ -607,6 +605,53 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
             }
             #expect(body.isEmpty)
             #expect(trailers == nil)
+        }
+    }
+
+    func testServerSendsMultiValueHeader() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:\(port)",
+            path: "/header_multivalue"
+        )
+        try await client.perform(
+            request: request,
+        ) { response, responseBodyAndTrailers in
+            #expect(response.status == .ok)
+            let headers = response.headerFields[values: .init("X-Test")!]
+
+            // Clients may choose to coalesce the values into a single header by comma-separation
+            #expect(headers == ["one", "two"] || headers == ["one, two"])
+        }
+    }
+
+    func testClientSendsMultiValueHeader() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:\(port)",
+            path: "/request",
+            headerFields: [
+                .init("X-Test")!: "one",
+                .init("X-Test")!: "two",
+            ]
+        )
+        try await client.perform(
+            request: request,
+        ) { response, responseBodyAndTrailers in
+            let (jsonRequest, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                let body = String(copying: try UTF8Span(validating: span))
+                let data = body.data(using: .utf8)!
+                return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
+            }
+
+            let headers = jsonRequest.headers["X-Test"]
+
+            // Clients may choose to coalesce the values into a single header by comma-separation
+            #expect(headers == ["one", "two"] || headers == ["one, two"])
         }
     }
 }
