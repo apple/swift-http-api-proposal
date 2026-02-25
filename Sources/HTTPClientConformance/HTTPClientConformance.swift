@@ -58,6 +58,11 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         try await testCancelPreBody()
         try await testEcho1MBBody()
         try await testUnderRead()
+        try await testClientSendsEmptyHeaderValue()
+        try await testInfiniteRedirect()
+        try await testHeadWithContentLength()
+        try await testServerSendsMultiValueHeader()
+        try await testClientSendsMultiValueHeader()
 
         // TODO: URLSession client hangs because of a bug where single bytes cannot be sent.
         // try await testEchoInterleave()
@@ -310,6 +315,24 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         }
     }
 
+    func testInfiniteRedirect() async throws {
+        let client = try await clientFactory()
+
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:\(port)",
+            path: "/redirect_ping"
+        )
+
+        // Infinite redirection should cause an error to be thrown
+        await #expect(throws: (any Error).self) {
+            try await client.perform(
+                request: request,
+            ) { _, _ in }
+        }
+    }
+
     func testNotFound() async throws {
         let client = try await clientFactory()
         let request = HTTPRequest(
@@ -423,6 +446,32 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
                 }
                 #expect(numberOfChunks == 1000)
             }
+        }
+    }
+
+    func testClientSendsEmptyHeaderValue() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .post,
+            scheme: "http",
+            authority: "127.0.0.1:\(port)",
+            path: "/request",
+            headerFields: [
+                .init("X-Test")!: ""
+            ]
+        )
+
+        try await client.perform(
+            request: request,
+        ) { response, responseBodyAndTrailers in
+            #expect(response.status == .ok)
+            let (jsonRequest, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                let body = String(copying: try UTF8Span(validating: span))
+                let data = body.data(using: .utf8)!
+                return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
+            }
+
+            #expect(jsonRequest.headers["X-Test"] == [""])
         }
     }
 
@@ -633,4 +682,82 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         }
     }
 
+    func testHeadWithContentLength() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .head,
+            scheme: "http",
+            authority: "127.0.0.1:\(port)",
+            path: "/head_with_cl"
+        )
+        try await client.perform(
+            request: request,
+        ) { response, responseBodyAndTrailers in
+            #expect(response.status == .ok)
+            let (body, trailers) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                return String(copying: try UTF8Span(validating: span))
+            }
+            #expect(body.isEmpty)
+            #expect(trailers == nil)
+        }
+    }
+
+    func testServerSendsMultiValueHeader() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:\(port)",
+            path: "/header_multivalue"
+        )
+        try await client.perform(
+            request: request,
+        ) { response, responseBodyAndTrailers in
+            #expect(response.status == .ok)
+            let values = response.headerFields[values: .init("X-Test")!]
+
+            // If the values are comma-separated, break them up.
+            var split_values: [Substring] = []
+            for value in values {
+                let iter_splits = value.split(separator: /(\s)*,(\s)*/)
+                split_values.append(contentsOf: iter_splits)
+            }
+
+            #expect(split_values == ["one", "two"])
+        }
+    }
+
+    func testClientSendsMultiValueHeader() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:\(port)",
+            path: "/request",
+            headerFields: [
+                .init("X-Test")!: "one",
+                .init("X-Test")!: "two",
+            ]
+        )
+        try await client.perform(
+            request: request,
+        ) { response, responseBodyAndTrailers in
+            let (jsonRequest, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                let body = String(copying: try UTF8Span(validating: span))
+                let data = body.data(using: .utf8)!
+                return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
+            }
+
+            let values = jsonRequest.headers["X-Test"]!
+
+            // If the values are comma-separated, break them up.
+            var split_values: [Substring] = []
+            for value in values {
+                let iter_splits = value.split(separator: /(\s)*,(\s)*/)
+                split_values.append(contentsOf: iter_splits)
+            }
+
+            #expect(split_values == ["one", "two"])
+        }
+    }
 }
