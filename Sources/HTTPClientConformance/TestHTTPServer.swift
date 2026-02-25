@@ -255,6 +255,10 @@ func serve(server: NIOHTTPServer) async throws {
 
                 return nil
             }
+        case "/1mb_body":
+            let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
+            let data = String(repeating: "A", count: 1_000_000).data(using: .ascii)!
+            try await responseBodyAndTrailers.writeAndConclude(data.span, finalElement: nil)
         default:
             let writer = try await responseSender.send(HTTPResponse(status: .internalServerError))
             try await writer.writeAndConclude("Bad/unknown path".utf8.span, finalElement: nil)

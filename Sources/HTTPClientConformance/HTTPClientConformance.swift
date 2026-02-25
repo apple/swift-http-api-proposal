@@ -57,6 +57,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         try await testCancelPreHeaders()
         try await testCancelPreBody()
         try await test1MBBody()
+        try await testUnderRead()
 
         // TODO: URLSession client hangs because of a bug where single bytes cannot be sent.
         // try await testEchoInterleave()
@@ -611,6 +612,27 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
                 return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
             }
             #expect(jsonRequest.body == String(repeating: "A", count: 1_000_000))
+        }
+    }
+
+    func testUnderRead() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:\(port)",
+            path: "/1mb_body"
+        )
+
+        // Read only a single byte from the body. We do not care about the rest of the 1Mb.
+        try await client.perform(
+            request: request,
+        ) { response, responseBodyAndTrailers in
+            #expect(response.status == .ok)
+            let (character, _) = try await responseBodyAndTrailers.collect(upTo: 1) { span in
+                return String(copying: try UTF8Span(validating: span))
+            }
+            #expect(character == "A")
         }
     }
 

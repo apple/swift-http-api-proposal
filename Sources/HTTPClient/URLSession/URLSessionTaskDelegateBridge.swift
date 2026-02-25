@@ -414,6 +414,10 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
     }
 
     func processDelegateCallbacksAfterResponse(_ options: HTTPRequestOptions) async throws {
+        // We shouldn't wait for any more elements on the stream.
+        self.continuation.finish()
+
+        // Process any callbacks that may have already arrived on the stream.
         for await callback in self.stream {
             switch callback {
             case .response:
