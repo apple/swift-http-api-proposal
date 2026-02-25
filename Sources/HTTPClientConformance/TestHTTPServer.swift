@@ -297,7 +297,16 @@ func serve(server: NIOHTTPServer) async throws {
         case "/1mb_body":
             let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
             let data = String(repeating: "A", count: 1_000_000).data(using: .ascii)!
-            try await responseBodyAndTrailers.writeAndConclude(data.span, finalElement: nil)
+
+            do {
+                try await responseBodyAndTrailers.writeAndConclude(data.span, finalElement: nil)
+            } catch {
+                // It is okay for the client to give up while reading this response.
+                // Example: a client may only want the first byte from this response.
+                // TCP flow control would stop the entire body from being written out,
+                // and then the client would just close the connection. That is an
+                // acceptable outcome here.
+            }
         default:
             let writer = try await responseSender.send(HTTPResponse(status: .internalServerError))
             try await writer.writeAndConclude("Bad/unknown path".utf8.span, finalElement: nil)

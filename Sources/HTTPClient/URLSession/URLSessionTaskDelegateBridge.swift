@@ -414,10 +414,14 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
     }
 
     func processDelegateCallbacksAfterResponse(_ options: HTTPRequestOptions) async throws {
-        // We shouldn't wait for any more elements on the stream.
-        self.continuation.finish()
+        // Cancel the URLSession task which should cause the request to finish and the
+        // completeWithError handler to run if it hasn't already.
+        //
+        // This is needed when, for example, a user chooses not to read the entire response
+        // body, so the response could still be pending, even though the response handler has
+        // been executed.
+        self.task?.cancel()
 
-        // Process any callbacks that may have already arrived on the stream.
         for await callback in self.stream {
             switch callback {
             case .response:
@@ -432,11 +436,6 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
             }
         }
         await self.requestBodyTask.withLock { $0 }?.value
-        await self.completion()
-    }
-
-    private func completion() async {
-        self.task?.cancel()
         await withCheckedContinuation { continuation in
             self.state.withLock { state in
                 if case .awaitingConsumption(_, true, _, _) = state.state {
