@@ -57,8 +57,8 @@ func serve(server: NIOHTTPServer) async throws {
                 headers[field.name.rawName, default: []].append(field.value)
             }
 
-            // Parse the body as a UTF8 string
-            let (body, _) = try await requestBodyAndTrailers.collect(upTo: 1024) { span in
+            // Parse the body as a UTF8 string. The body can be at most 2Mb.
+            let (body, _) = try await requestBodyAndTrailers.collect(upTo: 2_000_000) { span in
                 return String(copying: try UTF8Span(validating: span))
             }
 
