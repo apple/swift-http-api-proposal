@@ -56,7 +56,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         try await testPostConvenience()
         try await testCancelPreHeaders()
         try await testCancelPreBody()
-        try await test1MBBody()
+        try await testEcho1MBBody()
         try await testUnderRead()
 
         // TODO: URLSession client hangs because of a bug where single bytes cannot be sent.
@@ -585,13 +585,13 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         #expect(jsonRequest.body == "Hello World")
     }
 
-    func test1MBBody() async throws {
+    func testEcho1MBBody() async throws {
         let client = try await clientFactory()
         let request = HTTPRequest(
-            method: .put,
+            method: .post,
             scheme: "http",
             authority: "127.0.0.1:\(port)",
-            path: "/request"
+            path: "/echo"
         )
 
         try await client.perform(
@@ -604,14 +604,11 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
                 return nil
             }
         ) { response, responseBodyAndTrailers in
-            // Receive a JSON containing 1Mb of "A"
             #expect(response.status == .ok)
-            let (jsonRequest, _) = try await responseBodyAndTrailers.collect(upTo: 2_000_000) { span in
-                let body = String(copying: try UTF8Span(validating: span))
-                let data = body.data(using: .utf8)!
-                return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
+            let (echo, _) = try await responseBodyAndTrailers.collect(upTo: 2_000_000) { span in
+                return String(copying: try UTF8Span(validating: span))
             }
-            #expect(jsonRequest.body == String(repeating: "A", count: 1_000_000))
+            #expect(echo == String(repeating: "A", count: 1_000_000))
         }
     }
 
