@@ -979,20 +979,15 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
 
     func testURLParams() async throws {
         let client = try await clientFactory()
-        var path = URLComponents(string: "/request")!
-        path.queryItems = [
+        var components = URLComponents(string: "http://127.0.0.1:\(port)/request")!
+        components.queryItems = [
             URLQueryItem(name: "foo", value: "bar"),
             URLQueryItem(name: "bar", value: "baz"),
             URLQueryItem(name: "baz", value: "qux"),
             URLQueryItem(name: "qux", value: ""),
             URLQueryItem(name: "foo", value: "phew"),
         ]
-        let request = HTTPRequest(
-            method: .get,
-            scheme: "http",
-            authority: "127.0.0.1:\(port)",
-            path: path.string!
-        )
+        let request = HTTPRequest(url: components.url!)
         try await client.perform(
             request: request,
         ) { response, responseBodyAndTrailers in
