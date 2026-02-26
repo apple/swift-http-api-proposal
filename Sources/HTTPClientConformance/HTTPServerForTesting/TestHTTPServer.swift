@@ -71,6 +71,21 @@ func serve(server: NIOHTTPServer) async throws {
             let responseSpan = responseData.span
             let writer = try await responseSender.send(HTTPResponse(status: .ok))
             try await writer.writeAndConclude(responseSpan, finalElement: nil)
+        case "/head_with_cl":
+            if request.method != .head {
+                try await responseSender.send(HTTPResponse(status: .methodNotAllowed))
+                break
+            }
+
+            // OK with a theoretical 1000-byte body
+            try await responseSender.send(
+                HTTPResponse(
+                    status: .ok,
+                    headerFields: [
+                        .contentLength: "1000"
+                    ]
+                )
+            )
         case "/200":
             // OK
             let writer = try await responseSender.send(HTTPResponse(status: .ok))
@@ -142,11 +157,35 @@ func serve(server: NIOHTTPServer) async throws {
 
             let writer = try await responseSender.send(HTTPResponse(status: .ok, headerFields: headers))
             try await writer.writeAndConclude(bytes.span, finalElement: nil)
+        case "/header_multivalue":
+            try await responseSender.send(
+                HTTPResponse(
+                    status: .ok,
+                    headerFields: [
+                        .init("X-Test")!: "one",
+                        .init("X-Test")!: "two",
+                    ]
+                )
+            )
         case "/identity":
             // This will always write out the body with no encoding.
             // Used to check that a client can handle fallback to no encoding.
             let writer = try await responseSender.send(HTTPResponse(status: .ok))
             try await writer.writeAndConclude("TEST\n".utf8.span, finalElement: nil)
+        case "/redirect_ping":
+            // Infinite redirection as a result of arriving here
+            let writer = try await responseSender.send(
+                HTTPResponse(status: .movedPermanently, headerFields: HTTPFields([HTTPField(name: .location, value: "/redirect_pong")]))
+            )
+            try await writer
+                .writeAndConclude("".utf8.span, finalElement: nil)
+        case "/redirect_pong":
+            // Infinite redirection as a result of arriving here
+            let writer = try await responseSender.send(
+                HTTPResponse(status: .movedPermanently, headerFields: HTTPFields([HTTPField(name: .location, value: "/redirect_ping")]))
+            )
+            try await writer
+                .writeAndConclude("".utf8.span, finalElement: nil)
         case "/301":
             // Redirect to /request
             let writer = try await responseSender.send(
@@ -254,6 +293,19 @@ func serve(server: NIOHTTPServer) async throws {
                 assertionFailure("Not expected to complete hour-long wait")
 
                 return nil
+            }
+        case "/1mb_body":
+            let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
+            let data = String(repeating: "A", count: 1_000_000).data(using: .ascii)!
+
+            do {
+                try await responseBodyAndTrailers.writeAndConclude(data.span, finalElement: nil)
+            } catch {
+                // It is okay for the client to give up while reading this response.
+                // Example: a client may only want the first byte from this response.
+                // TCP flow control would stop the entire body from being written out,
+                // and then the client would just close the connection. That is an
+                // acceptable outcome here.
             }
         default:
             let writer = try await responseSender.send(HTTPResponse(status: .internalServerError))
