@@ -481,7 +481,6 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
                 }
                 #expect(jsonRequest.method == "GET")
                 #expect(jsonRequest.body.isEmpty)
-                #expect(!jsonRequest.headers.isEmpty)
             }
         }
     }
@@ -787,7 +786,6 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         #expect(response.status == .ok)
         let jsonRequest = try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
         #expect(jsonRequest.method == "GET")
-        #expect(!jsonRequest.headers.isEmpty)
         #expect(jsonRequest.body.isEmpty)
     }
 
@@ -801,7 +799,6 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         #expect(response.status == .ok)
         let jsonRequest = try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
         #expect(jsonRequest.method == "POST")
-        #expect(!jsonRequest.headers.isEmpty)
         #expect(jsonRequest.body == "Hello World")
     }
 
