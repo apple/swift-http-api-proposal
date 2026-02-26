@@ -234,6 +234,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         try await testHeadWithContentLength()
         try await testServerSendsMultiValueHeader()
         try await testClientSendsMultiValueHeader()
+        try await testBasicCookieSetAndUse()
 
         // TODO: URLSession client hangs because of a bug where single bytes cannot be sent.
         // try await testEchoInterleave()
@@ -927,5 +928,51 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
 
             #expect(split_values == ["one", "two"])
         }
+    }
+
+    func testBasicCookieSetAndUse() async throws {
+        // Get a cookie from the server
+        let client = try await clientFactory()
+        let request1 = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:\(port)",
+            path: "/cookie"
+        )
+        let serverCookie = try await client.perform(request: request1) { response, responseBodyAndTrailers in
+            // Parse the cookie
+            #expect(response.headerFields.contains(.setCookie))
+            let values = response.headerFields[values: .setCookie]
+            #expect(values.count == 1)
+            let cookie = values[0]
+            #expect(cookie.starts(with: "foo="))
+            return cookie.components(separatedBy: ";").first!
+        }
+
+        // The client should automatically use the cookie on the next request
+        let request2 = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:\(port)",
+            path: "/request"
+        )
+        let clientCookie = try await client.perform(request: request2) { response, responseBodyAndTrailers in
+            // The server gave us the request back. Check that the cookie was in the request.
+            let (jsonRequest, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                let body = String(copying: try UTF8Span(validating: span))
+                let data = body.data(using: .utf8)!
+                return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
+            }
+
+            // Parse the cookie
+            let values = jsonRequest.headers["Cookie"]!
+            #expect(values.count == 1)
+            let cookie = values[0]
+            #expect(cookie.starts(with: "foo="))
+            return cookie.components(separatedBy: ";").first!
+        }
+
+        // The cookie should be the same
+        #expect(serverCookie == clientCookie)
     }
 }

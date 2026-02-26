@@ -307,6 +307,17 @@ func serve(server: NIOHTTPServer) async throws {
                 // and then the client would just close the connection. That is an
                 // acceptable outcome here.
             }
+        case "/cookie":
+            let cookie = UUID().uuidString
+            let responseBodyAndTrailers = try await responseSender.send(
+                .init(
+                    status: .ok,
+                    headerFields: [
+                        .setCookie: "foo=\(cookie)"
+                    ]
+                )
+            )
+            try await responseBodyAndTrailers.writeAndConclude(Span(), finalElement: nil)
         default:
             let writer = try await responseSender.send(HTTPResponse(status: .internalServerError))
             try await writer.writeAndConclude("Bad/unknown path".utf8.span, finalElement: nil)
