@@ -56,6 +56,8 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         try await testPostConvenience()
         try await testCancelPreHeaders()
         try await testCancelPreBody()
+        try await testEcho1MBBody()
+        try await testUnderRead()
         try await testClientSendsEmptyHeaderValue()
         try await testInfiniteRedirect()
         try await testHeadWithContentLength()
@@ -630,6 +632,54 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         #expect(jsonRequest.method == "POST")
         #expect(!jsonRequest.headers.isEmpty)
         #expect(jsonRequest.body == "Hello World")
+    }
+
+    func testEcho1MBBody() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .post,
+            scheme: "http",
+            authority: "127.0.0.1:\(port)",
+            path: "/echo"
+        )
+
+        try await client.perform(
+            request: request,
+            body: .restartable(knownLength: 1_000_000) { writer in
+                // Write out 1Mb of "A"
+                var writer = writer
+                let data = String(repeating: "A", count: 1_000_000).data(using: .ascii)!
+                try await writer.write(data.span)
+                return nil
+            }
+        ) { response, responseBodyAndTrailers in
+            #expect(response.status == .ok)
+            let (echo, _) = try await responseBodyAndTrailers.collect(upTo: 2_000_000) { span in
+                return String(copying: try UTF8Span(validating: span))
+            }
+            #expect(echo == String(repeating: "A", count: 1_000_000))
+        }
+    }
+
+    func testUnderRead() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:\(port)",
+            path: "/1mb_body"
+        )
+
+        // Read only a single byte from the body. We do not care about the rest of the 1Mb.
+        try await client.perform(
+            request: request,
+        ) { response, responseBodyAndTrailers in
+            #expect(response.status == .ok)
+            let (character, _) = try await responseBodyAndTrailers.collect(upTo: 1) { span in
+                return String(copying: try UTF8Span(validating: span))
+            }
+            #expect(character == "A")
+        }
     }
 
     func testHeadWithContentLength() async throws {
