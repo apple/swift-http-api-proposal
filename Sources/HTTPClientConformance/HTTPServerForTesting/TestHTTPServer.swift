@@ -20,6 +20,9 @@ import Logging
 // HTTP request as received by the server.
 // Encoded into JSON and written back to the client.
 struct JSONHTTPRequest: Codable {
+    // Params from the request
+    let params: [String: [String]]
+
     // Headers from the request
     let headers: [String: [String]]
 
@@ -47,9 +50,31 @@ public func withTestHTTPServer(perform: (Int) async throws -> Void) async throws
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 func serve(server: NIOHTTPServer) async throws {
     try await server.serve { request, requestContext, requestBodyAndTrailers, responseSender in
-        switch request.path {
+        // This server expects a path
+        guard let path = request.path else {
+            let writer = try await responseSender.send(HTTPResponse(status: .internalServerError))
+            try await writer.writeAndConclude("No path specified".utf8.span, finalElement: nil)
+            return
+        }
+
+        // This server expects a valid path
+        guard let components = URLComponents(string: path) else {
+            let writer = try await responseSender.send(HTTPResponse(status: .internalServerError))
+            try await writer.writeAndConclude("Malformed path".utf8.span, finalElement: nil)
+            return
+        }
+
+        switch components.path {
         case "/request":
             // Returns a JSON describing the request received.
+
+            // Collect the params that were sent in with the request
+            var params: [String: [String]] = [:]
+            if let queryItems = components.queryItems {
+                for query in queryItems {
+                    params[query.name, default: []].append(query.value ?? "")
+                }
+            }
 
             // Collect the headers that were sent in with the request
             var headers: [String: [String]] = [:]
@@ -65,7 +90,7 @@ func serve(server: NIOHTTPServer) async throws {
             let method = request.method.rawValue
 
             // Construct the JSON request object and send it as a response
-            let response = JSONHTTPRequest(headers: headers, body: body, method: method)
+            let response = JSONHTTPRequest(params: params, headers: headers, body: body, method: method)
 
             let responseData = try JSONEncoder().encode(response)
             let responseSpan = responseData.span
@@ -320,7 +345,7 @@ func serve(server: NIOHTTPServer) async throws {
             try await responseBodyAndTrailers.writeAndConclude(Span(), finalElement: nil)
         default:
             let writer = try await responseSender.send(HTTPResponse(status: .internalServerError))
-            try await writer.writeAndConclude("Bad/unknown path".utf8.span, finalElement: nil)
+            try await writer.writeAndConclude("Unknown path".utf8.span, finalElement: nil)
         }
     }
 }
