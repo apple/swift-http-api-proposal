@@ -105,8 +105,19 @@ final class URLSessionRequestStreamBridge: NSObject, StreamDelegate, Sendable {
         }
     }
 
-    func close() {
+    func close(trailerFields: HTTPFields?) {
         self.lockedState.withLock { state in
+            if let trailerFields {
+                var trailerNames: Set<HTTPField.Name> = []
+                for field in trailerFields {
+                    trailerNames.insert(field.name)
+                }
+                var trailerDictionary: [String: String] = [:]
+                for name in trailerNames {
+                    trailerDictionary[name.rawName] = trailerFields[name]
+                }
+                state.outputStream.setProperty(trailerDictionary, forKey: .init("_kCFStreamPropertyHTTPTrailer"))
+            }
             state.outputStream.close()
         }
     }
