@@ -19,7 +19,6 @@ let package = Package(
     products: [
         .library(name: "HTTPAPIs", targets: ["HTTPAPIs"]),
         .library(name: "HTTPClient", targets: ["HTTPClient"]),
-        .library(name: "HTTPServer", targets: ["HTTPServer"]),
         .library(name: "AsyncStreaming", targets: ["AsyncStreaming"]),
         .library(name: "NetworkTypes", targets: ["NetworkTypes"]),
         .library(name: "HTTPClientConformance", targets: ["HTTPClientConformance"]),
@@ -65,16 +64,6 @@ let package = Package(
                 "NetworkTypes",
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "HTTPTypesFoundation", package: "swift-http-types"),
-            ],
-            swiftSettings: extraSettings
-        ),
-        .target(
-            name: "HTTPServer",
-            dependencies: [
-                "HTTPAPIs",
-                "AsyncStreaming",
-                "NetworkTypes",
-                .product(name: "HTTPTypes", package: "swift-http-types"),
             ],
             swiftSettings: extraSettings
         ),
