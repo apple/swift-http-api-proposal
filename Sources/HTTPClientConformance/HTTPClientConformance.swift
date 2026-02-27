@@ -235,6 +235,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         try await testServerSendsMultiValueHeader()
         try await testClientSendsMultiValueHeader()
         try await testBasicCookieSetAndUse()
+        try await testETag()
 
         // TODO: URLSession client hangs because of a bug where single bytes cannot be sent.
         // try await testEchoInterleave()
@@ -974,5 +975,48 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
 
         // The cookie should be the same
         #expect(serverCookie == clientCookie)
+    }
+
+    func testETag() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:\(port)",
+            path: "/etag"
+        )
+
+        for i in 0..<3 {
+            // The 6 requests we make, must have the following
+            // headers, response codes and body:
+            //
+            // # |If-None-Match| Code | ETag  | Body |
+            // 0 |    nil      | 200  |   0   |  0   |
+            // 1 |     0       | 304  |  nil  |  0   |
+            // 2 |     0       | 200  |   1   |  1   |
+            // 3 |     1       | 304  |  nil  |  1   |
+            // 4 |     1       | 200  |   2   |  2   |
+            // 5 |     2       | 304  |  nil  |  2   |
+            //
+            // If-None-Match is sent in request by client
+            // ETag is sent in response by server
+            //
+            // If a client does not send `If-None-Match` or the
+            // wrong value, then the server won't increment the
+            // ETag for the next request, so this test should break.
+
+            let expectedResponse = String(i)
+            for _ in 0..<2 {
+                try await client.perform(
+                    request: request
+                ) { response, responseBodyAndTrailers in
+                    #expect(response.status == .ok)
+                    let (response, _) = try await responseBodyAndTrailers.collect(upTo: 5) { span in
+                        return String(copying: try UTF8Span(validating: span))
+                    }
+                    #expect(response == expectedResponse)
+                }
+            }
+        }
     }
 }
