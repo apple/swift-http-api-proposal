@@ -44,8 +44,30 @@ public func withTestHTTPServer(perform: (Int) async throws -> Void) async throws
     }
 }
 
+actor ETag {
+    var eTag = 0
+
+    func get(clientETag: String?) -> Int? {
+        guard let clientETag, Int(clientETag) == eTag else {
+            // Client doesn't have an ETag or it
+            // doesn't match ours. Give ours.
+            return eTag
+        }
+        // Client's ETag is the same as ours.
+        // Nothing changed.
+
+        // Every time the client ETag matches
+        // ours, we change the ETag for the
+        // next attempt.
+        eTag += 1
+
+        return nil
+    }
+}
+
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 func serve(server: NIOHTTPServer) async throws {
+    let eTag = ETag()
     try await server.serve { request, requestContext, requestBodyAndTrailers, responseSender in
         switch request.path {
         case "/request":
@@ -318,6 +340,28 @@ func serve(server: NIOHTTPServer) async throws {
                 )
             )
             try await responseBodyAndTrailers.writeAndConclude(Span(), finalElement: nil)
+        case "/etag":
+            let clientETag = request.headerFields[.ifNoneMatch]
+            if let newETag = await eTag.get(clientETag: clientETag) {
+                // The server wants to give a new ETag to the client
+                let responseBodyAndTrailers = try await responseSender.send(
+                    .init(
+                        status: .ok,
+                        headerFields: [
+                            .eTag: String(newETag)
+                        ]
+                    )
+                )
+                // Give the etag itself as the new body
+                let data = String(newETag).data(using: .ascii)!
+                try await responseBodyAndTrailers.writeAndConclude(data.span, finalElement: nil)
+            } else {
+                // Nothing has changed, so 304 Not Modified.
+                let responseBodyAndTrailers = try await responseSender.send(
+                    .init(status: .notModified)
+                )
+                try await responseBodyAndTrailers.writeAndConclude(Span(), finalElement: nil)
+            }
         default:
             let writer = try await responseSender.send(HTTPResponse(status: .internalServerError))
             try await writer.writeAndConclude("Bad/unknown path".utf8.span, finalElement: nil)
