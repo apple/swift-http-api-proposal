@@ -16,6 +16,7 @@ import AsyncStreaming
 import Foundation
 import HTTPTypes
 import Logging
+import Synchronization
 
 // HTTP request as received by the server.
 // Encoded into JSON and written back to the client.
@@ -44,25 +45,28 @@ public func withTestHTTPServer(perform: (Int) async throws -> Void) async throws
     }
 }
 
-actor ETag {
-    var eTag = 0
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+struct ETag: Sendable & ~Copyable {
+    let eTag: Mutex<Int> = .init(0)
 
     func get(clientETag: String?) -> (String, Bool) {
-        guard let clientETag, Int(clientETag) == eTag else {
-            // Client doesn't have an ETag or it
-            // doesn't match ours. Give ours.
-            return (String(eTag), false)
+        eTag.withLock { currentETag in
+            guard let clientETag, Int(clientETag) == currentETag else {
+                // Client doesn't have an ETag or it
+                // doesn't match ours. Give ours.
+                return (String(currentETag), false)
+            }
+            // Client's ETag is the same as ours.
+            // Nothing changed.
+
+            // Every time the client ETag matches
+            // ours, we change the ETag for the
+            // next attempt.
+            let oldETag = currentETag
+            currentETag += 1
+
+            return (String(oldETag), true)
         }
-        // Client's ETag is the same as ours.
-        // Nothing changed.
-
-        // Every time the client ETag matches
-        // ours, we change the ETag for the
-        // next attempt.
-        let oldETag = eTag
-        eTag += 1
-
-        return (String(oldETag), true)
     }
 }
 
