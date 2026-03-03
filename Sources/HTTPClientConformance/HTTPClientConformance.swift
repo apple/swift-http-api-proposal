@@ -235,6 +235,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         try await testServerSendsMultiValueHeader()
         try await testClientSendsMultiValueHeader()
         try await testBasicCookieSetAndUse()
+        try await testURLParams()
 
         // TODO: URLSession client does not correctly handle cached response updates during revalidation.
         // try await testETag()
@@ -1021,6 +1022,37 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
                     #expect(response == expectedResponse)
                 }
             }
+        }
+    }
+
+    func testURLParams() async throws {
+        let client = try await clientFactory()
+        var components = URLComponents(string: "http://127.0.0.1:\(port)/request")!
+        components.queryItems = [
+            URLQueryItem(name: "foo", value: "bar"),
+            URLQueryItem(name: "bar", value: "baz"),
+            URLQueryItem(name: "baz", value: "qux"),
+            URLQueryItem(name: "qux", value: ""),
+            URLQueryItem(name: "foo", value: "phew"),
+        ]
+        let request = HTTPRequest(url: components.url!)
+        try await client.perform(
+            request: request,
+        ) { response, responseBodyAndTrailers in
+            let (jsonRequest, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                let body = String(copying: try UTF8Span(validating: span))
+                let data = body.data(using: .utf8)!
+                return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
+            }
+
+            #expect(
+                jsonRequest.params == [
+                    "foo": ["bar", "phew"],
+                    "bar": ["baz"],
+                    "baz": ["qux"],
+                    "qux": [""],
+                ]
+            )
         }
     }
 }
