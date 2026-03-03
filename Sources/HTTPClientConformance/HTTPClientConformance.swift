@@ -25,46 +25,7 @@ import Foundation
 #endif
 
 // An identifier for a single HTTP conformance test case.
-public enum ConformanceTestCase: Sendable, Hashable {
-    /// **WARNING**: Every new conformance test case must be added to
-    /// `all` otherwise it will not run by default.
-    static public let all: [ConformanceTestCase] = [
-        .testNotHTTP,
-        .testBadHTTPCase,
-        .testNoReason,
-        .test204WithContentLength,
-        .test304WithContentLength,
-        .testIncompleteBody,
-        .testNoLengthHint,
-        .testConflictingContentLength,
-        .testOk,
-        .testEchoString,
-        .testGzip,
-        .testDeflate,
-        .testBrotli,
-        .testIdentity,
-        .testCustomHeader,
-        .testBasicRedirect,
-        .testNotFound,
-        .testStatusOutOfRangeButValid,
-        .testStressTest,
-        .testGetConvenience,
-        .testPostConvenience,
-        .testCancelPreHeaders,
-        .testCancelPreBody,
-        .testEcho1MBBody,
-        .testUnderRead,
-        .testClientSendsEmptyHeaderValue,
-        .testInfiniteRedirect,
-        .testHeadWithContentLength,
-        .testServerSendsMultiValueHeader,
-        .testClientSendsMultiValueHeader,
-        .testBasicCookieSetAndUse,
-        .testEchoInterleave,
-        .testSpeakInterleave,
-        .testEmptyChunkedBody,
-    ]
-
+public enum ConformanceTestCase: Sendable, Hashable, CaseIterable {
     /// **WARNING**: Every new conformance test case must be added
     /// as an enum case below.
 
@@ -112,7 +73,7 @@ public func runConformanceTests<Client: HTTPClient & ~Copyable>(
     _ clientFactory: @escaping () async throws -> Client
 ) async throws {
     var testCases: [ConformanceTestCase] = []
-    for testCase in ConformanceTestCase.all {
+    for testCase in ConformanceTestCase.allCases {
         if excluding.contains(testCase) {
             print("➜ Test \(testCase) skipped.")
             continue
