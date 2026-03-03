@@ -16,6 +16,7 @@ import AsyncStreaming
 import Foundation
 import HTTPTypes
 import Logging
+import Synchronization
 
 // HTTP request as received by the server.
 // Encoded into JSON and written back to the client.
@@ -49,7 +50,33 @@ public func withTestHTTPServer(perform: (Int) async throws -> Void) async throws
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+struct ETag: Sendable & ~Copyable {
+    let eTag: Mutex<Int> = .init(0)
+
+    func next(clientETag: String?) -> (String, Bool) {
+        eTag.withLock { currentETag in
+            guard let clientETag, Int(clientETag) == currentETag else {
+                // Client doesn't have an ETag or it
+                // doesn't match ours. Give ours.
+                return (String(currentETag), false)
+            }
+            // Client's ETag is the same as ours.
+            // Nothing changed.
+
+            // Every time the client ETag matches
+            // ours, we change the ETag for the
+            // next attempt.
+            let oldETag = currentETag
+            currentETag += 1
+
+            return (String(oldETag), true)
+        }
+    }
+}
+
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 func serve(server: NIOHTTPServer) async throws {
+    let eTag = ETag()
     try await server.serve { request, requestContext, requestBodyAndTrailers, responseSender in
         // This server expects a path
         guard let path = request.path else {
@@ -344,6 +371,34 @@ func serve(server: NIOHTTPServer) async throws {
                 )
             )
             try await responseBodyAndTrailers.writeAndConclude(Span(), finalElement: nil)
+        case "/etag":
+            let clientETag = request.headerFields[.ifNoneMatch]
+            let (serverETag, isNotModified) = eTag.next(clientETag: clientETag)
+            if isNotModified {
+                // Nothing has changed, so 304 Not Modified.
+                let responseBodyAndTrailers = try await responseSender.send(
+                    .init(
+                        status: .notModified,
+                        headerFields: [
+                            .eTag: serverETag
+                        ]
+                    )
+                )
+                try await responseBodyAndTrailers.writeAndConclude(Span(), finalElement: nil)
+            } else {
+                // The server wants to give a new ETag to the client
+                let responseBodyAndTrailers = try await responseSender.send(
+                    .init(
+                        status: .ok,
+                        headerFields: [
+                            .eTag: serverETag
+                        ]
+                    )
+                )
+                // Give the etag itself as the new body
+                let data = serverETag.data(using: .ascii)!
+                try await responseBodyAndTrailers.writeAndConclude(data.span, finalElement: nil)
+            }
         default:
             let writer = try await responseSender.send(HTTPResponse(status: .internalServerError))
             try await writer.writeAndConclude("Unknown path".utf8.span, finalElement: nil)

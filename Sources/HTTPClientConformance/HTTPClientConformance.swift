@@ -64,6 +64,7 @@ public enum ConformanceTestCase: Sendable, Hashable, CaseIterable {
     case testSpeakInterleave
     case testEmptyChunkedBody
     case testURLParams
+    case testETag
 }
 
 // Runs an HTTP client through all the conformance tests,
@@ -143,6 +144,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         case .testSpeakInterleave: try await testSpeakInterleave()
         case .testEmptyChunkedBody: try await testEmptyChunkedBody()
         case .testURLParams: try await testURLParams()
+        case .testETag: try await testETag()
         }
     }
 
@@ -1023,6 +1025,51 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
 
         // The cookie should be the same
         #expect(serverCookie == clientCookie)
+    }
+
+    func testETag() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:\(testServerPort)",
+            path: "/etag"
+        )
+
+        for i in 0..<3 {
+            // The server starts a counter from 0 and uses it as the
+            // `ETag` and request body. It will only increment the
+            // counter when the client sends an `If-None-Match` with
+            // the same counter value.
+            //
+            // So the 6 requests we make must have the following
+            // headers, response codes and body:
+            //
+            // # |If-None-Match| Code | ETag  | Body |
+            // 1 |    nil      | 200  |   0   |  0   |
+            // 2 |     0       | 304  |   0   | nil  |
+            // 3 |     0       | 200  |   1   |  1   |
+            // 4 |     1       | 304  |   1   | nil  |
+            // 5 |     1       | 200  |   2   |  2   |
+            // 6 |     2       | 304  |   2   | nil  |
+            //
+            // If a client does not send `If-None-Match` or the
+            // wrong value, then the server won't increment the
+            // counter, so this test should break.
+
+            let expectedResponse = String(i)
+            for _ in 0..<2 {
+                try await client.perform(
+                    request: request
+                ) { response, responseBodyAndTrailers in
+                    #expect(response.status == .ok)
+                    let (response, _) = try await responseBodyAndTrailers.collect(upTo: 5) { span in
+                        return String(copying: try UTF8Span(validating: span))
+                    }
+                    #expect(response == expectedResponse)
+                }
+            }
+        }
     }
 
     func testURLParams() async throws {

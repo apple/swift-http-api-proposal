@@ -30,6 +30,9 @@ struct DarwinHTTPClientTests {
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     func conformance() async throws {
         try await runConformanceTests(excluding: [
+            // TODO: URLSession client does not correctly handle cached response updates during revalidation.
+            .testETag,
+
             // TODO: URLSession client hangs because of a bug where single bytes cannot be sent.
             .testEchoInterleave,
 
