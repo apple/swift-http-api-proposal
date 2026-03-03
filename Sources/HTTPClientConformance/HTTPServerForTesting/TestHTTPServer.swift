@@ -52,7 +52,7 @@ public func withTestHTTPServer(perform: (Int) async throws -> Void) async throws
 struct ETag: Sendable & ~Copyable {
     let eTag: Mutex<Int> = .init(0)
 
-    func get(clientETag: String?) -> (String, Bool) {
+    func next(clientETag: String?) -> (String, Bool) {
         eTag.withLock { currentETag in
             guard let clientETag, Int(clientETag) == currentETag else {
                 // Client doesn't have an ETag or it
@@ -372,7 +372,7 @@ func serve(server: NIOHTTPServer) async throws {
             try await responseBodyAndTrailers.writeAndConclude(Span(), finalElement: nil)
         case "/etag":
             let clientETag = request.headerFields[.ifNoneMatch]
-            let (serverETag, isNotModified) = await eTag.get(clientETag: clientETag)
+            let (serverETag, isNotModified) = eTag.next(clientETag: clientETag)
             if isNotModified {
                 // Nothing has changed, so 304 Not Modified.
                 let responseBodyAndTrailers = try await responseSender.send(
