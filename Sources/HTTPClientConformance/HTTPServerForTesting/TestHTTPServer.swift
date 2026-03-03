@@ -47,11 +47,11 @@ public func withTestHTTPServer(perform: (Int) async throws -> Void) async throws
 actor ETag {
     var eTag = 0
 
-    func get(clientETag: String?) -> Int? {
+    func get(clientETag: String?) -> (String, Bool) {
         guard let clientETag, Int(clientETag) == eTag else {
             // Client doesn't have an ETag or it
             // doesn't match ours. Give ours.
-            return eTag
+            return (String(eTag), false)
         }
         // Client's ETag is the same as ours.
         // Nothing changed.
@@ -59,9 +59,10 @@ actor ETag {
         // Every time the client ETag matches
         // ours, we change the ETag for the
         // next attempt.
+        let oldETag = eTag
         eTag += 1
 
-        return nil
+        return (String(oldETag), true)
     }
 }
 
@@ -342,25 +343,31 @@ func serve(server: NIOHTTPServer) async throws {
             try await responseBodyAndTrailers.writeAndConclude(Span(), finalElement: nil)
         case "/etag":
             let clientETag = request.headerFields[.ifNoneMatch]
-            if let newETag = await eTag.get(clientETag: clientETag) {
+            let (serverETag, isNotModified) = await eTag.get(clientETag: clientETag)
+            if isNotModified {
+                // Nothing has changed, so 304 Not Modified.
+                let responseBodyAndTrailers = try await responseSender.send(
+                    .init(
+                        status: .notModified,
+                        headerFields: [
+                            .eTag: serverETag
+                        ]
+                    )
+                )
+                try await responseBodyAndTrailers.writeAndConclude(Span(), finalElement: nil)
+            } else {
                 // The server wants to give a new ETag to the client
                 let responseBodyAndTrailers = try await responseSender.send(
                     .init(
                         status: .ok,
                         headerFields: [
-                            .eTag: String(newETag)
+                            .eTag: serverETag
                         ]
                     )
                 )
                 // Give the etag itself as the new body
-                let data = String(newETag).data(using: .ascii)!
+                let data = serverETag.data(using: .ascii)!
                 try await responseBodyAndTrailers.writeAndConclude(data.span, finalElement: nil)
-            } else {
-                // Nothing has changed, so 304 Not Modified.
-                let responseBodyAndTrailers = try await responseSender.send(
-                    .init(status: .notModified)
-                )
-                try await responseBodyAndTrailers.writeAndConclude(Span(), finalElement: nil)
             }
         default:
             let writer = try await responseSender.send(HTTPResponse(status: .internalServerError))
