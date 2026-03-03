@@ -32,10 +32,10 @@ struct DarwinHTTPClientTests {
         try await runConformanceTests(excluding: [
             // TODO: URLSession client hangs because of a bug where single bytes cannot be sent.
             .testEchoInterleave,
-            
+
             // TODO: URLSession client hangs because of a bug where single bytes cannot be sent and requests cannot outlive responses.
             .testSpeakInterleave,
-            
+
             // TODO: Writing just an empty span causes an indefinite stall. The terminating chunk (size 0) is not written out on the wire.
             .testEmptyChunkedBody,
         ]) {

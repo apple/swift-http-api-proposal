@@ -64,50 +64,53 @@ public enum ConformanceTestCase: Sendable, Hashable {
         .testSpeakInterleave,
         .testEmptyChunkedBody,
     ]
-    
+
     /// **WARNING**: Every new conformance test case must be added
     /// as an enum case below.
 
-    case testNotHTTP;
-    case testBadHTTPCase;
-    case testNoReason;
-    case test204WithContentLength;
-    case test304WithContentLength;
-    case testIncompleteBody;
-    case testNoLengthHint;
-    case testConflictingContentLength;
-    case testOk;
-    case testEchoString;
-    case testGzip;
-    case testDeflate;
-    case testBrotli;
-    case testIdentity;
-    case testCustomHeader;
-    case testBasicRedirect;
-    case testNotFound;
-    case testStatusOutOfRangeButValid;
-    case testStressTest;
-    case testGetConvenience;
-    case testPostConvenience;
-    case testCancelPreHeaders;
-    case testCancelPreBody;
-    case testEcho1MBBody;
-    case testUnderRead;
-    case testClientSendsEmptyHeaderValue;
-    case testInfiniteRedirect;
-    case testHeadWithContentLength;
-    case testServerSendsMultiValueHeader;
-    case testClientSendsMultiValueHeader;
-    case testBasicCookieSetAndUse;
-    case testEchoInterleave;
-    case testSpeakInterleave;
-    case testEmptyChunkedBody;
+    case testNotHTTP
+    case testBadHTTPCase
+    case testNoReason
+    case test204WithContentLength
+    case test304WithContentLength
+    case testIncompleteBody
+    case testNoLengthHint
+    case testConflictingContentLength
+    case testOk
+    case testEchoString
+    case testGzip
+    case testDeflate
+    case testBrotli
+    case testIdentity
+    case testCustomHeader
+    case testBasicRedirect
+    case testNotFound
+    case testStatusOutOfRangeButValid
+    case testStressTest
+    case testGetConvenience
+    case testPostConvenience
+    case testCancelPreHeaders
+    case testCancelPreBody
+    case testEcho1MBBody
+    case testUnderRead
+    case testClientSendsEmptyHeaderValue
+    case testInfiniteRedirect
+    case testHeadWithContentLength
+    case testServerSendsMultiValueHeader
+    case testClientSendsMultiValueHeader
+    case testBasicCookieSetAndUse
+    case testEchoInterleave
+    case testSpeakInterleave
+    case testEmptyChunkedBody
 }
 
 // Runs an HTTP client through all the conformance tests,
 // except the ones specified in `excluding`.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-public func runConformanceTests<Client: HTTPClient & ~Copyable>(excluding: [ConformanceTestCase] = [], _ clientFactory: @escaping () async throws -> Client) async throws {
+public func runConformanceTests<Client: HTTPClient & ~Copyable>(
+    excluding: [ConformanceTestCase] = [],
+    _ clientFactory: @escaping () async throws -> Client
+) async throws {
     var testCases: [ConformanceTestCase] = []
     for testCase in ConformanceTestCase.all {
         if excluding.contains(testCase) {
@@ -116,7 +119,7 @@ public func runConformanceTests<Client: HTTPClient & ~Copyable>(excluding: [Conf
         }
         testCases.append(testCase)
     }
-    
+
     try await withTestHTTPServer { testServerPort in
         try await withRawHTTPServer { rawServerPort in
             let suite = ConformanceTestSuite(testServerPort: testServerPort, rawServerPort: rawServerPort, clientFactory: clientFactory)
