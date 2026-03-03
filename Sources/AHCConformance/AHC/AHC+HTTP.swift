@@ -72,6 +72,7 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
                 var localArray = RigidArray<UInt8>(capacity: 0)
                 swap(&localArray, &self.rigidArray)
                 unsafe localArray.span.withUnsafeBufferPointer { bufferPtr in
+                    self.byteBuffer.reserveCapacity(bufferPtr.count)
                     unsafe self.byteBuffer.withUnsafeMutableWritableBytes { byteBufferPtr in
                         unsafe byteBufferPtr.copyBytes(from: bufferPtr)
                     }
@@ -137,10 +138,11 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
                     return try await body(array.span)
                 }
                 var array = RigidArray<UInt8>()
-                array.reserveCapacity(buffer.readableBytes)
+                let capcity = maximumCount != nil ? min(maximumCount!, buffer.readableBytes) : buffer.readableBytes
+                array.reserveCapacity(capcity)
                 unsafe buffer.withUnsafeReadableBytes { rawBufferPtr in
                     let usbptr = unsafe rawBufferPtr.assumingMemoryBound(to: UInt8.self)
-                    unsafe array.append(copying: usbptr)
+                    unsafe array.append(copying: usbptr[0..<capcity])
                 }
                 return try await body(array.span)
             } catch let error as Failure {

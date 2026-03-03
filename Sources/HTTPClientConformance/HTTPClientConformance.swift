@@ -965,11 +965,11 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
             }
 
             // Parse the cookie
-            let values = jsonRequest.headers["Cookie"]!
+            let values = jsonRequest.headers["Cookie"] ?? []
             #expect(values.count == 1)
-            let cookie = values[0]
-            #expect(cookie.starts(with: "foo="))
-            return cookie.components(separatedBy: ";").first!
+            let cookie = values.first
+            #expect(cookie?.starts(with: "foo=") ?? false)
+            return cookie?.components(separatedBy: ";").first
         }
 
         // The cookie should be the same
