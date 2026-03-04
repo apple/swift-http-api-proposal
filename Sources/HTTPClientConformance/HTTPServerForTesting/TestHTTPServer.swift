@@ -16,10 +16,14 @@ import AsyncStreaming
 import Foundation
 import HTTPTypes
 import Logging
+import Synchronization
 
 // HTTP request as received by the server.
 // Encoded into JSON and written back to the client.
 struct JSONHTTPRequest: Codable {
+    // Params from the request
+    let params: [String: [String]]
+
     // Headers from the request
     let headers: [String: [String]]
 
@@ -45,11 +49,59 @@ public func withTestHTTPServer(perform: (Int) async throws -> Void) async throws
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+struct ETag: Sendable & ~Copyable {
+    let eTag: Mutex<Int> = .init(0)
+
+    func next(clientETag: String?) -> (String, Bool) {
+        eTag.withLock { currentETag in
+            guard let clientETag, Int(clientETag) == currentETag else {
+                // Client doesn't have an ETag or it
+                // doesn't match ours. Give ours.
+                return (String(currentETag), false)
+            }
+            // Client's ETag is the same as ours.
+            // Nothing changed.
+
+            // Every time the client ETag matches
+            // ours, we change the ETag for the
+            // next attempt.
+            let oldETag = currentETag
+            currentETag += 1
+
+            return (String(oldETag), true)
+        }
+    }
+}
+
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 func serve(server: NIOHTTPServer) async throws {
+    let eTag = ETag()
     try await server.serve { request, requestContext, requestBodyAndTrailers, responseSender in
-        switch request.path {
+        // This server expects a path
+        guard let path = request.path else {
+            let writer = try await responseSender.send(HTTPResponse(status: .internalServerError))
+            try await writer.writeAndConclude("No path specified".utf8.span, finalElement: nil)
+            return
+        }
+
+        // This server expects a valid path
+        guard let components = URLComponents(string: path) else {
+            let writer = try await responseSender.send(HTTPResponse(status: .internalServerError))
+            try await writer.writeAndConclude("Malformed path".utf8.span, finalElement: nil)
+            return
+        }
+
+        switch components.path {
         case "/request":
             // Returns a JSON describing the request received.
+
+            // Collect the params that were sent in with the request
+            var params: [String: [String]] = [:]
+            if let queryItems = components.queryItems {
+                for query in queryItems {
+                    params[query.name, default: []].append(query.value ?? "")
+                }
+            }
 
             // Collect the headers that were sent in with the request
             var headers: [String: [String]] = [:]
@@ -65,7 +117,7 @@ func serve(server: NIOHTTPServer) async throws {
             let method = request.method.rawValue
 
             // Construct the JSON request object and send it as a response
-            let response = JSONHTTPRequest(headers: headers, body: body, method: method)
+            let response = JSONHTTPRequest(params: params, headers: headers, body: body, method: method)
 
             let responseData = try JSONEncoder().encode(response)
             let responseSpan = responseData.span
@@ -318,9 +370,37 @@ func serve(server: NIOHTTPServer) async throws {
                 )
             )
             try await responseBodyAndTrailers.writeAndConclude(Span(), finalElement: nil)
+        case "/etag":
+            let clientETag = request.headerFields[.ifNoneMatch]
+            let (serverETag, isNotModified) = eTag.next(clientETag: clientETag)
+            if isNotModified {
+                // Nothing has changed, so 304 Not Modified.
+                let responseBodyAndTrailers = try await responseSender.send(
+                    .init(
+                        status: .notModified,
+                        headerFields: [
+                            .eTag: serverETag
+                        ]
+                    )
+                )
+                try await responseBodyAndTrailers.writeAndConclude(Span(), finalElement: nil)
+            } else {
+                // The server wants to give a new ETag to the client
+                let responseBodyAndTrailers = try await responseSender.send(
+                    .init(
+                        status: .ok,
+                        headerFields: [
+                            .eTag: serverETag
+                        ]
+                    )
+                )
+                // Give the etag itself as the new body
+                let data = serverETag.data(using: .ascii)!
+                try await responseBodyAndTrailers.writeAndConclude(data.span, finalElement: nil)
+            }
         default:
             let writer = try await responseSender.send(HTTPResponse(status: .internalServerError))
-            try await writer.writeAndConclude("Bad/unknown path".utf8.span, finalElement: nil)
+            try await writer.writeAndConclude("Unknown path".utf8.span, finalElement: nil)
         }
     }
 }
