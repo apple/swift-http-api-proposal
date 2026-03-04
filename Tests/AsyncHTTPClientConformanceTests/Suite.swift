@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import AsyncHTTPClientConformance
 import AsyncHTTPClient
+import AsyncHTTPClientConformance
 import HTTPAPIs
 import HTTPClient
 import HTTPClientConformance

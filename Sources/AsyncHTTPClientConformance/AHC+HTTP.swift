@@ -144,7 +144,7 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
 
                 // we don't have enough data
                 let buffer = try await self.underlying.next(isolation: #isolation)
-                guard let buffer else { // eof received
+                guard let buffer else {  // eof received
                     let array = InlineArray<0, UInt8> { _ in }
                     return try await body(array.span)
                 }
@@ -160,7 +160,7 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
                     self.readerIndex = alreadyRead + readLength
                     self.reallocateIfNeeded()
                 }
-                return try await body(self.out.span.extracting(alreadyRead..<(alreadyRead+readLength)))
+                return try await body(self.out.span.extracting(alreadyRead..<(alreadyRead + readLength)))
             } catch let error as Failure {
                 throw .second(error)
             } catch {
