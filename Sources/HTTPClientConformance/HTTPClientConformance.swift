@@ -913,7 +913,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
             path: "/1mb_body"
         )
 
-        // Read only a single byte from the body. We do not care about the rest of the 1Mb.
+        // Read the whole body a byte at a time from the reader.
         try await client.perform(
             request: request,
         ) { response, responseBodyAndTrailers in
