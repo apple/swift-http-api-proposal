@@ -29,7 +29,7 @@ import Testing
         let httpClient = HTTPClient(eventLoopGroup: .singletonMultiThreadedEventLoopGroup, configuration: config)
         defer { Task { try await httpClient.shutdown() } }
 
-        try await runBasicConformanceTests {
+        try await runConformanceTests {
             httpClient
         }
     }
