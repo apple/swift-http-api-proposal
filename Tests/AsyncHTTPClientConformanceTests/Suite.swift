@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import AHCConformance
+import AsyncHTTPClientConformance
 import AsyncHTTPClient
 import HTTPAPIs
 import HTTPClient

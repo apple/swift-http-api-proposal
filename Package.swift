@@ -88,7 +88,7 @@ let package = Package(
             swiftSettings: extraSettings
         ),
         .target(
-            name: "AHCConformance",
+            name: "AsyncHTTPClientConformance",
             dependencies: [
                 "HTTPAPIs",
                 "AsyncStreaming",
@@ -162,9 +162,9 @@ let package = Package(
             swiftSettings: extraSettings
         ),
         .testTarget(
-            name: "AHCConformanceTests",
+            name: "AsyncHTTPClientConformanceTests",
             dependencies: [
-                "AHCConformance",
+                "AsyncHTTPClientConformance",
                 "HTTPClientConformance",
             ]
         ),
