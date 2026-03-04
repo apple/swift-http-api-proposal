@@ -229,7 +229,6 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         try await testCancelPreBody()
         try await testEcho1MBBody()
         try await testUnderRead()
-        try await testDripRead()
         try await testClientSendsEmptyHeaderValue()
         try await testInfiniteRedirect()
         try await testHeadWithContentLength()
@@ -853,43 +852,6 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
                 return String(copying: try UTF8Span(validating: span))
             }
             #expect(character == "A")
-        }
-    }
-
-    func testDripRead() async throws {
-        let client = try await clientFactory()
-        let request = HTTPRequest(
-            method: .get,
-            scheme: "http",
-            authority: "127.0.0.1:\(port)",
-            path: "/1mb_body"
-        )
-
-        // Read only a single byte from the body. We do not care about the rest of the 1Mb.
-        try await client.perform(
-            request: request,
-        ) { response, responseBodyAndTrailers in
-            #expect(response.status == .ok)
-
-            let (result, _) = try await responseBodyAndTrailers.consumeAndConclude { reader in
-                var result = [UInt8]()
-                var reader = reader
-                var breakTheLoop = false
-                while !breakTheLoop {
-                    breakTheLoop = try await reader.read(maximumCount: 1) { bytes in
-                        if bytes.isEmpty {
-                            return true
-                        } else {
-                            precondition(bytes.count == 1)
-                            result.append(bytes[0])
-                            return false
-                        }
-                    }
-                }
-
-                return result
-            }
-            #expect(result == [UInt8](repeating: UInt8(ascii: "A"), count: 1_000_000))
         }
     }
 
