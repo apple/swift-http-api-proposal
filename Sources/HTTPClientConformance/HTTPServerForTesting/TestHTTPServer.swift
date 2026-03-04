@@ -43,6 +43,7 @@ public func withTestHTTPServer(perform: (Int) async throws -> Void) async throws
             try await serve(server: server)
         }
         let port = try await server.listeningAddress.port
+        print("Test HTTP Server: \(port)")
         try await perform(port)
         $0.cancelAll()
     }
