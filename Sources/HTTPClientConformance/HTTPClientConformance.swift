@@ -925,13 +925,12 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
                 var breakTheLoop = false
                 while !breakTheLoop {
                     breakTheLoop = try await reader.read(maximumCount: 1) { bytes in
-                        if bytes.isEmpty {
-                            return true
-                        } else {
+                        guard bytes.isEmpty else {
                             precondition(bytes.count == 1)
                             result.append(bytes[0])
                             return false
                         }
+                        return true
                     }
                 }
 
