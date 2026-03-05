@@ -54,6 +54,7 @@ public enum ConformanceTestCase: Sendable, Hashable, CaseIterable {
     case testCancelPreBody
     case testEcho1MBBody
     case testUnderRead
+    case testDripRead
     case testClientSendsEmptyHeaderValue
     case testInfiniteRedirect
     case testHeadWithContentLength
@@ -134,6 +135,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         case .testCancelPreBody: try await testCancelPreBody()
         case .testEcho1MBBody: try await testEcho1MBBody()
         case .testUnderRead: try await testUnderRead()
+        case .testDripRead: try await testDripRead()
         case .testClientSendsEmptyHeaderValue: try await testClientSendsEmptyHeaderValue()
         case .testInfiniteRedirect: try await testInfiniteRedirect()
         case .testHeadWithContentLength: try await testHeadWithContentLength()
@@ -899,6 +901,42 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
                 return String(copying: try UTF8Span(validating: span))
             }
             #expect(character == "A")
+        }
+    }
+
+    func testDripRead() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:\(testServerPort)",
+            path: "/1mb_body"
+        )
+
+        // Read the whole body a byte at a time from the reader.
+        try await client.perform(
+            request: request,
+        ) { response, responseBodyAndTrailers in
+            #expect(response.status == .ok)
+
+            let (result, _) = try await responseBodyAndTrailers.consumeAndConclude { reader in
+                var result = [UInt8]()
+                var reader = reader
+                var breakTheLoop = false
+                while !breakTheLoop {
+                    breakTheLoop = try await reader.read(maximumCount: 1) { bytes in
+                        guard bytes.isEmpty else {
+                            precondition(bytes.count == 1)
+                            result.append(bytes[0])
+                            return false
+                        }
+                        return true
+                    }
+                }
+
+                return result
+            }
+            #expect(result == [UInt8](repeating: UInt8(ascii: "A"), count: 1_000_000))
         }
     }
 
