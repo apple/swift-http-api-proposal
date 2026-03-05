@@ -22,4 +22,20 @@ public enum HTTPClientCapability {
     public protocol RequestOptions {
         init()
     }
+
+}
+
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+extension HTTPClientCapability.RequestOptions {
+    /// Creates and configures request options using a convenience closure that
+    /// can be used in a `perform` call.
+    ///
+    /// - Parameter configure: A closure that configures the request options.
+    /// - Returns: The configured request options instance.
+    /// ```
+    public static func build(configure: (inout Self) -> Void) -> Self {
+        var options = Self()
+        configure(&options)
+        return options
+    }
 }
