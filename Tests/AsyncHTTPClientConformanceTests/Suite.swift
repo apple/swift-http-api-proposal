@@ -33,7 +33,7 @@ import Testing
             // TODO: AHC does not support cookies
             .testBasicCookieSetAndUse,
             // TODO: AHC does not support caching
-            .testETag
+            .testETag,
         ]) {
             httpClient
         }
