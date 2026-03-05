@@ -29,7 +29,12 @@ import Testing
         let httpClient = HTTPClient(eventLoopGroup: .singletonMultiThreadedEventLoopGroup, configuration: config)
         defer { Task { try await httpClient.shutdown() } }
 
-        try await runConformanceTests {
+        try await runConformanceTests(excluding: [
+            // TODO: AHC does not support cookies
+            .testBasicCookieSetAndUse,
+            // TODO: AHC does not support caching
+            .testETag
+        ]) {
             httpClient
         }
     }
