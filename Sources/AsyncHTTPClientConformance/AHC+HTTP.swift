@@ -27,7 +27,7 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
     public typealias ResponseConcludingReader = ResponseReader
 
     public struct RequestOptions: HTTPClientCapability.RequestOptions {
-        public init() {}
+
     }
 
     public struct RequestBodyWriter: AsyncWriter, ~Copyable {
@@ -183,6 +183,10 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
             }
             self.readerIndex = 0
         }
+    }
+
+    public var defaultRequestOptions: RequestOptions {
+        RequestOptions()
     }
 
     public func perform<Return: ~Copyable>(
