@@ -329,23 +329,31 @@ func serve(server: NIOHTTPServer) async throws {
                 return nil
             }
         case "/stall":
-            // Wait for an hour (effectively never giving an answer)
-            try await Task.sleep(for: .seconds(60 * 60))
-            assertionFailure("Not expected to complete hour-long wait")
+            do {
+                // Wait for an hour (effectively never giving an answer)
+                try await Task.sleep(for: .seconds(60 * 60))
+                assertionFailure("Not expected to complete hour-long wait")
+            } catch {
+                // It is okay for the client to give up on the connection due to the stall.
+            }
         case "/stall_body":
             // Send headers and partial body
             let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
 
-            try await responseBodyAndTrailers.produceAndConclude { responseBody in
-                var responseBody = responseBody
-                try await responseBody.write([UInt8](repeating: UInt8(ascii: "A"), count: 1000).span)
+            do {
+                try await responseBodyAndTrailers.produceAndConclude { responseBody in
+                    var responseBody = responseBody
+                    try await responseBody.write([UInt8](repeating: UInt8(ascii: "A"), count: 1000).span)
 
-                // Wait for an hour (effectively never giving an answer)
-                try await Task.sleep(for: .seconds(60 * 60))
+                    // Wait for an hour (effectively never giving an answer)
+                    try await Task.sleep(for: .seconds(60 * 60))
 
-                assertionFailure("Not expected to complete hour-long wait")
+                    assertionFailure("Not expected to complete hour-long wait")
 
-                return nil
+                    return nil
+                }
+            } catch {
+                // It is okay for the client to give up on the connection due to the stall.
             }
         case "/1mb_body":
             let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
