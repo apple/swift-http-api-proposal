@@ -1,0 +1,407 @@
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift HTTP API Proposal open source project
+//
+// Copyright (c) 2025 Apple Inc. and the Swift HTTP API Proposal project authors
+// Licensed under Apache License v2.0
+//
+// See LICENSE.txt for license information
+// See CONTRIBUTORS.txt for the list of Swift HTTP API Proposal project authors
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+//===----------------------------------------------------------------------===//
+
+import AsyncStreaming
+import Foundation
+import HTTPTypes
+import Logging
+import Synchronization
+
+// HTTP request as received by the server.
+// Encoded into JSON and written back to the client.
+struct JSONHTTPRequest: Codable {
+    // Params from the request
+    let params: [String: [String]]
+
+    // Headers from the request
+    let headers: [String: [String]]
+
+    // Body of the request
+    let body: String
+
+    // Method of the request
+    let method: String
+}
+
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+public func withTestHTTPServer(perform: (Int) async throws -> Void) async throws {
+    try await withThrowingTaskGroup {
+        let logger = Logger(label: "TestHTTPServer")
+        let server = NIOHTTPServer(logger: logger, configuration: .init(bindTarget: .hostAndPort(host: "127.0.0.1", port: 0)))
+        $0.addTask {
+            try await serve(server: server)
+        }
+        let port = try await server.listeningAddress.port
+        print("Test HTTP Server: \(port)")
+        try await perform(port)
+        $0.cancelAll()
+    }
+}
+
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+struct ETag: Sendable & ~Copyable {
+    let eTag: Mutex<Int> = .init(0)
+
+    func next(clientETag: String?) -> (String, Bool) {
+        eTag.withLock { currentETag in
+            guard let clientETag, Int(clientETag) == currentETag else {
+                // Client doesn't have an ETag or it
+                // doesn't match ours. Give ours.
+                return (String(currentETag), false)
+            }
+            // Client's ETag is the same as ours.
+            // Nothing changed.
+
+            // Every time the client ETag matches
+            // ours, we change the ETag for the
+            // next attempt.
+            let oldETag = currentETag
+            currentETag += 1
+
+            return (String(oldETag), true)
+        }
+    }
+}
+
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+func serve(server: NIOHTTPServer) async throws {
+    let eTag = ETag()
+    try await server.serve { request, requestContext, requestBodyAndTrailers, responseSender in
+        // This server expects a path
+        guard let path = request.path else {
+            let writer = try await responseSender.send(HTTPResponse(status: .internalServerError))
+            try await writer.writeAndConclude("No path specified".utf8.span, finalElement: nil)
+            return
+        }
+
+        // This server expects a valid path
+        guard let components = URLComponents(string: path) else {
+            let writer = try await responseSender.send(HTTPResponse(status: .internalServerError))
+            try await writer.writeAndConclude("Malformed path".utf8.span, finalElement: nil)
+            return
+        }
+
+        switch components.path {
+        case "/request":
+            // Returns a JSON describing the request received.
+
+            // Collect the params that were sent in with the request
+            var params: [String: [String]] = [:]
+            if let queryItems = components.queryItems {
+                for query in queryItems {
+                    params[query.name, default: []].append(query.value ?? "")
+                }
+            }
+
+            // Collect the headers that were sent in with the request
+            var headers: [String: [String]] = [:]
+            for field in request.headerFields {
+                headers[field.name.rawName, default: []].append(field.value)
+            }
+
+            // Parse the body as a UTF8 string
+            let (body, _) = try await requestBodyAndTrailers.collect(upTo: 1024) { span in
+                return String(copying: try UTF8Span(validating: span))
+            }
+
+            let method = request.method.rawValue
+
+            // Construct the JSON request object and send it as a response
+            let response = JSONHTTPRequest(params: params, headers: headers, body: body, method: method)
+
+            let responseData = try JSONEncoder().encode(response)
+            let responseSpan = responseData.span
+            let writer = try await responseSender.send(HTTPResponse(status: .ok))
+            try await writer.writeAndConclude(responseSpan, finalElement: nil)
+        case "/head_with_cl":
+            if request.method != .head {
+                try await responseSender.send(HTTPResponse(status: .methodNotAllowed))
+                break
+            }
+
+            // OK with a theoretical 1000-byte body
+            try await responseSender.send(
+                HTTPResponse(
+                    status: .ok,
+                    headerFields: [
+                        .contentLength: "1000"
+                    ]
+                )
+            )
+        case "/200":
+            // OK
+            let writer = try await responseSender.send(HTTPResponse(status: .ok))
+
+            // Do not write a response body for a HEAD request
+            if request.method == .head { break }
+
+            try await writer.writeAndConclude("".utf8.span, finalElement: nil)
+        case "/gzip":
+            // If the client didn't say that they supported this encoding,
+            // then fallback to no encoding.
+            let acceptEncoding = request.headerFields[.acceptEncoding]
+            var bytes: [UInt8]
+            var headers: HTTPFields
+            if let acceptEncoding,
+                acceptEncoding.contains("gzip")
+            {
+                // "TEST\n" as gzip
+                bytes = [
+                    0x1f, 0x8b, 0x08, 0x00, 0xfd, 0xd6, 0x77, 0x69, 0x04, 0x03, 0x0b, 0x71, 0x0d, 0x0e,
+                    0xe1, 0x02, 0x00, 0xbe, 0xd7, 0x83, 0xf7, 0x05, 0x00, 0x00, 0x00,
+                ]
+                headers = [.contentEncoding: "gzip"]
+            } else {
+                // "TEST\n" as raw ASCII
+                bytes = [84, 69, 83, 84, 10]
+                headers = [:]
+            }
+
+            let writer = try await responseSender.send(HTTPResponse(status: .ok, headerFields: headers))
+            try await writer.writeAndConclude(bytes.span, finalElement: nil)
+        case "/deflate":
+            // If the client didn't say that they supported this encoding,
+            // then fallback to no encoding.
+            let acceptEncoding = request.headerFields[.acceptEncoding]
+            var bytes: [UInt8]
+            var headers: HTTPFields
+            if let acceptEncoding,
+                acceptEncoding.contains("deflate")
+            {
+                // "TEST\n" as deflate
+                bytes = [0x78, 0x9c, 0x0b, 0x71, 0x0d, 0x0e, 0xe1, 0x02, 0x00, 0x04, 0x68, 0x01, 0x4b]
+                headers = [.contentEncoding: "deflate"]
+            } else {
+                // "TEST\n" as raw ASCII
+                bytes = [84, 69, 83, 84, 10]
+                headers = [:]
+            }
+
+            let writer = try await responseSender.send(HTTPResponse(status: .ok, headerFields: headers))
+            try await writer.writeAndConclude(bytes.span, finalElement: nil)
+        case "/brotli":
+            // If the client didn't say that they supported this encoding,
+            // then fallback to no encoding.
+            let acceptEncoding = request.headerFields[.acceptEncoding]
+            var bytes: [UInt8]
+            var headers: HTTPFields
+            if let acceptEncoding,
+                acceptEncoding.contains("br")
+            {
+                // "TEST\n" as brotli
+                bytes = [0x0f, 0x02, 0x80, 0x54, 0x45, 0x53, 0x54, 0x0a, 0x03]
+                headers = [.contentEncoding: "br"]
+            } else {
+                // "TEST\n" as raw ASCII
+                bytes = [84, 69, 83, 84, 10]
+                headers = [:]
+            }
+
+            let writer = try await responseSender.send(HTTPResponse(status: .ok, headerFields: headers))
+            try await writer.writeAndConclude(bytes.span, finalElement: nil)
+        case "/header_multivalue":
+            try await responseSender.send(
+                HTTPResponse(
+                    status: .ok,
+                    headerFields: [
+                        .init("X-Test")!: "one",
+                        .init("X-Test")!: "two",
+                    ]
+                )
+            )
+        case "/identity":
+            // This will always write out the body with no encoding.
+            // Used to check that a client can handle fallback to no encoding.
+            let writer = try await responseSender.send(HTTPResponse(status: .ok))
+            try await writer.writeAndConclude("TEST\n".utf8.span, finalElement: nil)
+        case "/redirect_ping":
+            // Infinite redirection as a result of arriving here
+            let writer = try await responseSender.send(
+                HTTPResponse(status: .movedPermanently, headerFields: HTTPFields([HTTPField(name: .location, value: "/redirect_pong")]))
+            )
+            try await writer
+                .writeAndConclude("".utf8.span, finalElement: nil)
+        case "/redirect_pong":
+            // Infinite redirection as a result of arriving here
+            let writer = try await responseSender.send(
+                HTTPResponse(status: .movedPermanently, headerFields: HTTPFields([HTTPField(name: .location, value: "/redirect_ping")]))
+            )
+            try await writer
+                .writeAndConclude("".utf8.span, finalElement: nil)
+        case "/301":
+            // Redirect to /request
+            let writer = try await responseSender.send(
+                HTTPResponse(status: .movedPermanently, headerFields: HTTPFields([HTTPField(name: .location, value: "/request")]))
+            )
+            try await writer
+                .writeAndConclude("".utf8.span, finalElement: nil)
+        case "/308":
+            // Redirect to /request
+            let writer = try await responseSender.send(
+                HTTPResponse(
+                    status: .permanentRedirect,
+                    headerFields: HTTPFields(
+                        [HTTPField(name: .location, value: "/request")]
+                    )
+                )
+            )
+            try await writer
+                .writeAndConclude("".utf8.span, finalElement: nil)
+        case "/404":
+            let writer = try await responseSender.send(
+                HTTPResponse(status: .notFound)
+            )
+            try await writer
+                .writeAndConclude("".utf8.span, finalElement: nil)
+        case "/999":
+            let writer = try await responseSender.send(
+                HTTPResponse(status: 999)
+            )
+            try await writer
+                .writeAndConclude("".utf8.span, finalElement: nil)
+        case "/echo":
+            // Bad method
+            if request.method != .post {
+                let writer = try await responseSender.send(
+                    HTTPResponse(status: .methodNotAllowed)
+                )
+                try await writer
+                    .writeAndConclude(
+                        "Incorrect method".utf8.span,
+                        finalElement: nil
+                    )
+                return
+            }
+
+            // Needed since we are lacking call-once closures
+            var responseSender = Optional(responseSender)
+
+            _ =
+                try await requestBodyAndTrailers
+                .consumeAndConclude { reader in
+                    // Needed since we are lacking call-once closures
+                    var reader = Optional(reader)
+                    let responseBodyAndTrailers = try await responseSender.take()!.send(.init(status: .ok))
+                    try await responseBodyAndTrailers.produceAndConclude { responseBody in
+                        var responseBody = responseBody
+                        try await responseBody.write(reader.take()!)
+                        return nil
+                    }
+                }
+        case "/speak":
+            // Send the headers for the response
+            let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
+
+            // Needed since we are lacking call-once closures
+            var requestBodyAndTrailers = Optional(requestBodyAndTrailers)
+
+            try await responseBodyAndTrailers.produceAndConclude {
+                var writer = $0
+                let _ = try await requestBodyAndTrailers.take()!.consumeAndConclude {
+                    var reader = $0
+
+                    // Server writes 1000 1-byte chunks of "A" and expects each
+                    // chunk to be written back by the client before proceeding
+                    // with the next one.
+                    for i in 0..<1000 {
+                        // Write a single-byte chunk
+                        try await writer.write("A".utf8.span)
+
+                        // Wait for the client to write the same chunk to the request body
+                        try await reader.read(maximumCount: 1) { span in
+                            if span.count != 1 || span[0] != UInt8(ascii: "A") {
+                                assertionFailure("Received unexpected span")
+                            }
+                        }
+                    }
+                }
+                return nil
+            }
+        case "/stall":
+            // Wait for an hour (effectively never giving an answer)
+            try await Task.sleep(for: .seconds(60 * 60))
+            assertionFailure("Not expected to complete hour-long wait")
+        case "/stall_body":
+            // Send headers and partial body
+            let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
+
+            try await responseBodyAndTrailers.produceAndConclude { responseBody in
+                var responseBody = responseBody
+                try await responseBody.write([UInt8](repeating: UInt8(ascii: "A"), count: 1000).span)
+
+                // Wait for an hour (effectively never giving an answer)
+                try await Task.sleep(for: .seconds(60 * 60))
+
+                assertionFailure("Not expected to complete hour-long wait")
+
+                return nil
+            }
+        case "/1mb_body":
+            let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
+            let data = String(repeating: "A", count: 1_000_000).data(using: .ascii)!
+
+            do {
+                try await responseBodyAndTrailers.writeAndConclude(data.span, finalElement: nil)
+            } catch {
+                // It is okay for the client to give up while reading this response.
+                // Example: a client may only want the first byte from this response.
+                // TCP flow control would stop the entire body from being written out,
+                // and then the client would just close the connection. That is an
+                // acceptable outcome here.
+            }
+        case "/cookie":
+            let cookie = UUID().uuidString
+            let responseBodyAndTrailers = try await responseSender.send(
+                .init(
+                    status: .ok,
+                    headerFields: [
+                        .setCookie: "foo=\(cookie)"
+                    ]
+                )
+            )
+            try await responseBodyAndTrailers.writeAndConclude(Span(), finalElement: nil)
+        case "/etag":
+            let clientETag = request.headerFields[.ifNoneMatch]
+            let (serverETag, isNotModified) = eTag.next(clientETag: clientETag)
+            if isNotModified {
+                // Nothing has changed, so 304 Not Modified.
+                let responseBodyAndTrailers = try await responseSender.send(
+                    .init(
+                        status: .notModified,
+                        headerFields: [
+                            .eTag: serverETag
+                        ]
+                    )
+                )
+                try await responseBodyAndTrailers.writeAndConclude(Span(), finalElement: nil)
+            } else {
+                // The server wants to give a new ETag to the client
+                let responseBodyAndTrailers = try await responseSender.send(
+                    .init(
+                        status: .ok,
+                        headerFields: [
+                            .eTag: serverETag
+                        ]
+                    )
+                )
+                // Give the etag itself as the new body
+                let data = serverETag.data(using: .ascii)!
+                try await responseBodyAndTrailers.writeAndConclude(data.span, finalElement: nil)
+            }
+        default:
+            let writer = try await responseSender.send(HTTPResponse(status: .internalServerError))
+            try await writer.writeAndConclude("Unknown path".utf8.span, finalElement: nil)
+        }
+    }
+}

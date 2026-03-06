@@ -78,8 +78,10 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
                 switch storage {
                 case .persistent:
                     .default
-                case .ephemeral(let storageConfiguration):
-                    storageConfiguration.copy() as! URLSessionConfiguration
+                case .ephemeral(let ephemeralConfiguration):
+                    // Could mutate the configuration directly since we are holding a lock and
+                    // URLSession makes a copy on initialization.
+                    ephemeralConfiguration
                 }
             configuration.usesClassicLoadingMode = false
             configuration.httpMaximumConnectionsPerHost = poolConfiguration.maximumConcurrentHTTP1ConnectionsPerHost

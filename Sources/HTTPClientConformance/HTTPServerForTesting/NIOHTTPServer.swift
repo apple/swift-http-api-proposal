@@ -301,6 +301,12 @@ public struct NIOHTTPServer: HTTPServer {
                                 readerState: readerState
                             ),
                             responseSender: HTTPResponseSender { response in
+                                // TODO: This is a temporary fix that informs clients
+                                // that this server does not support keep-alive. This
+                                // server should be updated to eventually support
+                                // keep-alive.
+                                var response = response
+                                response.headerFields[.connection] = "close"
                                 try await outbound.write(.head(response))
                                 return HTTPResponseConcludingAsyncWriter(
                                     writer: outbound,
