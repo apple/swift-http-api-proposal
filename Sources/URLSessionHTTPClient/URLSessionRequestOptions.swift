@@ -17,7 +17,8 @@ public import NetworkTypes
 #if canImport(Darwin)
 /// The options for the URLSession HTTP client implementation.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-public struct URLSessionRequestOptions: HTTPClientCapability.RedirectionHandler, HTTPClientCapability.TLSSecurityHandler, HTTPClientCapability.TLSVersionSelection,
+public struct URLSessionRequestOptions: HTTPClientCapability.RedirectionHandler, HTTPClientCapability.TLSSecurityHandler, HTTPClientCapability
+        .TLSVersionSelection,
     HTTPClientCapability.DeclarativePathSelection
 {
     public var redirectionHandler: (any HTTPClientRedirectionHandler)? = nil

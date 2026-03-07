@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import AsyncHTTPClient
 import AHCHTTPClient
+import AsyncHTTPClient
 import HTTPClientConformance
 import Testing
 
