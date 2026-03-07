@@ -12,10 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import AHCHTTPClient
 import AsyncHTTPClient
-import AsyncHTTPClientConformance
-import HTTPAPIs
-import HTTPClient
 import HTTPClientConformance
 import Testing
 
@@ -36,19 +34,6 @@ import Testing
             .testETag,
         ]) {
             httpClient
-        }
-    }
-}
-
-@available(macOS 26.2, *)
-extension AsyncHTTPClient.HTTPClient.RequestOptions: HTTPClientCapability.RedirectionHandler {
-    @available(macOS 26.2, *)
-    public var redirectionHandler: (any HTTPClientRedirectionHandler)? {
-        get {
-            nil
-        }
-        set {
-
         }
     }
 }

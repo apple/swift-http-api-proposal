@@ -12,27 +12,65 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_exported public import HTTPAPIs
+
 #if canImport(Darwin)
-import HTTPAPIs
 import Foundation
 import HTTPTypesFoundation
 import NetworkTypes
 import Synchronization
 
+/// The HTTPClient implementation backed by URLSession.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
-    typealias RequestWriter = URLSessionRequestStreamBridge
-    typealias ResponseConcludingReader = URLSessionTaskDelegateBridge
+public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
+    public struct RequestWriter: AsyncWriter, ~Copyable {
+        public mutating func write<Result, Failure>(
+            _ body: (inout OutputSpan<UInt8>) async throws(Failure) -> Result
+        ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Result where Failure: Error {
+            try await self.actual.write(body)
+        }
 
-    let poolConfiguration: HTTPConnectionPoolConfiguration
+        public mutating func write(
+            _ span: Span<UInt8>
+        ) async throws(EitherError<any Error, AsyncWriterWroteShortError>) {
+            try await self.actual.write(span)
+        }
 
-    private init(poolConfiguration: HTTPConnectionPoolConfiguration, shared: Bool) {
+        var actual: URLSessionRequestStreamBridge
+    }
+
+    public struct ResponseConcludingReader: ConcludingAsyncReader, ~Copyable {
+        public struct Underlying: AsyncReader, ~Copyable {
+            public mutating func read<Return, Failure>(
+                maximumCount: Int?,
+                body: (consuming Span<UInt8>) async throws(Failure) -> Return
+            ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Return where Failure: Error {
+                try await self.actual.read(maximumCount: maximumCount, body: body)
+            }
+
+            var actual: URLSessionTaskDelegateBridge
+        }
+
+        public func consumeAndConclude<Return, Failure>(
+            body: (consuming sending Underlying) async throws(Failure) -> Return
+        ) async throws(Failure) -> (Return, HTTPFields?) where Failure: Error {
+            try await self.actual.consumeAndConclude { actual throws(Failure) in
+                try await body(Underlying(actual: actual))
+            }
+        }
+
+        let actual: URLSessionTaskDelegateBridge
+    }
+
+    let poolConfiguration: URLSessionConnectionPoolConfiguration
+
+    private init(poolConfiguration: URLSessionConnectionPoolConfiguration, shared: Bool) {
         self.poolConfiguration = poolConfiguration
         self.sessions = .init(.init(shared: shared))
     }
 
-    static func withClient<Return: ~Copyable, Failure: Error>(
-        poolConfiguration: HTTPConnectionPoolConfiguration,
+    public static func withClient<Return: ~Copyable, Failure: Error>(
+        poolConfiguration: URLSessionConnectionPoolConfiguration,
         _ body: (URLSessionHTTPClient) async throws(Failure) -> Return
     ) async throws(Failure) -> Return {
         // withTaskGroup does not support ~Copyable result type
@@ -53,7 +91,7 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
         return try result!.get()
     }
 
-    static let shared: URLSessionHTTPClient = {
+    public static let shared: URLSessionHTTPClient = {
         let client = URLSessionHTTPClient(poolConfiguration: .init(), shared: true)
         // This is the only expected unstructured task since the singleton client doesn't have a parent task to attach to.
         Task.detached {
@@ -63,11 +101,11 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
     }()
 
     fileprivate struct SessionConfiguration: Hashable {
-        let poolConfiguration: HTTPConnectionPoolConfiguration
+        let poolConfiguration: URLSessionConnectionPoolConfiguration
         let minimumTLSVersion: TLSVersion
         let maximumTLSVersion: TLSVersion
 
-        init(_ options: HTTPRequestOptions, poolConfiguration: HTTPConnectionPoolConfiguration) {
+        init(_ options: URLSessionRequestOptions, poolConfiguration: URLSessionConnectionPoolConfiguration) {
             self.minimumTLSVersion = options.minimumTLSVersion
             self.maximumTLSVersion = options.maximumTLSVersion
             self.poolConfiguration = poolConfiguration
@@ -181,7 +219,7 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
 
     private let sessions: Mutex<Sessions>
 
-    private func session(for options: HTTPRequestOptions) -> Session {
+    private func session(for options: URLSessionRequestOptions) -> Session {
         let configuration = SessionConfiguration(options, poolConfiguration: self.poolConfiguration)
         return self.sessions.withLock {
             if $0.invalidated {
@@ -234,7 +272,7 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
         self.sessions.withLock { $0.sessions.values }
     }
 
-    private func request(for request: HTTPRequest, options: HTTPRequestOptions) throws -> URLRequest {
+    private func request(for request: HTTPRequest, options: URLSessionRequestOptions) throws -> URLRequest {
         guard var request = URLRequest(httpRequest: request) else {
             throw HTTPTypeConversionError.failedToConvertHTTPTypesToURLType
         }
@@ -247,10 +285,14 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
         return urlRequest as URLRequest
     }
 
-    func perform<Return: ~Copyable>(
+    public var defaultRequestOptions: URLSessionRequestOptions {
+        .init()
+    }
+
+    public func perform<Return: ~Copyable>(
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<RequestWriter>?,
-        options: HTTPRequestOptions,
+        options: URLSessionRequestOptions,
         responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return
     ) async throws -> Return {
         guard request.schemeSupported else {
@@ -262,7 +304,7 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
         let delegateBridge: URLSessionTaskDelegateBridge
         if let body {
             task = session.startTask().uploadTask(withStreamedRequest: request)
-            delegateBridge = URLSessionTaskDelegateBridge(task: task, body: body)
+            delegateBridge = URLSessionTaskDelegateBridge(task: task, body: .init(other: body, transform: RequestWriter.init))
         } else {
             task = session.startTask().dataTask(with: request)
             delegateBridge = URLSessionTaskDelegateBridge(task: task, body: nil)
@@ -280,7 +322,7 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
                 guard let response = (response as? HTTPURLResponse)?.httpResponse else {
                     throw HTTPTypeConversionError.failedToConvertURLTypeToHTTPTypes
                 }
-                result = .success(try await responseHandler(response, delegateBridge))
+                result = .success(try await responseHandler(response, .init(actual: delegateBridge)))
             } catch {
                 result = .failure(error)
             }
@@ -289,10 +331,6 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
             task.cancel()
         }
         return try result!.get()
-    }
-
-    var defaultRequestOptions: HTTPRequestOptions {
-        .init()
     }
 }
 #endif

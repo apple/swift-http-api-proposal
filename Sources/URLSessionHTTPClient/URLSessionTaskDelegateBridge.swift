@@ -331,7 +331,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
         self.continuation.yield(.error(error))
     }
 
-    func processDelegateCallbacksBeforeResponse(_ options: HTTPRequestOptions) async throws -> URLResponse {
+    func processDelegateCallbacksBeforeResponse(_ options: URLSessionRequestOptions) async throws -> URLResponse {
         for await callback in self.stream {
             switch callback {
             case .response(let response):
@@ -413,7 +413,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
         throw CancellationError()
     }
 
-    func processDelegateCallbacksAfterResponse(_ options: HTTPRequestOptions) async throws {
+    func processDelegateCallbacksAfterResponse(_ options: URLSessionRequestOptions) async throws {
         // Cancel the URLSession task which should cause the request to finish and the
         // completeWithError handler to run if it hasn't already.
         //
