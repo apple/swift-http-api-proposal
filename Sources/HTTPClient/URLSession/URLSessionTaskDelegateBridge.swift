@@ -74,9 +74,14 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
         }
         var state: State = .awaitingResponse
         var completionContinuation: CheckedContinuation<Void, Never>? = nil
+        var responseTrailerFields: HTTPFields?
     }
 
     private let state: Mutex<TaskState> = .init(.init())
+
+    var responseTrailerFields: HTTPFields? {
+        self.state.withLock { $0.responseTrailerFields }
+    }
 
     func urlSession(
         _ session: URLSession,
@@ -153,6 +158,15 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                     state.state = .awaitingConsumption(existingData, complete: true, error: error, suspendedTask: nil)
                 }
                 state.completionContinuation = nil
+                if let trailerDictionary = task.value(forKey: "_trailers") as? [String: String] {
+                    var trailerFields = HTTPFields()
+                    for (name, value) in trailerDictionary {
+                        if let name = HTTPField.Name(name) {
+                            trailerFields.append(.init(name: name, value: value))
+                        }
+                    }
+                    state.responseTrailerFields = trailerFields
+                }
             }
             return state
         }
@@ -247,15 +261,16 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                 let bridge = URLSessionRequestStreamBridge(task: task)
                 completionHandler(bridge.inputStream)
                 do {
-                    _ = try await requestBody.produce(into: bridge)
+                    let trailerFields = try await requestBody.produce(into: bridge)
+                    bridge.close(trailerFields: trailerFields)
                 } catch {
                     if bridge.writeFailed {
                         // Ignore error
                     } else {
                         self.requestBodyStreamFailed(with: error)
                     }
+                    bridge.close(trailerFields: nil)
                 }
-                bridge.close()
             }
         }
     }
@@ -277,15 +292,16 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                 let bridge = URLSessionRequestStreamBridge(task: task)
                 completionHandler(bridge.inputStream)
                 do {
-                    _ = try await requestBody.produce(offset: offset, into: bridge)
+                    let trailerFields = try await requestBody.produce(offset: offset, into: bridge)
+                    bridge.close(trailerFields: trailerFields)
                 } catch {
                     if bridge.writeFailed {
                         // Ignore error
                     } else {
                         self.requestBodyStreamFailed(with: error)
                     }
+                    bridge.close(trailerFields: nil)
                 }
-                bridge.close()
             }
         }
     }

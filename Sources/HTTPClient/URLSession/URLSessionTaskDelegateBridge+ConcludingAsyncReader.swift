@@ -21,7 +21,7 @@ extension URLSessionTaskDelegateBridge: ConcludingAsyncReader {
     func consumeAndConclude<Return, Failure: Error>(
         body: (consuming sending URLSessionTaskDelegateBridge) async throws(Failure) -> Return
     ) async throws(Failure) -> (Return, HTTPFields?) {
-        try await (body(self), nil)
+        try await (body(self), self.responseTrailerFields)
     }
 }
 
