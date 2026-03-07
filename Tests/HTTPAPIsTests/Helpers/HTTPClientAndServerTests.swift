@@ -133,6 +133,10 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
         self.continuation = continuation
     }
 
+    var defaultRequestOptions: RequestOptions {
+        .init()
+    }
+
     func perform<Return: ~Copyable>(
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<AsyncChannelConcludingAsyncWriter.Underlying>?,
@@ -158,10 +162,6 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
             // Needed since we are lacking call-once closures
             response.takeResponseReader()
         )
-    }
-
-    var defaultRequestOptions: RequestOptions {
-        .init()
     }
 
     func serve(

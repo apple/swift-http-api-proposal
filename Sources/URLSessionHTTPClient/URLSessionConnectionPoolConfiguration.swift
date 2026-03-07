@@ -12,8 +12,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// The options for the default HTTP client implementation.
+/// Configuration options for an HTTP connection pool.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-public struct HTTPRequestOptions: HTTPClientCapability.RequestOptions {
+public struct URLSessionConnectionPoolConfiguration: Hashable, Sendable {
+    /// The maximum number of concurrent HTTP/1.1 connections allowed per host.
+    ///
+    /// This limit helps prevent overwhelming a single host with too many simultaneous
+    /// connections. HTTP/2 and HTTP/3 connections typically use multiplexing and are
+    /// not subject to this limit.
+    ///
+    /// The default value is `6`.
+    public var maximumConcurrentHTTP1ConnectionsPerHost: Int = 6
+
     public init() {}
 }

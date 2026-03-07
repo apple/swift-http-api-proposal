@@ -61,11 +61,9 @@ let package = Package(
         .target(
             name: "HTTPClient",
             dependencies: [
-                "HTTPAPIs",
-                "AsyncStreaming",
-                "NetworkTypes",
-                .product(name: "HTTPTypes", package: "swift-http-types"),
-                .product(name: "HTTPTypesFoundation", package: "swift-http-types"),
+                "AHCHTTPClient",
+                "URLSessionHTTPClient",
+                .product(name: "AsyncHTTPClient", package: "async-http-client"),
             ],
             swiftSettings: extraSettings
         ),
@@ -88,7 +86,7 @@ let package = Package(
             swiftSettings: extraSettings
         ),
         .target(
-            name: "AsyncHTTPClientConformance",
+            name: "AHCHTTPClient",
             dependencies: [
                 "HTTPAPIs",
                 "AsyncStreaming",
@@ -98,6 +96,17 @@ let package = Package(
 
                 .product(name: "AsyncHTTPClient", package: "async-http-client"),
                 .product(name: "NIOHTTP1", package: "swift-nio"),
+            ],
+            swiftSettings: extraSettings
+        ),
+        .target(
+            name: "URLSessionHTTPClient",
+            dependencies: [
+                "HTTPAPIs",
+                "AsyncStreaming",
+                "NetworkTypes",
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "HTTPTypesFoundation", package: "swift-http-types"),
             ],
             swiftSettings: extraSettings
         ),
@@ -164,7 +173,7 @@ let package = Package(
         .testTarget(
             name: "AsyncHTTPClientConformanceTests",
             dependencies: [
-                "AsyncHTTPClientConformance",
+                "AHCHTTPClient",
                 "HTTPClientConformance",
             ]
         ),

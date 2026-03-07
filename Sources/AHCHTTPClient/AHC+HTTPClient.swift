@@ -15,7 +15,7 @@
 @_spi(ExperimentalHTTPAPIsSupport) public import AsyncHTTPClient
 import BasicContainers
 import Foundation
-public import HTTPAPIs
+@_exported public import HTTPAPIs
 import HTTPTypes
 import NIOCore
 import NIOHTTP1
