@@ -19,7 +19,6 @@ let package = Package(
     products: [
         .library(name: "HTTPAPIs", targets: ["HTTPAPIs"]),
         .library(name: "HTTPClient", targets: ["HTTPClient"]),
-        .library(name: "HTTPServer", targets: ["HTTPServer"]),
         .library(name: "AsyncStreaming", targets: ["AsyncStreaming"]),
         .library(name: "NetworkTypes", targets: ["NetworkTypes"]),
         .library(name: "HTTPClientConformance", targets: ["HTTPClientConformance"]),
@@ -45,6 +44,8 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.30.0"),
         .package(url: "https://github.com/apple/swift-nio-http2.git", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-configuration", from: "1.0.0"),
+
+        .package(url: "https://github.com/swift-server/async-http-client.git", branch: "ff-spi-for-httpapis"),
     ],
     targets: [
         // MARK: Libraries
@@ -69,16 +70,6 @@ let package = Package(
             swiftSettings: extraSettings
         ),
         .target(
-            name: "HTTPServer",
-            dependencies: [
-                "HTTPAPIs",
-                "AsyncStreaming",
-                "NetworkTypes",
-                .product(name: "HTTPTypes", package: "swift-http-types"),
-            ],
-            swiftSettings: extraSettings
-        ),
-        .target(
             name: "NetworkTypes",
             swiftSettings: extraSettings
         ),
@@ -94,6 +85,20 @@ let package = Package(
         ),
         .target(
             name: "Middleware",
+            swiftSettings: extraSettings
+        ),
+        .target(
+            name: "AsyncHTTPClientConformance",
+            dependencies: [
+                "HTTPAPIs",
+                "AsyncStreaming",
+                "NetworkTypes",
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "HTTPTypesFoundation", package: "swift-http-types"),
+
+                .product(name: "AsyncHTTPClient", package: "async-http-client"),
+                .product(name: "NIOHTTP1", package: "swift-nio"),
+            ],
             swiftSettings: extraSettings
         ),
 
@@ -155,6 +160,13 @@ let package = Package(
                 .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
             ],
             swiftSettings: extraSettings
+        ),
+        .testTarget(
+            name: "AsyncHTTPClientConformanceTests",
+            dependencies: [
+                "AsyncHTTPClientConformance",
+                "HTTPClientConformance",
+            ]
         ),
         .testTarget(
             name: "HTTPClientTests",

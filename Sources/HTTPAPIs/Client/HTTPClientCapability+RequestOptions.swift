@@ -20,6 +20,5 @@ public enum HTTPClientCapability {
     /// Additional options supported by a subset of clients are defined in child
     /// protocols to allow libraries to depend on a specific capabilities.
     public protocol RequestOptions {
-        init()
     }
 }

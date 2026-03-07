@@ -290,5 +290,9 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
         }
         return try result!.get()
     }
+
+    var defaultRequestOptions: HTTPRequestOptions {
+        .init()
+    }
 }
 #endif

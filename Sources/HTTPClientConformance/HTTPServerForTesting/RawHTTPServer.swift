@@ -24,6 +24,8 @@ public func withRawHTTPServer(perform: (Int) async throws -> Void) async throws 
         $0.addTask {
             try await server.run(handler: handler)
         }
+        let port = await server.port
+        print("Raw HTTP Server: \(port)")
         try await perform(server.port)
         $0.cancelAll()
     }

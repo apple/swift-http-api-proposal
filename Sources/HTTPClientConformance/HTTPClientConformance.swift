@@ -24,36 +24,130 @@ import FoundationEssentials
 import Foundation
 #endif
 
-// These tests confirm that a basic HTTP client (no extension protocols supported)
-// conforms to the minimum expectations of the HTTP client API.
+// An identifier for a single HTTP conformance test case.
+public enum ConformanceTestCase: Sendable, Hashable, CaseIterable {
+    /// **WARNING**: Every new conformance test case must be added
+    /// as an enum case below.
+
+    case testNotHTTP
+    case testBadHTTPCase
+    case testNoReason
+    case test204WithContentLength
+    case test304WithContentLength
+    case testIncompleteBody
+    case testNoLengthHint
+    case testConflictingContentLength
+    case testOk
+    case testEchoString
+    case testGzip
+    case testDeflate
+    case testBrotli
+    case testIdentity
+    case testCustomHeader
+    case testBasicRedirect
+    case testNotFound
+    case testStatusOutOfRangeButValid
+    case testStressTest
+    case testGetConvenience
+    case testPostConvenience
+    case testCancelPreHeaders
+    case testCancelPreBody
+    case testEcho1MBBody
+    case testUnderRead
+    case testDripRead
+    case testClientSendsEmptyHeaderValue
+    case testInfiniteRedirect
+    case testHeadWithContentLength
+    case testServerSendsMultiValueHeader
+    case testClientSendsMultiValueHeader
+    case testBasicCookieSetAndUse
+    case testEchoInterleave
+    case testSpeakInterleave
+    case testEmptyChunkedBody
+    case testURLParams
+    case testETag
+}
+
+// Runs an HTTP client through all the conformance tests,
+// except the ones specified in `excluding`.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-public func runBasicConformanceTests<Client: HTTPClient & ~Copyable>(
+public func runConformanceTests<Client: HTTPClient & ~Copyable>(
+    excluding: [ConformanceTestCase] = [],
     _ clientFactory: @escaping () async throws -> Client
 ) async throws {
-    try await withTestHTTPServer { port in
-        print("Test HTTP Server port: \(port)")
-        try await BasicConformanceTests(port: port, clientFactory: clientFactory).run()
+    var testCases: [ConformanceTestCase] = []
+    for testCase in ConformanceTestCase.allCases {
+        if excluding.contains(testCase) {
+            print("➜ Test \(testCase) skipped.")
+            continue
+        }
+        testCases.append(testCase)
     }
-    try await withRawHTTPServer { port in
-        print("Raw HTTP Server: \(port)")
-        try await RawServerConformanceTests(port: port, clientFactory: clientFactory).run()
+
+    try await withTestHTTPServer { testServerPort in
+        try await withRawHTTPServer { rawServerPort in
+            let suite = ConformanceTestSuite(testServerPort: testServerPort, rawServerPort: rawServerPort, clientFactory: clientFactory)
+            for testCase in testCases {
+                do {
+                    print("◇ Test \(testCase) started.")
+                    try await suite.run(testCase)
+                    print("◇ Test \(testCase) finished.")
+                } catch {
+                    print("✘ Test \(testCase) failed with error: \(error)")
+                    Issue.record(error, "\(testCase)")
+                }
+            }
+        }
     }
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-struct RawServerConformanceTests<Client: HTTPClient & ~Copyable> {
-    let port: Int
+struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
+    let testServerPort: Int
+    let rawServerPort: Int
     let clientFactory: () async throws -> Client
 
-    func run() async throws {
-        try await testNotHTTP()
-        try await testBadHttpCase()
-        try await testNoReason()
-        try await test204WithContentLength()
-        try await test304WithContentLength()
-        try await testIncompleteBody()
-        try await testNoLengthHint()
-        try await testConflictingContentLength()
+    func run(_ testCase: ConformanceTestCase) async throws {
+        /// **WARNING**: Every new conformance test case must be added to this switch
+        switch testCase {
+        case .testNotHTTP: try await testNotHTTP()
+        case .testBadHTTPCase: try await testBadHTTPCase()
+        case .testNoReason: try await testNoReason()
+        case .test204WithContentLength: try await test204WithContentLength()
+        case .test304WithContentLength: try await test304WithContentLength()
+        case .testIncompleteBody: try await testIncompleteBody()
+        case .testNoLengthHint: try await testNoLengthHint()
+        case .testConflictingContentLength: try await testConflictingContentLength()
+        case .testOk: try await testOk()
+        case .testEchoString: try await testEchoString()
+        case .testGzip: try await testGzip()
+        case .testDeflate: try await testDeflate()
+        case .testBrotli: try await testBrotli()
+        case .testIdentity: try await testIdentity()
+        case .testCustomHeader: try await testCustomHeader()
+        case .testBasicRedirect: try await testBasicRedirect()
+        case .testNotFound: try await testNotFound()
+        case .testStatusOutOfRangeButValid: try await testStatusOutOfRangeButValid()
+        case .testStressTest: try await testStressTest()
+        case .testGetConvenience: try await testGetConvenience()
+        case .testPostConvenience: try await testPostConvenience()
+        case .testCancelPreHeaders: try await testCancelPreHeaders()
+        case .testCancelPreBody: try await testCancelPreBody()
+        case .testEcho1MBBody: try await testEcho1MBBody()
+        case .testUnderRead: try await testUnderRead()
+        case .testDripRead: try await testDripRead()
+        case .testClientSendsEmptyHeaderValue: try await testClientSendsEmptyHeaderValue()
+        case .testInfiniteRedirect: try await testInfiniteRedirect()
+        case .testHeadWithContentLength: try await testHeadWithContentLength()
+        case .testServerSendsMultiValueHeader: try await testServerSendsMultiValueHeader()
+        case .testClientSendsMultiValueHeader: try await testClientSendsMultiValueHeader()
+        case .testBasicCookieSetAndUse: try await testBasicCookieSetAndUse()
+        case .testEchoInterleave: try await testEchoInterleave()
+        case .testSpeakInterleave: try await testSpeakInterleave()
+        case .testEmptyChunkedBody: try await testEmptyChunkedBody()
+        case .testURLParams: try await testURLParams()
+        case .testETag: try await testETag()
+        }
     }
 
     func testNotHTTP() async throws {
@@ -61,7 +155,7 @@ struct RawServerConformanceTests<Client: HTTPClient & ~Copyable> {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(rawServerPort)",
             path: "/not_http"
         )
         await #expect(throws: (any Error).self) {
@@ -76,7 +170,7 @@ struct RawServerConformanceTests<Client: HTTPClient & ~Copyable> {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(rawServerPort)",
             path: "/no_reason"
         )
         try await client.perform(
@@ -86,12 +180,12 @@ struct RawServerConformanceTests<Client: HTTPClient & ~Copyable> {
         }
     }
 
-    func testBadHttpCase() async throws {
+    func testBadHTTPCase() async throws {
         let client = try await clientFactory()
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(rawServerPort)",
             path: "/http_case"
         )
         await #expect(throws: (any Error).self) {
@@ -106,7 +200,7 @@ struct RawServerConformanceTests<Client: HTTPClient & ~Copyable> {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(rawServerPort)",
             path: "/204_with_cl"
         )
         try await client.perform(
@@ -125,7 +219,7 @@ struct RawServerConformanceTests<Client: HTTPClient & ~Copyable> {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(rawServerPort)",
             path: "/304_with_cl"
         )
         try await client.perform(
@@ -144,7 +238,7 @@ struct RawServerConformanceTests<Client: HTTPClient & ~Copyable> {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(rawServerPort)",
             path: "/incomplete_body"
         )
 
@@ -167,7 +261,7 @@ struct RawServerConformanceTests<Client: HTTPClient & ~Copyable> {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(rawServerPort)",
             path: "/conflicting_cl"
         )
 
@@ -190,7 +284,7 @@ struct RawServerConformanceTests<Client: HTTPClient & ~Copyable> {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(rawServerPort)",
             path: "/no_length_hint"
         )
 
@@ -204,47 +298,6 @@ struct RawServerConformanceTests<Client: HTTPClient & ~Copyable> {
             #expect(body == "1234")
         }
     }
-}
-
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
-    let port: Int
-    let clientFactory: () async throws -> Client
-
-    func run() async throws {
-        try await testOk()
-        try await testEchoString()
-        try await testGzip()
-        try await testDeflate()
-        try await testBrotli()
-        try await testIdentity()
-        try await testCustomHeader()
-        try await testBasicRedirect()
-        try await testNotFound()
-        try await testStatusOutOfRangeButValid()
-        try await testStressTest()
-        try await testGetConvenience()
-        try await testPostConvenience()
-        try await testCancelPreHeaders()
-        try await testCancelPreBody()
-        try await testEcho1MBBody()
-        try await testUnderRead()
-        try await testClientSendsEmptyHeaderValue()
-        try await testInfiniteRedirect()
-        try await testHeadWithContentLength()
-        try await testServerSendsMultiValueHeader()
-        try await testClientSendsMultiValueHeader()
-        try await testBasicCookieSetAndUse()
-
-        // TODO: URLSession client hangs because of a bug where single bytes cannot be sent.
-        // try await testEchoInterleave()
-
-        // TODO: URLSession client hangs because of a bug where single bytes cannot be sent and requests cannot outlive responses.
-        // try await testSpeakInterleave()
-
-        // TODO: Writing just an empty span causes an indefinite stall. The terminating chunk (size 0) is not written out on the wire.
-        // try await testEmptyChunkedBody()
-    }
 
     func testOk() async throws {
         let client = try await clientFactory()
@@ -253,7 +306,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
             let request = HTTPRequest(
                 method: method,
                 scheme: "http",
-                authority: "127.0.0.1:\(port)",
+                authority: "127.0.0.1:\(testServerPort)",
                 path: "/200"
             )
             try await client.perform(
@@ -274,7 +327,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         let request = HTTPRequest(
             method: .post,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(testServerPort)",
             path: "/request"
         )
         try await client.perform(
@@ -300,7 +353,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         let request = HTTPRequest(
             method: .post,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(testServerPort)",
             path: "/echo"
         )
         try await client.perform(
@@ -328,7 +381,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(testServerPort)",
             path: "/gzip"
         )
         try await client.perform(
@@ -357,7 +410,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(testServerPort)",
             path: "/deflate"
         )
         try await client.perform(
@@ -386,7 +439,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(testServerPort)",
             path: "/brotli",
         )
         try await client.perform(
@@ -415,7 +468,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(testServerPort)",
             path: "/identity",
         )
         try await client.perform(
@@ -436,7 +489,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         let request = HTTPRequest(
             method: .post,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(testServerPort)",
             path: "/request",
             headerFields: HTTPFields([HTTPField(name: .init("X-Foo")!, value: "BARbaz")])
         )
@@ -467,7 +520,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
             let request = HTTPRequest(
                 method: .get,
                 scheme: "http",
-                authority: "127.0.0.1:\(port)",
+                authority: "127.0.0.1:\(testServerPort)",
                 path: path
             )
 
@@ -492,7 +545,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(testServerPort)",
             path: "/redirect_ping"
         )
 
@@ -509,7 +562,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(testServerPort)",
             path: "/404"
         )
 
@@ -529,7 +582,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(testServerPort)",
             path: "/999"
         )
 
@@ -548,7 +601,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(testServerPort)",
             path: "/request"
         )
 
@@ -582,7 +635,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         let request = HTTPRequest(
             method: .post,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(testServerPort)",
             path: "/echo"
         )
 
@@ -625,7 +678,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         let request = HTTPRequest(
             method: .post,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(testServerPort)",
             path: "/request",
             headerFields: [
                 .init("X-Test")!: ""
@@ -650,7 +703,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         let request = HTTPRequest(
             method: .post,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(testServerPort)",
             path: "/speak"
         )
 
@@ -692,7 +745,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
     func testCancelPreHeaders() async throws {
         try await withThrowingTaskGroup { group in
             let client = try await clientFactory()
-            let port = self.port
+            let port = self.testServerPort
 
             group.addTask {
                 // The /stall HTTP endpoint is not expected to return at all.
@@ -701,7 +754,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
                 let request = HTTPRequest(
                     method: .get,
                     scheme: "http",
-                    authority: "127.0.0.1:\(port)",
+                    authority: "127.0.0.1:\(port) ",
                     path: "/stall",
                 )
 
@@ -732,14 +785,14 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
             // Used by the task to notify when the task group should be cancelled
             let (stream, continuation) = AsyncStream<Void>.makeStream()
             let client = try await clientFactory()
-            let port = self.port
+            let port = self.testServerPort
 
             group.addTask {
                 // The /stall_body HTTP endpoint gives headers and an incomplete 1000-byte body.
                 let request = HTTPRequest(
                     method: .get,
                     scheme: "http",
-                    authority: "127.0.0.1:\(port)",
+                    authority: "127.0.0.1:\(port) ",
                     path: "/stall_body",
                 )
 
@@ -781,7 +834,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
     func testGetConvenience() async throws {
         let client = try await clientFactory()
         let (response, data) = try await client.get(
-            url: URL(string: "http://127.0.0.1:\(port)/request")!,
+            url: URL(string: "http://127.0.0.1:\(testServerPort)/request")!,
             collectUpTo: .max
         )
         #expect(response.status == .ok)
@@ -793,7 +846,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
     func testPostConvenience() async throws {
         let client = try await clientFactory()
         let (response, data) = try await client.post(
-            url: URL(string: "http://127.0.0.1:\(port)/request")!,
+            url: URL(string: "http://127.0.0.1:\(testServerPort)/request")!,
             bodyData: Data("Hello World".utf8),
             collectUpTo: .max
         )
@@ -808,7 +861,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         let request = HTTPRequest(
             method: .post,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(testServerPort)",
             path: "/echo"
         )
 
@@ -835,7 +888,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(testServerPort)",
             path: "/1mb_body"
         )
 
@@ -851,12 +904,48 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         }
     }
 
+    func testDripRead() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:\(testServerPort)",
+            path: "/1mb_body"
+        )
+
+        // Read the whole body a byte at a time from the reader.
+        try await client.perform(
+            request: request,
+        ) { response, responseBodyAndTrailers in
+            #expect(response.status == .ok)
+
+            let (result, _) = try await responseBodyAndTrailers.consumeAndConclude { reader in
+                var result = [UInt8]()
+                var reader = reader
+                var breakTheLoop = false
+                while !breakTheLoop {
+                    breakTheLoop = try await reader.read(maximumCount: 1) { bytes in
+                        guard bytes.isEmpty else {
+                            precondition(bytes.count == 1)
+                            result.append(bytes[0])
+                            return false
+                        }
+                        return true
+                    }
+                }
+
+                return result
+            }
+            #expect(result == [UInt8](repeating: UInt8(ascii: "A"), count: 1_000_000))
+        }
+    }
+
     func testHeadWithContentLength() async throws {
         let client = try await clientFactory()
         let request = HTTPRequest(
             method: .head,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(testServerPort)",
             path: "/head_with_cl"
         )
         try await client.perform(
@@ -876,7 +965,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(testServerPort)",
             path: "/header_multivalue"
         )
         try await client.perform(
@@ -901,7 +990,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(testServerPort)",
             path: "/request",
             headerFields: [
                 .init("X-Test")!: "one",
@@ -936,7 +1025,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         let request1 = HTTPRequest(
             method: .get,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(testServerPort)",
             path: "/cookie"
         )
         let serverCookie = try await client.perform(request: request1) { response, responseBodyAndTrailers in
@@ -953,7 +1042,7 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
         let request2 = HTTPRequest(
             method: .get,
             scheme: "http",
-            authority: "127.0.0.1:\(port)",
+            authority: "127.0.0.1:\(testServerPort)",
             path: "/request"
         )
         let clientCookie = try await client.perform(request: request2) { response, responseBodyAndTrailers in
@@ -965,14 +1054,90 @@ struct BasicConformanceTests<Client: HTTPClient & ~Copyable> {
             }
 
             // Parse the cookie
-            let values = jsonRequest.headers["Cookie"]!
+            let values = jsonRequest.headers["Cookie"] ?? []
             #expect(values.count == 1)
-            let cookie = values[0]
-            #expect(cookie.starts(with: "foo="))
-            return cookie.components(separatedBy: ";").first!
+            let cookie = values.first
+            #expect(cookie?.starts(with: "foo=") ?? false)
+            return cookie?.components(separatedBy: ";").first
         }
 
         // The cookie should be the same
         #expect(serverCookie == clientCookie)
+    }
+
+    func testETag() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:\(testServerPort)",
+            path: "/etag"
+        )
+
+        for i in 0..<3 {
+            // The server starts a counter from 0 and uses it as the
+            // `ETag` and request body. It will only increment the
+            // counter when the client sends an `If-None-Match` with
+            // the same counter value.
+            //
+            // So the 6 requests we make must have the following
+            // headers, response codes and body:
+            //
+            // # |If-None-Match| Code | ETag  | Body |
+            // 1 |    nil      | 200  |   0   |  0   |
+            // 2 |     0       | 304  |   0   | nil  |
+            // 3 |     0       | 200  |   1   |  1   |
+            // 4 |     1       | 304  |   1   | nil  |
+            // 5 |     1       | 200  |   2   |  2   |
+            // 6 |     2       | 304  |   2   | nil  |
+            //
+            // If a client does not send `If-None-Match` or the
+            // wrong value, then the server won't increment the
+            // counter, so this test should break.
+
+            let expectedResponse = String(i)
+            for _ in 0..<2 {
+                try await client.perform(
+                    request: request
+                ) { response, responseBodyAndTrailers in
+                    #expect(response.status == .ok)
+                    let (response, _) = try await responseBodyAndTrailers.collect(upTo: 5) { span in
+                        return String(copying: try UTF8Span(validating: span))
+                    }
+                    #expect(response == expectedResponse)
+                }
+            }
+        }
+    }
+
+    func testURLParams() async throws {
+        let client = try await clientFactory()
+        var components = URLComponents(string: "http://127.0.0.1:\(testServerPort)/request")!
+        components.queryItems = [
+            URLQueryItem(name: "foo", value: "bar"),
+            URLQueryItem(name: "bar", value: "baz"),
+            URLQueryItem(name: "baz", value: "qux"),
+            URLQueryItem(name: "qux", value: ""),
+            URLQueryItem(name: "foo", value: "phew"),
+        ]
+        let request = HTTPRequest(url: components.url!)
+        try await client.perform(
+            request: request,
+        ) { response, responseBodyAndTrailers in
+            let (jsonRequest, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                let body = String(copying: try UTF8Span(validating: span))
+                let data = body.data(using: .utf8)!
+                return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
+            }
+
+            #expect(
+                jsonRequest.params == [
+                    "foo": ["bar", "phew"],
+                    "bar": ["baz"],
+                    "baz": ["qux"],
+                    "qux": [""],
+                ]
+            )
+        }
     }
 }
