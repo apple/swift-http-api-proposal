@@ -116,7 +116,7 @@ final class URLSessionRequestStreamBridge: NSObject, StreamDelegate, Sendable {
                 for name in trailerNames {
                     trailerDictionary[name.rawName] = trailerFields[name]
                 }
-                state.outputStream.setProperty(trailerDictionary, forKey: .init("_kCFStreamPropertyHTTPTrailer"))
+                state.inputStream.setProperty(trailerDictionary, forKey: .init("_kCFStreamPropertyHTTPTrailer"))
             }
             state.outputStream.close()
         }
