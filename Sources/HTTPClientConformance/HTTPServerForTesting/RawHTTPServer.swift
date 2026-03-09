@@ -122,7 +122,7 @@ actor RawHTTPServer {
                         // Wait for a request header.
                         // Ignore request bodies for now.
                         guard case .head(let head) = requestPart else {
-                            return
+                            continue
                         }
 
                         // Get the response from the handler
