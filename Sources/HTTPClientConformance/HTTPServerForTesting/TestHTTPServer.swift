@@ -407,6 +407,20 @@ func serve(server: NIOHTTPServer) async throws {
                 let data = serverETag.data(using: .ascii)!
                 try await responseBodyAndTrailers.writeAndConclude(data.span, finalElement: nil)
             }
+        case "/trailers":
+            // Send a response with custom trailers
+            let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
+            try await responseBodyAndTrailers.produceAndConclude { responseBody in
+                var responseBody = responseBody
+                // Write the body
+                try await responseBody.write("Response body".utf8.span)
+                // Return custom trailers
+                return [
+                    .init("X-Trailer-One")!: "first-value",
+                    .init("X-Trailer-Two")!: "second-value",
+                    .init("X-Checksum")!: "abc123",
+                ]
+            }
         default:
             let writer = try await responseSender.send(HTTPResponse(status: .internalServerError))
             try await writer.writeAndConclude("Unknown path".utf8.span, finalElement: nil)

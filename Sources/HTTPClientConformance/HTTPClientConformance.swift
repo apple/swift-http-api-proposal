@@ -66,6 +66,7 @@ public enum ConformanceTestCase: Sendable, Hashable, CaseIterable {
     case testEmptyChunkedBody
     case testURLParams
     case testETag
+    case testTrailerRead
 }
 
 // Runs an HTTP client through all the conformance tests,
@@ -147,6 +148,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         case .testEmptyChunkedBody: try await testEmptyChunkedBody()
         case .testURLParams: try await testURLParams()
         case .testETag: try await testETag()
+        case .testTrailerRead: try await testTrailerRead()
         }
     }
 
@@ -1138,6 +1140,35 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
                     "qux": [""],
                 ]
             )
+        }
+    }
+
+    func testTrailerRead() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .get,
+            scheme: "http",
+            authority: "127.0.0.1:\(testServerPort)",
+            path: "/trailers"
+        )
+        try await client.perform(
+            request: request
+        ) { response, responseBodyAndTrailers in
+            #expect(response.status == .ok)
+            let (body, trailers) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                return String(copying: try UTF8Span(validating: span))
+            }
+
+            // Verify the body
+            #expect(body == "Response body")
+
+            // Verify that trailers were received
+            #expect(trailers != nil)
+
+            // Verify the custom trailer headers
+            #expect(trailers![.init("X-Trailer-One")!] == "first-value")
+            #expect(trailers![.init("X-Trailer-Two")!] == "second-value")
+            #expect(trailers![.init("X-Checksum")!] == "abc123")
         }
     }
 }

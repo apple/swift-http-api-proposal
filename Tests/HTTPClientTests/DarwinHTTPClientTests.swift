@@ -41,6 +41,9 @@ struct DarwinHTTPClientTests {
 
             // TODO: Writing just an empty span causes an indefinite stall. The terminating chunk (size 0) is not written out on the wire.
             .testEmptyChunkedBody,
+
+            // TODO: Trailers are not supported by URLSession
+            .testTrailerRead,
         ]) {
             return DefaultHTTPClient.shared
         }
