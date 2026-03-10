@@ -12,9 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-public import AsyncStreaming
-public import HTTPTypes
-
 /// A protocol that defines the interface for an HTTP client.
 ///
 /// ``HTTPClient`` provides asynchronous request execution with streaming request

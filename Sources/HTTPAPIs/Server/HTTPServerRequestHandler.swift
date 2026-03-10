@@ -12,9 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-public import AsyncStreaming
-public import HTTPTypes
-
 /// A protocol that defines the contract for handling HTTP server requests.
 ///
 /// ``HTTPServerRequestHandler`` provides a structured way to process incoming HTTP requests
