@@ -44,6 +44,7 @@ struct DarwinHTTPClientTests {
 
             // TODO: Trailers are not supported by URLSession
             .testTrailerRead,
+            .testTrailerWrite,
         ]) {
             return DefaultHTTPClient.shared
         }

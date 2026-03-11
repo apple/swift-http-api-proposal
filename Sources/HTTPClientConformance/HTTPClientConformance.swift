@@ -67,6 +67,7 @@ public enum ConformanceTestCase: Sendable, Hashable, CaseIterable {
     case testURLParams
     case testETag
     case testTrailerRead
+    case testTrailerWrite
 }
 
 // Runs an HTTP client through all the conformance tests,
@@ -149,6 +150,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         case .testURLParams: try await testURLParams()
         case .testETag: try await testETag()
         case .testTrailerRead: try await testTrailerRead()
+        case .testTrailerWrite: try await testTrailerWrite()
         }
     }
 
@@ -1169,6 +1171,36 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
             #expect(trailers?[.init("X-Trailer-One")!] == "first-value")
             #expect(trailers?[.init("X-Trailer-Two")!] == "second-value")
             #expect(trailers?[.init("X-Checksum")!] == "abc123")
+        }
+    }
+
+    func testTrailerWrite() async throws {
+        let client = try await clientFactory()
+        let request = HTTPRequest(
+            method: .post,
+            scheme: "http",
+            authority: "127.0.0.1:\(testServerPort)",
+            path: "/request"
+        )
+        try await client.perform(
+            request: request,
+            body: .restartable { writer in
+                var writer = writer
+                try await writer.write("Hello World".utf8.span)
+                return [
+                    .init("X-Request-Trailer-One")!: "first-trailer-value",
+                    .init("X-Request-Trailer-Two")!: "second-trailer-value",
+                ]
+            }
+        ) { response, responseBodyAndTrailers in
+            #expect(response.status == .ok)
+            let (jsonRequest, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                let body = String(copying: try UTF8Span(validating: span))
+                let data = body.data(using: .utf8)!
+                return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
+            }
+            #expect(jsonRequest.trailers["X-Request-Trailer-One"] == ["first-trailer-value"])
+            #expect(jsonRequest.trailers["X-Request-Trailer-Two"] == ["second-trailer-value"])
         }
     }
 }

@@ -32,6 +32,9 @@ struct JSONHTTPRequest: Codable {
 
     // Method of the request
     let method: String
+
+    // Trailers from the request
+    let trailers: [String: [String]]
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
@@ -110,15 +113,23 @@ func serve(server: NIOHTTPServer) async throws {
                 headers[field.name.rawName, default: []].append(field.value)
             }
 
-            // Parse the body as a UTF8 string
-            let (body, _) = try await requestBodyAndTrailers.collect(upTo: 1024) { span in
+            // Parse the body as a UTF8 string and capture trailers
+            let (body, requestTrailers) = try await requestBodyAndTrailers.collect(upTo: 1024) { span in
                 return String(copying: try UTF8Span(validating: span))
+            }
+
+            // Collect the trailers that were sent in with the request
+            var trailers: [String: [String]] = [:]
+            if let requestTrailers {
+                for field in requestTrailers {
+                    trailers[field.name.rawName, default: []].append(field.value)
+                }
             }
 
             let method = request.method.rawValue
 
             // Construct the JSON request object and send it as a response
-            let response = JSONHTTPRequest(params: params, headers: headers, body: body, method: method)
+            let response = JSONHTTPRequest(params: params, headers: headers, body: body, method: method, trailers: trailers)
 
             let responseData = try JSONEncoder().encode(response)
             let responseSpan = responseData.span
