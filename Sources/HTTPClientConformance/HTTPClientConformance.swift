@@ -1166,9 +1166,9 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
             #expect(trailers != nil)
 
             // Verify the custom trailer headers
-            #expect(trailers![.init("X-Trailer-One")!] == "first-value")
-            #expect(trailers![.init("X-Trailer-Two")!] == "second-value")
-            #expect(trailers![.init("X-Checksum")!] == "abc123")
+            #expect(trailers?[.init("X-Trailer-One")!] == "first-value")
+            #expect(trailers?[.init("X-Trailer-Two")!] == "second-value")
+            #expect(trailers?[.init("X-Checksum")!] == "abc123")
         }
     }
 }
