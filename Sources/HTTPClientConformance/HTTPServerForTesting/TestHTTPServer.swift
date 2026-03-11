@@ -75,8 +75,22 @@ struct ETag: Sendable & ~Copyable {
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+struct AttemptCounter: Sendable & ~Copyable {
+    let count: Mutex<Int> = .init(0)
+
+    func next() -> Int {
+        self.count.withLock {
+            $0 += 1
+            return $0
+        }
+    }
+}
+
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 func serve(server: NIOHTTPServer) async throws {
     let eTag = ETag()
+    let retryAfterCounter = AttemptCounter()
+    let retryAfterNoHeaderCounter = AttemptCounter()
     try await server.serve { request, requestContext, requestBodyAndTrailers, responseSender in
         // This server expects a path
         guard let path = request.path else {
@@ -406,6 +420,31 @@ func serve(server: NIOHTTPServer) async throws {
                 // Give the etag itself as the new body
                 let data = serverETag.data(using: .ascii)!
                 try await responseBodyAndTrailers.writeAndConclude(data.span, finalElement: nil)
+            }
+        case "/retry_after":
+            let attempt = retryAfterCounter.next()
+            if attempt == 1 {
+                let responseBodyAndTrailers = try await responseSender.send(
+                    .init(
+                        status: .serviceUnavailable,
+                        headerFields: [
+                            .retryAfter: "0"
+                        ]
+                    )
+                )
+                try await responseBodyAndTrailers.writeAndConclude("1".utf8.span, finalElement: nil)
+            } else {
+                let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
+                try await responseBodyAndTrailers.writeAndConclude(String(attempt).utf8.span, finalElement: nil)
+            }
+        case "/retry_after_no_header":
+            let attempt = retryAfterNoHeaderCounter.next()
+            if attempt == 1 {
+                let responseBodyAndTrailers = try await responseSender.send(.init(status: .serviceUnavailable))
+                try await responseBodyAndTrailers.writeAndConclude("1".utf8.span, finalElement: nil)
+            } else {
+                let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
+                try await responseBodyAndTrailers.writeAndConclude(String(attempt).utf8.span, finalElement: nil)
             }
         default:
             let writer = try await responseSender.send(HTTPResponse(status: .internalServerError))

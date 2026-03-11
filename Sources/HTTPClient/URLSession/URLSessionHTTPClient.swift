@@ -247,48 +247,119 @@ final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
         return urlRequest as URLRequest
     }
 
+    private func requestBodyReplayability(
+        _ body: HTTPClientRequestBody<RequestWriter>?
+    ) -> HTTPClientRequestBodyReplayability {
+        guard let body else {
+            return .none
+        }
+        return body.isSeekable ? .seekable : .restartable
+    }
+
     func perform<Return: ~Copyable>(
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<RequestWriter>?,
         options: HTTPRequestOptions,
         responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return
     ) async throws -> Return {
-        guard request.schemeSupported else {
-            throw HTTPTypeConversionError.unsupportedScheme
-        }
-        let request = try self.request(for: request, options: options)
-        let session = self.session(for: options)
-        let task: URLSessionTask
-        let delegateBridge: URLSessionTaskDelegateBridge
-        if let body {
-            task = session.startTask().uploadTask(withStreamedRequest: request)
-            delegateBridge = URLSessionTaskDelegateBridge(task: task, body: body)
-        } else {
-            task = session.startTask().dataTask(with: request)
-            delegateBridge = URLSessionTaskDelegateBridge(task: task, body: nil)
-        }
-        task.delegate = delegateBridge
-        task.resume()
-        defer {
-            session.finishTask()
-        }
-        // withTaskCancellationHandler does not support ~Copyable result type
-        var result: Result<Return, any Error>? = nil
-        try await withTaskCancellationHandler {
-            do {
-                let response = try await delegateBridge.processDelegateCallbacksBeforeResponse(options)
-                guard let response = (response as? HTTPURLResponse)?.httpResponse else {
-                    throw HTTPTypeConversionError.failedToConvertURLTypeToHTTPTypes
-                }
-                result = .success(try await responseHandler(response, delegateBridge))
-            } catch {
-                result = .failure(error)
+        var currentRequest = request
+        let bodyReplayability = self.requestBodyReplayability(body)
+        var attempt = 1
+
+        while true {
+            guard currentRequest.schemeSupported else {
+                throw HTTPTypeConversionError.unsupportedScheme
             }
-            try await delegateBridge.processDelegateCallbacksAfterResponse(options)
-        } onCancel: {
-            task.cancel()
+            let urlRequest = try self.request(for: currentRequest, options: options)
+            let session = self.session(for: options)
+            let task: URLSessionTask
+            let delegateBridge: URLSessionTaskDelegateBridge
+            if let body {
+                task = session.startTask().uploadTask(withStreamedRequest: urlRequest)
+                delegateBridge = URLSessionTaskDelegateBridge(task: task, body: body)
+            } else {
+                task = session.startTask().dataTask(with: urlRequest)
+                delegateBridge = URLSessionTaskDelegateBridge(task: task, body: nil)
+            }
+            task.delegate = delegateBridge
+            task.resume()
+
+            let retryContext = HTTPClientRetryContext(
+                request: currentRequest,
+                bodyReplayability: bodyReplayability,
+                attempt: attempt
+            )
+
+            // withTaskCancellationHandler does not support ~Copyable result type
+            var result: Result<Return, any Error>? = nil
+            var retryAction: HTTPClientRetryAction? = nil
+            var consultErrorRetryStrategy = true
+            do {
+                try await withTaskCancellationHandler {
+                    do {
+                        let response = try await delegateBridge.processDelegateCallbacksBeforeResponse(options)
+                        guard let response = (response as? HTTPURLResponse)?.httpResponse else {
+                            throw HTTPTypeConversionError.failedToConvertURLTypeToHTTPTypes
+                        }
+
+                        if let retryStrategy = options.retryStrategy {
+                            consultErrorRetryStrategy = false
+                            let action = try await retryStrategy.retryRequest(after: response, context: retryContext)
+                            if case .retry = action {
+                                retryAction = action
+                            }
+                        }
+
+                        if retryAction == nil {
+                            result = .success(try await responseHandler(response, delegateBridge))
+                        }
+                    } catch {
+                        if consultErrorRetryStrategy, let retryStrategy = options.retryStrategy {
+                            let action = try await retryStrategy.retryRequest(after: error, context: retryContext)
+                            switch action {
+                            case .doNotRetry:
+                                result = .failure(error)
+                            case .retry:
+                                retryAction = action
+                            }
+                        } else {
+                            result = .failure(error)
+                        }
+                    }
+
+                    if retryAction == nil {
+                        do {
+                            try await delegateBridge.processDelegateCallbacksAfterResponse(options)
+                        } catch {
+                            result = .failure(error)
+                        }
+                    } else {
+                        try? await delegateBridge.processDelegateCallbacksAfterResponse(options)
+                    }
+                } onCancel: {
+                    task.cancel()
+                }
+            } catch {
+                session.finishTask()
+                throw error
+            }
+            session.finishTask()
+
+            guard let retryAction else {
+                return try result!.get()
+            }
+
+            switch retryAction {
+            case .retry(let request, let delay):
+                currentRequest = request
+                attempt += 1
+                if delay > .zero {
+                    try await Task.sleep(for: delay)
+                }
+            case .doNotRetry:
+                return try result!.get()
+            }
         }
-        return try result!.get()
     }
 
     var defaultRequestOptions: HTTPRequestOptions {

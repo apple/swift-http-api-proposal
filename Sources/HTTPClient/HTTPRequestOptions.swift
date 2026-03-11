@@ -16,10 +16,11 @@ public import NetworkTypes
 
 /// The options for the default HTTP client implementation.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-public struct HTTPRequestOptions: HTTPClientCapability.RedirectionHandler, HTTPClientCapability.TLSVersionSelection,
-    HTTPClientCapability.DeclarativePathSelection
+public struct HTTPRequestOptions: HTTPClientCapability.RedirectionHandler, HTTPClientCapability.RetryStrategy,
+    HTTPClientCapability.TLSVersionSelection, HTTPClientCapability.DeclarativePathSelection
 {
     public var redirectionHandler: (any HTTPClientRedirectionHandler)? = nil
+    public var retryStrategy: (any HTTPClientRetryStrategy)? = nil
 
     #if canImport(Darwin)
     public var serverTrustHandler: (any HTTPClientServerTrustHandler)? = nil
