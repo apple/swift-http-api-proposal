@@ -40,13 +40,24 @@ func handler(request: HTTPRequestHead) -> Data {
     case "/not_http":
         return "FOOBAR".data(using: .ascii)!
     case "/http_case":
-        return "Http/1.1 200 OK\r\n\r\n".data(using: .ascii)!
+        return linesToData([
+            "Http/1.1 200 OK",
+            "Connection: close",
+            "",
+            "",
+        ])
     case "/no_reason":
-        return "HTTP/1.1 200\r\n\r\n".data(using: .ascii)!
+        return linesToData([
+            "HTTP/1.1 200",
+            "Connection: close",
+            "",
+            "",
+        ])
     case "/204_with_cl":
         return linesToData([
             "HTTP/1.1 204 No Content",
             "Content-Length: 1000",
+            "Connection: close",
             "",
             "",
         ])
@@ -54,6 +65,7 @@ func handler(request: HTTPRequestHead) -> Data {
         return linesToData([
             "HTTP/1.1 304 Not Modified",
             "Content-Length: 1000",
+            "Connection: close",
             "",
             "",
         ])
@@ -61,12 +73,14 @@ func handler(request: HTTPRequestHead) -> Data {
         return linesToData([
             "HTTP/1.1 200 OK",
             "Content-Length: 1000",
+            "Connection: close",
             "",
             "1234",
         ])
     case "/no_length_hint":
         return linesToData([
             "HTTP/1.1 200 OK",
+            "Connection: close",
             "",
             "1234",
         ])
@@ -74,11 +88,17 @@ func handler(request: HTTPRequestHead) -> Data {
         return linesToData([
             "HTTP/1.1 200 OK",
             "Content-Length: 10, 4",
+            "Connection: close",
             "",
             "1234",
         ])
     default:
-        return "HTTP/1.1 500 Internal Server Error\r\n\r\n".data(using: .ascii)!
+        return linesToData([
+            "HTTP/1.1 500 Internal Server Error",
+            "Connection: close",
+            "",
+            "",
+        ])
     }
 }
 
@@ -117,21 +137,30 @@ actor RawHTTPServer {
     func run(handler: @Sendable @escaping (HTTPRequestHead) async throws -> Data) async throws {
         try await server_channel.executeThenClose { inbound in
             for try await httpChannel in inbound {
-                try await httpChannel.executeThenClose { inbound, outbound in
-                    for try await requestPart in inbound {
-                        // Wait for a request header.
-                        // Ignore request bodies for now.
+                do {
+                    try await httpChannel.executeThenClose { inbound, outbound in
+                        // Read exactly one part of the request
+                        var iter = inbound.makeAsyncIterator()
+                        let requestPart = try await iter.next()
+
+                        // It must be the header. We don't care about the rest.
                         guard case .head(let head) = requestPart else {
-                            continue
+                            print("Server unexpectedly received non-header as first part of request: \(requestPart)")
+                            return
                         }
 
                         // Get the response from the handler
                         let response = try await handler(head)
 
-                        // Write the response out
+                        // Write the response out and then close the channel.
+                        // This server is a simple one, it won't reuse connections.
                         let data = IOData.byteBuffer(ByteBuffer(bytes: response))
                         try await outbound.write(data)
                     }
+                } catch {
+                    // Do not let one connection take down the entire server.
+                    // Print the error from the connection and move on.
+                    print("Server caught error handling client: \(error)")
                 }
             }
         }
