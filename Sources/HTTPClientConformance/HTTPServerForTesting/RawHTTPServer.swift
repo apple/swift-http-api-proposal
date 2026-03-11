@@ -36,6 +36,8 @@ func linesToData(_ lines: [String]) -> Data {
 }
 
 func handler(request: HTTPRequestHead) -> Data {
+    /// **WARNING**: All endpoints must add a `Connection: close` header because
+    /// this server does not allow connection reuse.
     switch request.uri {
     case "/not_http":
         return "FOOBAR".data(using: .ascii)!
