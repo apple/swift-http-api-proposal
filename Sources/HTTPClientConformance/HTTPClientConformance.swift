@@ -1199,6 +1199,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
                 let data = body.data(using: .utf8)!
                 return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
             }
+            #expect(jsonRequest.body == "Hello World")
             #expect(jsonRequest.trailers["X-Request-Trailer-One"] == ["first-trailer-value"])
             #expect(jsonRequest.trailers["X-Request-Trailer-Two"] == ["second-trailer-value"])
         }
