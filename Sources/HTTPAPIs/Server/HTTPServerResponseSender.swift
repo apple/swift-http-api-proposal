@@ -12,8 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-public import HTTPTypes
-
 /// A struct that ensures a single non-informational HTTP response is sent per request.
 ///
 /// ``HTTPResponseSender`` enforces structured response handling by allowing only one call to
