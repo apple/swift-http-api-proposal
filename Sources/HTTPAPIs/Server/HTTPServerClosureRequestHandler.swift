@@ -12,8 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-public import HTTPTypes
-
 /// A closure-based implementation of ``HTTPServerRequestHandler``.
 ///
 /// ``HTTPServerClosureRequestHandler`` provides a convenient way to create an HTTP request handler
