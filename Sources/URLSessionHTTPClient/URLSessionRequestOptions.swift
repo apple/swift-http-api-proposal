@@ -17,9 +17,12 @@ public import NetworkTypes
 
 /// The options for the URLSession HTTP client implementation.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-public struct URLSessionRequestOptions: HTTPClientCapability.RedirectionHandler, HTTPClientCapability.TLSSecurityHandler, HTTPClientCapability
-        .TLSVersionSelection,
-    HTTPClientCapability.DeclarativePathSelection
+public struct URLSessionRequestOptions: HTTPClientCapability.RedirectionHandler,
+                                        HTTPClientCapability.TLSSecurityHandler,
+                                        HTTPClientCapability.TLSVersionSelection,
+                                        HTTPClientCapability.DeclarativePathSelection,
+                                        HTTPClientCapability.HTTPVersionDiscovery,
+                                        HTTPClientCapability.Timeouts
 {
     public var redirectionHandler: (any HTTPClientRedirectionHandler)? = nil
 
@@ -30,6 +33,9 @@ public struct URLSessionRequestOptions: HTTPClientCapability.RedirectionHandler,
     public var maximumTLSVersion: TLSVersion = .v1_3
     public var allowsExpensiveNetworkAccess: Bool = true
     public var allowsConstrainedNetworkAccess: Bool = true
+    public var assumesHTTP3Capable: Bool = false
+    public var requestTimeout: Duration? = nil
+    public var resourceTimeout: Duration? = nil
 
     public init() {}
 }

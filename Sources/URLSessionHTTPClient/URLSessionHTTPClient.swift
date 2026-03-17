@@ -104,11 +104,23 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
         let poolConfiguration: URLSessionConnectionPoolConfiguration
         let minimumTLSVersion: TLSVersion
         let maximumTLSVersion: TLSVersion
+        let timeoutIntervalForRequest: TimeInterval?
+        let timeoutIntervalForResource: TimeInterval?
 
         init(_ options: URLSessionRequestOptions, poolConfiguration: URLSessionConnectionPoolConfiguration) {
             self.minimumTLSVersion = options.minimumTLSVersion
             self.maximumTLSVersion = options.maximumTLSVersion
             self.poolConfiguration = poolConfiguration
+            if let requestTimeout = options.requestTimeout {
+                timeoutIntervalForRequest = TimeInterval(requestTimeout.components.seconds)
+            } else {
+                timeoutIntervalForRequest = nil
+            }
+            if let resourceTimeout = options.resourceTimeout {
+                timeoutIntervalForResource = TimeInterval(resourceTimeout.components.seconds)
+            } else {
+                timeoutIntervalForResource = nil
+            }
         }
 
         func sessionConfiguration(storage: Sessions.Storage) -> URLSessionConfiguration {
@@ -128,6 +140,12 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
             }
             if let version = self.maximumTLSVersion.tlsProtocolVersion {
                 configuration.tlsMaximumSupportedProtocolVersion = version
+            }
+            if let timeoutIntervalForRequest {
+                configuration.timeoutIntervalForRequest = timeoutIntervalForRequest
+            }
+            if let timeoutIntervalForResource {
+                configuration.timeoutIntervalForResource = timeoutIntervalForResource
             }
             return configuration
         }
@@ -278,6 +296,7 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
         }
         request.allowsExpensiveNetworkAccess = options.allowsExpensiveNetworkAccess
         request.allowsConstrainedNetworkAccess = options.allowsConstrainedNetworkAccess
+        request.assumesHTTP3Capable = options.assumesHTTP3Capable
 
         // Disable Content-Type sniffing
         let urlRequest = (request as NSURLRequest).mutableCopy() as! NSMutableURLRequest
