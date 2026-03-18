@@ -104,17 +104,11 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
         let poolConfiguration: URLSessionConnectionPoolConfiguration
         let minimumTLSVersion: TLSVersion
         let maximumTLSVersion: TLSVersion
-        let timeoutIntervalForResource: TimeInterval?
 
         init(_ options: URLSessionRequestOptions, poolConfiguration: URLSessionConnectionPoolConfiguration) {
             self.minimumTLSVersion = options.minimumTLSVersion
             self.maximumTLSVersion = options.maximumTLSVersion
             self.poolConfiguration = poolConfiguration
-            if let resourceTimeout = options.resourceTimeout {
-                timeoutIntervalForResource = TimeInterval(resourceTimeout.components.seconds)
-            } else {
-                timeoutIntervalForResource = nil
-            }
         }
 
         func sessionConfiguration(storage: Sessions.Storage) -> URLSessionConfiguration {
@@ -134,9 +128,6 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
             }
             if let version = self.maximumTLSVersion.tlsProtocolVersion {
                 configuration.tlsMaximumSupportedProtocolVersion = version
-            }
-            if let timeoutIntervalForResource {
-                configuration.timeoutIntervalForResource = timeoutIntervalForResource
             }
             return configuration
         }
