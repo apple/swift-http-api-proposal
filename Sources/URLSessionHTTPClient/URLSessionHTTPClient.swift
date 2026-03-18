@@ -280,7 +280,7 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
         request.allowsConstrainedNetworkAccess = options.allowsConstrainedNetworkAccess
         request.assumesHTTP3Capable = options.assumesHTTP3Capable
         if let stallTimeout = options.stallTimeout {
-            request.timeoutInterval = TimeInterval(stallTimeout.components.seconds)
+            request.timeoutInterval = stallTimeout / .seconds(1)
         }
 
         // Disable Content-Type sniffing
