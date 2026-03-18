@@ -34,7 +34,7 @@ public struct URLSessionRequestOptions: HTTPClientCapability.RedirectionHandler,
     public var allowsExpensiveNetworkAccess: Bool = true
     public var allowsConstrainedNetworkAccess: Bool = true
     public var assumesHTTP3Capable: Bool = false
-    public var requestTimeout: Duration? = nil
+    public var stallTimeout: Duration? = nil
     public var resourceTimeout: Duration? = nil
 
     public init() {}

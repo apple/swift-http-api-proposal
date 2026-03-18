@@ -17,7 +17,7 @@ extension HTTPClientCapability {
     /// A protocol for specifying timeouts for HTTP requests.
     public protocol Timeouts: RequestOptions {
         /// Timeout indicating how long a request should wait for additional data to arrive before giving up.
-        var requestTimeout: Duration? { get set }
+        var stallTimeout: Duration? { get set }
         /// Timeout indicating how long to wait for an entire resource to transfer before giving up.
         var resourceTimeout: Duration? { get set }
     }
