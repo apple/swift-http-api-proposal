@@ -45,7 +45,7 @@ public enum EitherError<First: Error, Second: Error>: Error {
     ///     try eitherError.unwrap() // Throws the original error
     /// }
     /// ```
-    public func unwrap() throws {
+    public func unwrap() throws -> Never {
         switch self {
         case .first(let first):
             throw first
