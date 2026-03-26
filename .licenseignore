@@ -13,3 +13,4 @@ Makefile
 docker/*
 .editorconfig
 Scripts/*
+Submodules/
