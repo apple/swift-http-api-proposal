@@ -33,8 +33,8 @@ let package = Package(
             branch: "fb-async"
         ),
         .package(
-            url: "https://github.com/FranzBusch/swift-async-algorithms.git",
-            branch: "fb-nonisolated-nonsending"
+            url: "https://github.com/apple/swift-async-algorithms.git",
+            from: "1.1.0"
         ),
         .package(url: "https://github.com/apple/swift-http-types.git", from: "1.5.1"),
         .package(url: "https://github.com/apple/swift-certificates.git", from: "1.16.0"),
