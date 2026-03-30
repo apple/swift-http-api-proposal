@@ -21,7 +21,7 @@ public import struct Foundation.Data
 #endif
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-extension HTTPClient where Self: ~Copyable {
+extension HTTPClient where Self: ~Copyable & ~Escapable {
     /// Performs an HTTP request and processes the response.
     ///
     /// This convenience method provides default values for `body` and `options` arguments,
@@ -72,7 +72,7 @@ extension HTTPClient where Self: ~Copyable {
         return try await self.perform(request: request, body: nil, options: options) { response, body in
             (
                 response,
-                try await self.collectBody(body, upTo: limit)
+                try await Self.collectBody(body, upTo: limit)
             )
         }
     }
@@ -104,7 +104,7 @@ extension HTTPClient where Self: ~Copyable {
         return try await self.perform(request: request, body: .data(bodyData), options: options) { response, body in
             (
                 response,
-                try await self.collectBody(body, upTo: limit)
+                try await Self.collectBody(body, upTo: limit)
             )
         }
     }
@@ -136,7 +136,7 @@ extension HTTPClient where Self: ~Copyable {
         return try await self.perform(request: request, body: .data(bodyData), options: options) { response, body in
             (
                 response,
-                try await self.collectBody(body, upTo: limit)
+                try await Self.collectBody(body, upTo: limit)
             )
         }
     }
@@ -168,7 +168,7 @@ extension HTTPClient where Self: ~Copyable {
         return try await self.perform(request: request, body: bodyData.map { .data($0) }, options: options) { response, body in
             (
                 response,
-                try await self.collectBody(body, upTo: limit)
+                try await Self.collectBody(body, upTo: limit)
             )
         }
     }
@@ -200,12 +200,12 @@ extension HTTPClient where Self: ~Copyable {
         return try await self.perform(request: request, body: .data(bodyData), options: options) { response, body in
             (
                 response,
-                try await self.collectBody(body, upTo: limit)
+                try await Self.collectBody(body, upTo: limit)
             )
         }
     }
 
-    private func collectBody<Reader: ConcludingAsyncReader>(_ body: consuming Reader, upTo limit: Int) async throws -> Data
+    private static func collectBody<Reader: ConcludingAsyncReader>(_ body: consuming Reader, upTo limit: Int) async throws -> Data
     where Reader: ~Copyable, Reader.Underlying.ReadElement == UInt8 {
         try await body.collect(upTo: limit == .max ? .max : limit + 1) {
             if $0.count > limit {

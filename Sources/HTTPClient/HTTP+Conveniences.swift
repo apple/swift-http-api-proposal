@@ -38,7 +38,7 @@ extension HTTP {
     ///
     /// - Throws: An error if the request fails or if the response handler throws.
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    public static func perform<Client: HTTPClient & ~Copyable, Return: ~Copyable>(
+    public static func perform<Client: HTTPClient & ~Copyable & ~Escapable, Return: ~Copyable>(
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<Client.RequestWriter>? = nil,
         options: Client.RequestOptions? = nil,
@@ -64,7 +64,7 @@ extension HTTP {
     ///
     /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    public static func get<Client: HTTPClient & ~Copyable>(
+    public static func get<Client: HTTPClient & ~Copyable & ~Escapable>(
         url: URL,
         headerFields: HTTPFields = [:],
         options: Client.RequestOptions? = nil,
@@ -91,7 +91,7 @@ extension HTTP {
     ///
     /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    public static func post<Client: HTTPClient & ~Copyable>(
+    public static func post<Client: HTTPClient & ~Copyable & ~Escapable>(
         url: URL,
         headerFields: HTTPFields = [:],
         bodyData: Data,
@@ -119,7 +119,7 @@ extension HTTP {
     ///
     /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    public static func put<Client: HTTPClient & ~Copyable>(
+    public static func put<Client: HTTPClient & ~Copyable & ~Escapable>(
         url: URL,
         headerFields: HTTPFields = [:],
         bodyData: Data,
@@ -147,7 +147,7 @@ extension HTTP {
     ///
     /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    public static func delete<Client: HTTPClient & ~Copyable>(
+    public static func delete<Client: HTTPClient & ~Copyable & ~Escapable>(
         url: URL,
         headerFields: HTTPFields = [:],
         bodyData: Data? = nil,
@@ -175,7 +175,7 @@ extension HTTP {
     ///
     /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    public static func patch<Client: HTTPClient & ~Copyable>(
+    public static func patch<Client: HTTPClient & ~Copyable & ~Escapable>(
         url: URL,
         headerFields: HTTPFields = [:],
         bodyData: Data,
