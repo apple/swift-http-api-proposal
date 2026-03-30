@@ -12,13 +12,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// A struct that ensures a single non-informational HTTP response is sent per request.
+/// A struct that sends exactly one non-informational HTTP response per request.
 ///
 /// ``HTTPResponseSender`` enforces structured response handling by allowing only one call to
-/// ``send(_:)`` before the sender is consumed. Informational responses can be sent zero or
+/// ``send(_:)`` before consuming the sender. You can send informational responses zero or
 /// more times using ``sendInformational(_:)`` before sending the final response. This design
-/// ensures proper HTTP semantics where exactly one non-informational response is sent, followed
-/// by optional response body streaming and trailers.
+/// enforces proper HTTP semantics: exactly one non-informational response, followed by
+/// optional response body streaming and trailers.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public struct HTTPResponseSender<ResponseWriter: ConcludingAsyncWriter & ~Copyable>: ~Copyable {
     private let _sendInformational: (HTTPResponse) async throws -> Void

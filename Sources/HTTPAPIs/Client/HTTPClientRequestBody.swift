@@ -104,7 +104,7 @@ where Writer.WriteElement == UInt8, Writer: SendableMetatype {
 
     /// A restartable request body that can be replayed from the beginning.
     ///
-    /// This case is used when the client may need to retry or follow redirects with
+    /// Use this case when the client may need to retry or follow redirects with
     /// the same request body. The closure receives a writer and streams the entire
     /// body content. The closure may be called multiple times if the request needs
     /// to be retried.
@@ -127,7 +127,7 @@ where Writer.WriteElement == UInt8, Writer: SendableMetatype {
 
     /// A seekable request body that supports resuming from a specific byte offset.
     ///
-    /// This case is used for resumable uploads where the client can start streaming
+    /// Use this case for resumable uploads where the client can start streaming
     /// from a specific position in the body. The closure receives an offset indicating
     /// where to begin writing and a writer for streaming the body content.
     ///

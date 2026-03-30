@@ -36,15 +36,15 @@ public protocol HTTPClient<RequestOptions>: Sendable, ~Copyable {
     /// Performs an HTTP request and processes the response.
     ///
     /// This method executes the HTTP request with the specified options, then invokes
-    /// the response handler when the response header is received. The request and
-    /// response bodies are streamed using the client's writer and reader types.
+    /// the response handler when it receives the response header. The client streams
+    /// request and response bodies using its writer and reader types.
     ///
     /// - Parameters:
     ///   - request: The HTTP request header to send.
-    ///   - body: The optional request body to send. When `nil`, no body is sent.
+    ///   - body: The optional request body to send. When `nil`, sends no body.
     ///   - options: The options for this request.
-    ///   - responseHandler: The closure to process the response. This closure is invoked
-    ///     when the response header is received and can read the response body.
+    ///   - responseHandler: A closure that processes the response. The method invokes this
+    ///     closure when it receives the response header, providing access to the response body.
     ///
     /// - Returns: The value returned by the response handler closure.
     ///

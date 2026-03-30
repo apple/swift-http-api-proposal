@@ -15,15 +15,15 @@
 /// A protocol that represents an asynchronous reader that produces elements and concludes with a final value.
 ///
 /// ``ConcludingAsyncReader`` adds functionality to asynchronous readers that need to
-/// provide a conclusive element after all reads are completed. This is particularly useful
+/// provide a conclusive element after completing all reads. This is particularly useful
 /// for streams that have meaningful completion states beyond just terminating, such as
-/// HTTP responses that include headers after the body is fully read.
+/// HTTP responses that include headers after the reader finishes the body.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public protocol ConcludingAsyncReader<Underlying, FinalElement>: ~Copyable, ~Escapable {
     /// The underlying asynchronous reader type that produces elements.
     associatedtype Underlying: AsyncReader, ~Copyable, ~Escapable
 
-    /// The type of the final element produced after all reads are completed.
+    /// The type of the final element produced after completing all reads.
     associatedtype FinalElement
 
     /// Processes the underlying async reader until completion and returns both the result of processing

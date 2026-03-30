@@ -31,8 +31,8 @@ extension HTTP {
     ///   - body: The optional request body to send. Defaults to no body.
     ///   - options: The options for this request. Defaults to an empty initialized options.
     ///   - client: The HTTP client to use for the request. Defaults to `DefaultHTTPClient.shared`.
-    ///   - responseHandler: The closure to process the response. This closure is invoked
-    ///     when the response header is received and can read the response body.
+    ///   - responseHandler: A closure that processes the response. The method invokes this
+    ///     closure when it receives the response header, providing access to the response body.
     ///
     /// - Returns: The value returned by the response handler closure.
     ///
