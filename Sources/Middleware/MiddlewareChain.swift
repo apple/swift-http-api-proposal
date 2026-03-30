@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// A concrete implementation of ``Middleware`` that is backed by a closure.
+/// A concrete implementation of ``Middleware`` backed by a closure.
 struct ClosureMiddleware<Input: ~Copyable, NextInput: ~Copyable>: Middleware {
     private let middlewareFunc:
         @Sendable (
@@ -20,7 +20,7 @@ struct ClosureMiddleware<Input: ~Copyable, NextInput: ~Copyable>: Middleware {
             (consuming NextInput) async throws -> Void
         ) async throws -> Void
 
-    /// Creates a middleware using a closure.es.
+    /// Creates a middleware using a closure.
     ///
     /// - Parameter middlewareFunc: A closure that implements the middleware's behavior.
     init(

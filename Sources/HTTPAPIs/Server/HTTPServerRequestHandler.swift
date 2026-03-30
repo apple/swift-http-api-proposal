@@ -29,8 +29,8 @@
 /// struct EchoHandler<
 ///     ConcludingRequestReader: ConcludingAsyncReader<RequestReader, HTTPFields?> & ~Copyable,
 ///     RequestReader: AsyncReader<UInt8, any Error> & ~Copyable,
-///     ConcludingResponseWriter: ConcludingAsyncWriter<RequestWriter, HTTPFields?> & ~Copyable,
-///     RequestWriter: AsyncWriter<UInt8, any Error> & ~Copyable
+///     ConcludingResponseWriter: ConcludingAsyncWriter<ResponseWriter, HTTPFields?> & ~Copyable,
+///     ResponseWriter: AsyncWriter<UInt8, any Error> & ~Copyable
 /// >: HTTPServerRequestHandler {
 ///     func handle(
 ///         request: HTTPRequest,
@@ -67,7 +67,7 @@ public protocol HTTPServerRequestHandler<RequestReader, ResponseWriter>: Sendabl
 
     /// Handles an incoming HTTP request and generates a response.
     ///
-    /// This method is called by the HTTP server for each incoming client request. Implementations should:
+    /// The HTTP server calls this method for each incoming client request. Implementations should:
     /// 1. Examine the request headers in the `request` parameter.
     /// 2. Read the request body data from the `requestBodyAndTrailers` reader as needed.
     /// 3. Process the request and prepare a response.

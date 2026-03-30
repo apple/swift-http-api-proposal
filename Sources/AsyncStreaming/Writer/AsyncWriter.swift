@@ -89,8 +89,8 @@ public protocol AsyncWriter<WriteElement, WriteFailure>: ~Copyable, ~Escapable {
 
 /// An error that indicates the writer was unable to accept all provided elements.
 ///
-/// This error is thrown when an async writer signals that it cannot accept any more data
-/// by providing an empty output span, but there are still elements remaining to be written.
+/// The default `write(_: Span)` implementation throws this error when the writer provides
+/// an empty output span but elements remain to be written.
 public struct AsyncWriterWroteShortError: Error {
     private let dummy: (any Sendable)? = nil  // TODO: This is just here to workaround https://github.com/swiftlang/swift/pull/86843
     public init() {}
@@ -108,7 +108,7 @@ extension AsyncWriter where Self: ~Copyable, Self: ~Escapable {
     ///
     /// - Throws: An error of type `WriteFailure` if the write operation cannot be completed successfully.
     ///
-    /// - Note: This method is marked as `mutating` because writing operations often change the internal
+    /// - Note: This method requires `mutating` because writing operations often change the internal
     ///   state of the writer.
     ///
     /// ```swift

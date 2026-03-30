@@ -15,15 +15,15 @@
 /// A protocol that represents an asynchronous writer that produces a final value upon completion.
 ///
 /// ``ConcludingAsyncWriter`` adds functionality to asynchronous writers that need to
-/// provide a conclusive element after writing is complete. This is particularly useful
-/// for streams that have meaningful completion states, such as HTTP response that need
+/// provide a conclusive element after writing completes. This is particularly useful
+/// for streams that have meaningful completion states, such as HTTP responses that need
 /// to finalize with optional trailers.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public protocol ConcludingAsyncWriter<Underlying, FinalElement>: ~Copyable, ~Escapable {
     /// The underlying asynchronous writer type.
     associatedtype Underlying: AsyncWriter, ~Copyable, ~Escapable
 
-    /// The type of the final element produced after writing is complete.
+    /// The type of the final element produced after writing completes.
     associatedtype FinalElement
 
     /// Allows writing to the underlying async writer and produces a final element upon completion.

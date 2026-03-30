@@ -17,16 +17,16 @@ extension AsyncReader where Self: ~Copyable, Self: ~Escapable, ReadElement: Copy
     /// Collects elements from the reader up to a specified limit and processes them with a body function.
     ///
     /// This method continuously reads elements from the async reader, accumulating them in a buffer
-    /// until either the end of the stream is reached (indicated by a `nil` element) or the specified
-    /// limit is exceeded. Once collection is complete, the accumulated elements are passed to the
+    /// until either it reaches the end of the stream (indicated by an empty `Span`) or reaches
+    /// the specified limit. Once collection completes, it passes the accumulated elements to the
     /// provided body function as a `Span` for processing.
     ///
     /// - Parameters:
     ///   - limit: The maximum number of elements to collect. This prevents unbounded memory
     ///     growth when reading from potentially infinite streams.
     ///   - body: A closure that receives a `Span` containing all collected elements and returns
-    ///     a result of type `Result`. This closure is called once after all elements have been
-    ///     collected successfully.
+    ///     a result of type `Result`. The method calls this closure once after collecting all
+    ///     elements successfully.
     ///
     /// - Returns: The value returned by the body closure after processing the collected elements.
     ///
@@ -88,16 +88,16 @@ extension AsyncReader where Self: ~Copyable, Self: ~Escapable, ReadElement: Copy
     /// Collects elements from the reader up to a specified limit and processes them with a body function.
     ///
     /// This method continuously reads elements from the async reader, accumulating them in a buffer
-    /// until either the end of the stream is reached (indicated by a `nil` element) or the specified
-    /// limit is exceeded. Once collection is complete, the accumulated elements are passed to the
+    /// until either it reaches the end of the stream (indicated by an empty `Span`) or reaches
+    /// the specified limit. Once collection completes, it passes the accumulated elements to the
     /// provided body function as a `Span` for processing.
     ///
     /// - Parameters:
-    ///   - limit: The maximum number of elements to collect before throwing a `LimitExceeded` error.
-    ///     This prevents unbounded memory growth when reading from potentially infinite streams.
+    ///   - limit: The maximum number of elements to collect. This prevents unbounded memory
+    ///     growth when reading from potentially infinite streams.
     ///   - body: A closure that receives a `Span` containing all collected elements and returns
-    ///     a result of type `Result`. This closure is called once after all elements have been
-    ///     collected successfully.
+    ///     a result of type `Result`. The method calls this closure once after collecting all
+    ///     elements successfully.
     ///
     /// - Returns: The value returned by the body closure after processing the collected elements.
     ///
