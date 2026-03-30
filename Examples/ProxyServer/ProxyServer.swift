@@ -35,6 +35,7 @@ struct ProxyServer {
             // Needed since we are lacking call-once closures
             var responseSender = Optional(responseSender)
 
+            var client = client
             try await client.perform(
                 request: request,
                 body: .restartable { clientRequestBody in

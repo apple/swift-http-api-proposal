@@ -155,7 +155,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testNotHTTP() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -170,7 +170,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testNoReason() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -185,7 +185,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testBadHTTPCase() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -200,7 +200,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func test204WithContentLength() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -219,7 +219,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func test304WithContentLength() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -238,7 +238,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testIncompleteBody() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -261,7 +261,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testConflictingContentLength() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -284,7 +284,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testNoLengthHint() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -304,7 +304,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testOk() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let methods = [HTTPRequest.Method.head, .get, .put, .post, .delete]
         for method in methods {
             let request = HTTPRequest(
@@ -327,7 +327,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testEmptyChunkedBody() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .post,
             scheme: "http",
@@ -353,7 +353,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testEchoString() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .post,
             scheme: "http",
@@ -381,7 +381,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testGzip() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -410,7 +410,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testDeflate() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -439,7 +439,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testBrotli() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -468,7 +468,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testIdentity() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -489,7 +489,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testCustomHeader() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .post,
             scheme: "http",
@@ -517,7 +517,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testBasicRedirect() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let paths = ["/301", "/308"]
 
         for path in paths {
@@ -544,7 +544,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testInfiniteRedirect() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
 
         let request = HTTPRequest(
             method: .get,
@@ -562,7 +562,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testNotFound() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -582,7 +582,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testStatusOutOfRangeButValid() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -611,7 +611,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
 
         try await withThrowingTaskGroup { group in
             for _ in 0..<100 {
-                let client = try await clientFactory()
+                var client = try await clientFactory()
                 group.addTask {
                     try await client.perform(
                         request: request,
@@ -635,7 +635,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testEchoInterleave() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .post,
             scheme: "http",
@@ -678,7 +678,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testClientSendsEmptyHeaderValue() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .post,
             scheme: "http",
@@ -711,7 +711,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
             path: "/speak"
         )
 
-        let client = try await clientFactory()
+        var client = try await clientFactory()
 
         let (stream, continuation) = AsyncStream<String>.makeStream()
 
@@ -748,7 +748,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
 
     func testCancelPreHeaders() async throws {
         try await withThrowingTaskGroup { group in
-            let client = try await clientFactory()
+            var client = try await clientFactory()
             let port = self.testServerPort
 
             group.addTask {
@@ -788,7 +788,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         try await withThrowingTaskGroup { group in
             // Used by the task to notify when the task group should be cancelled
             let (stream, continuation) = AsyncStream<Void>.makeStream()
-            let client = try await clientFactory()
+            var client = try await clientFactory()
             let port = self.testServerPort
 
             group.addTask {
@@ -836,7 +836,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testGetConvenience() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let (response, data) = try await client.get(
             url: URL(string: "http://127.0.0.1:\(testServerPort)/request")!,
             collectUpTo: .max
@@ -848,7 +848,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testPostConvenience() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let (response, data) = try await client.post(
             url: URL(string: "http://127.0.0.1:\(testServerPort)/request")!,
             bodyData: Data("Hello World".utf8),
@@ -861,7 +861,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testEcho1MBBody() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .post,
             scheme: "http",
@@ -888,7 +888,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testUnderRead() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -909,7 +909,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testDripRead() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -945,7 +945,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testHeadWithContentLength() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .head,
             scheme: "http",
@@ -965,7 +965,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testServerSendsMultiValueHeader() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -990,7 +990,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testClientSendsMultiValueHeader() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -1025,7 +1025,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
 
     func testBasicCookieSetAndUse() async throws {
         // Get a cookie from the server
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request1 = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -1070,7 +1070,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testETag() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -1115,7 +1115,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testURLParams() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         var components = URLComponents(string: "http://127.0.0.1:\(testServerPort)/request")!
         components.queryItems = [
             URLQueryItem(name: "foo", value: "bar"),
@@ -1146,7 +1146,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testTrailerRead() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .get,
             scheme: "http",
@@ -1175,7 +1175,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     }
 
     func testTrailerWrite() async throws {
-        let client = try await clientFactory()
+        var client = try await clientFactory()
         let request = HTTPRequest(
             method: .post,
             scheme: "http",

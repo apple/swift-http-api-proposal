@@ -38,14 +38,14 @@ extension HTTP {
     ///
     /// - Throws: An error if the request fails or if the response handler throws.
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    public static func perform<Client: HTTPClient & ~Copyable & ~Escapable, Return: ~Copyable>(
+    public static func perform<Return: ~Copyable>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<Client.RequestWriter>? = nil,
-        options: Client.RequestOptions? = nil,
-        on client: borrowing Client = DefaultHTTPClient.shared,
-        responseHandler: (HTTPResponse, consuming Client.ResponseConcludingReader) async throws -> Return,
+        body: consuming HTTPClientRequestBody<DefaultHTTPClient.RequestWriter>? = nil,
+        options: HTTPRequestOptions = .init(),
+        on client: DefaultHTTPClient = .shared,
+        responseHandler: (HTTPResponse, consuming DefaultHTTPClient.ResponseConcludingReader) async throws -> Return,
     ) async throws -> Return {
-        return try await client.perform(request: request, body: body, options: options, responseHandler: responseHandler)
+        try await client.perform(request: request, body: body, options: options, responseHandler: responseHandler)
     }
 
     /// Performs an HTTP GET request and collects the response body.
@@ -64,14 +64,15 @@ extension HTTP {
     ///
     /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    public static func get<Client: HTTPClient & ~Copyable & ~Escapable>(
+    public static func get(
         url: URL,
         headerFields: HTTPFields = [:],
-        options: Client.RequestOptions? = nil,
-        on client: borrowing Client = DefaultHTTPClient.shared,
+        options: HTTPRequestOptions = .init(),
+        on client: DefaultHTTPClient = .shared,
         collectUpTo limit: Int,
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
-        try await client.get(url: url, headerFields: headerFields, options: options, collectUpTo: limit)
+        var client = client
+        return try await client.get(url: url, headerFields: headerFields, options: options, collectUpTo: limit)
     }
 
     /// Performs an HTTP POST request with a body and collects the response body.
@@ -91,15 +92,16 @@ extension HTTP {
     ///
     /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    public static func post<Client: HTTPClient & ~Copyable & ~Escapable>(
+    public static func post(
         url: URL,
         headerFields: HTTPFields = [:],
         bodyData: Data,
-        options: Client.RequestOptions? = nil,
-        on client: borrowing Client = DefaultHTTPClient.shared,
+        options: HTTPRequestOptions = .init(),
+        on client: DefaultHTTPClient = .shared,
         collectUpTo limit: Int,
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
-        try await client.post(url: url, headerFields: headerFields, bodyData: bodyData, options: options, collectUpTo: limit)
+        var client = client
+        return try await client.post(url: url, headerFields: headerFields, bodyData: bodyData, options: options, collectUpTo: limit)
     }
 
     /// Performs an HTTP PUT request with a body and collects the response body.
@@ -119,15 +121,16 @@ extension HTTP {
     ///
     /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    public static func put<Client: HTTPClient & ~Copyable & ~Escapable>(
+    public static func put(
         url: URL,
         headerFields: HTTPFields = [:],
         bodyData: Data,
-        options: Client.RequestOptions? = nil,
-        on client: borrowing Client = DefaultHTTPClient.shared,
+        options: HTTPRequestOptions = .init(),
+        on client: DefaultHTTPClient = .shared,
         collectUpTo limit: Int,
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
-        try await client.put(url: url, headerFields: headerFields, bodyData: bodyData, options: options, collectUpTo: limit)
+        var client = client
+        return try await client.put(url: url, headerFields: headerFields, bodyData: bodyData, options: options, collectUpTo: limit)
     }
 
     /// Performs an HTTP DELETE request and collects the response body.
@@ -147,15 +150,16 @@ extension HTTP {
     ///
     /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    public static func delete<Client: HTTPClient & ~Copyable & ~Escapable>(
+    public static func delete(
         url: URL,
         headerFields: HTTPFields = [:],
         bodyData: Data? = nil,
-        options: Client.RequestOptions? = nil,
-        on client: borrowing Client = DefaultHTTPClient.shared,
+        options: HTTPRequestOptions = .init(),
+        on client: DefaultHTTPClient = .shared,
         collectUpTo limit: Int,
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
-        try await client.delete(url: url, headerFields: headerFields, bodyData: bodyData, options: options, collectUpTo: limit)
+        var client = client
+        return try await client.delete(url: url, headerFields: headerFields, bodyData: bodyData, options: options, collectUpTo: limit)
     }
 
     /// Performs an HTTP PATCH request with a body and collects the response body.
@@ -175,14 +179,15 @@ extension HTTP {
     ///
     /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-    public static func patch<Client: HTTPClient & ~Copyable & ~Escapable>(
+    public static func patch(
         url: URL,
         headerFields: HTTPFields = [:],
         bodyData: Data,
-        options: Client.RequestOptions? = nil,
-        on client: borrowing Client = DefaultHTTPClient.shared,
+        options: HTTPRequestOptions = .init(),
+        on client: DefaultHTTPClient = .shared,
         collectUpTo limit: Int,
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
-        try await client.patch(url: url, headerFields: headerFields, bodyData: bodyData, options: options, collectUpTo: limit)
+        var client = client
+        return try await client.patch(url: url, headerFields: headerFields, bodyData: bodyData, options: options, collectUpTo: limit)
     }
 }
