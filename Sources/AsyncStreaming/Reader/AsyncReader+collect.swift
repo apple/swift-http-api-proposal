@@ -93,8 +93,8 @@ extension AsyncReader where Self: ~Copyable, Self: ~Escapable, ReadElement: Copy
     /// provided body function as a `Span` for processing.
     ///
     /// - Parameters:
-    ///   - limit: The maximum number of elements to collect before throwing a `LimitExceeded` error.
-    ///     This prevents unbounded memory growth when reading from potentially infinite streams.
+    ///   - limit: The maximum number of elements to collect. This prevents unbounded memory
+    ///     growth when reading from potentially infinite streams.
     ///   - body: A closure that receives a `Span` containing all collected elements and returns
     ///     a result of type `Result`. This closure is called once after all elements have been
     ///     collected successfully.

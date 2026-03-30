@@ -16,7 +16,7 @@
 ///
 /// ``ConcludingAsyncWriter`` adds functionality to asynchronous writers that need to
 /// provide a conclusive element after writing is complete. This is particularly useful
-/// for streams that have meaningful completion states, such as HTTP response that need
+/// for streams that have meaningful completion states, such as HTTP responses that need
 /// to finalize with optional trailers.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public protocol ConcludingAsyncWriter<Underlying, FinalElement>: ~Copyable, ~Escapable {

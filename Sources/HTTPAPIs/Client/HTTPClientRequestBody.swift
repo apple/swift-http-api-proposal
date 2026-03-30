@@ -16,7 +16,7 @@ import AsyncStreaming
 
 /// A type that represents the body of an HTTP client request.
 ///
-/// ``HTTPClientRequestBody`` wraps a closure the encapsulates the logic
+/// ``HTTPClientRequestBody`` wraps a closure that encapsulates the logic
 /// to write a request body. It also contains extra hints and inputs to inform
 /// the custom request body writing.
 ///
@@ -114,7 +114,7 @@ where Writer.WriteElement == UInt8, Writer: SendableMetatype {
     ///     the `content-length` header field.
     ///   - body: The closure that writes the request body using the provided writer and
     ///     returns an optional trailer.
-    ///     - writer: The closure that writes the request body using the provided writer.
+    ///     - writer: The writer that receives the request body bytes.
     public static func restartable(
         knownLength: Int64? = nil,
         _ body: @escaping @Sendable (consuming Writer) async throws -> HTTPFields?
@@ -137,7 +137,7 @@ where Writer.WriteElement == UInt8, Writer: SendableMetatype {
     ///   - body: The closure that writes the request body using the provided writer and
     ///     returns an optional trailer.
     ///     - offset: The byte offset from which to start writing the body.
-    ///     - writer: The closure that writes the request body using the provided writer.
+    ///     - writer: The writer that receives the request body bytes.
     public static func seekable(
         knownLength: Int64? = nil,
         _ body: @escaping @Sendable (Int64, consuming Writer) async throws -> HTTPFields?

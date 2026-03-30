@@ -15,7 +15,7 @@
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 /// A protocol that defines the interface for an HTTP server.
 ///
-/// ``HTTPServerProtocol`` provides the contract for server implementations that accept
+/// ``HTTPServer`` provides the contract for server implementations that accept
 /// incoming HTTP connections and process requests using a ``HTTPServerRequestHandler``.
 public protocol HTTPServer<RequestConcludingReader, ResponseConcludingWriter>: Sendable, ~Copyable, ~Escapable {
     /// The type used to read request body data and trailers.

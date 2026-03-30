@@ -29,8 +29,8 @@
 /// struct EchoHandler<
 ///     ConcludingRequestReader: ConcludingAsyncReader<RequestReader, HTTPFields?> & ~Copyable,
 ///     RequestReader: AsyncReader<UInt8, any Error> & ~Copyable,
-///     ConcludingResponseWriter: ConcludingAsyncWriter<RequestWriter, HTTPFields?> & ~Copyable,
-///     RequestWriter: AsyncWriter<UInt8, any Error> & ~Copyable
+///     ConcludingResponseWriter: ConcludingAsyncWriter<ResponseWriter, HTTPFields?> & ~Copyable,
+///     ResponseWriter: AsyncWriter<UInt8, any Error> & ~Copyable
 /// >: HTTPServerRequestHandler {
 ///     func handle(
 ///         request: HTTPRequest,
