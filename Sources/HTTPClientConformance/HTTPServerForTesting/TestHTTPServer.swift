@@ -18,6 +18,11 @@ import HTTPTypes
 import Logging
 import Synchronization
 
+extension HTTPField.Name {
+    // Used in ETag tests
+    static let cached: Self = .init("Cached")!
+}
+
 // HTTP request as received by the server.
 // Encoded into JSON and written back to the client.
 struct JSONHTTPRequest: Codable {
@@ -399,7 +404,8 @@ func serve(server: NIOHTTPServer) async throws {
                     .init(
                         status: .notModified,
                         headerFields: [
-                            .eTag: serverETag
+                            .eTag: serverETag,
+                            .cached: "true",
                         ]
                     )
                 )
@@ -410,7 +416,8 @@ func serve(server: NIOHTTPServer) async throws {
                     .init(
                         status: .ok,
                         headerFields: [
-                            .eTag: serverETag
+                            .eTag: serverETag,
+                            .cached: "false",
                         ]
                     )
                 )
