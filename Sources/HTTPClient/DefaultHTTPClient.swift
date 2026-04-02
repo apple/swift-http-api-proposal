@@ -138,12 +138,12 @@ public struct DefaultHTTPClient: HTTPAPIs.HTTPClient, ~Copyable {
         options: HTTPRequestOptions,
         responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return
     ) async throws -> Return {
-        // TODO: translate request options
-        let options = self.client.defaultRequestOptions
+        var translatedOptions = self.client.defaultRequestOptions
+        translatedOptions.stallTimeout = options.stallTimeout
         let body = body.map {
             HTTPClientRequestBody<ActualHTTPClient.RequestWriter>(other: $0) { RequestWriter(actual: $0) }
         }
-        return try await self.client.perform(request: request, body: body, options: options) { response, body in
+        return try await self.client.perform(request: request, body: body, options: translatedOptions) { response, body in
             try await responseHandler(response, ResponseConcludingReader(actual: body))
         }
     }
