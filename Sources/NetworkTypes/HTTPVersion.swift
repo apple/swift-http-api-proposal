@@ -11,12 +11,24 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
-public import NetworkTypes
 
-/// The options for the default HTTP client implementation.
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-public struct HTTPRequestOptions: HTTPClientCapability.ServerHTTPVersionCapability {
-    public var serverSupportedHTTPVersions: Set<HTTPVersion> = []
+/// An enumeration that represents an HTTP protocol version.
+///
+/// ``HTTPVersion`` provides type-safe access to supported HTTP protocol versions,
+/// allowing clients and servers to communicate version capabilities.
+public enum HTTPVersion: UInt8, Sendable, Hashable {
+    /// HTTP/1.
+    ///
+    /// HTTP/1 is defined in RFC 9112.
+    case http1 = 1
 
-    public init() {}
+    /// HTTP/2.
+    ///
+    /// HTTP/2 is defined in RFC 9113.
+    case http2 = 2
+
+    /// HTTP/3.
+    ///
+    /// HTTP/3 is defined in RFC 9114 and operates over QUIC.
+    case http3 = 3
 }
