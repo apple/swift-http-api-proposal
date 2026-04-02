@@ -1087,24 +1087,36 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
             // So the 6 requests we make must have the following
             // headers, response codes and body:
             //
-            // # |If-None-Match| Code | ETag  | Body |
-            // 1 |    nil      | 200  |   0   |  0   |
-            // 2 |     0       | 304  |   0   | nil  |
-            // 3 |     0       | 200  |   1   |  1   |
-            // 4 |     1       | 304  |   1   | nil  |
-            // 5 |     1       | 200  |   2   |  2   |
-            // 6 |     2       | 304  |   2   | nil  |
+            // # |If-None-Match| Code | ETag  | Body | X-Cached |
+            // 1 |    nil      | 200  |   0   |  0   |  false   |
+            // 2 |     0       | 304  |   0   | nil  |  true    |
+            // 3 |     0       | 200  |   1   |  1   |  false   |
+            // 4 |     1       | 304  |   1   | nil  |  true    |
+            // 5 |     1       | 200  |   2   |  2   |  false   |
+            // 6 |     2       | 304  |   2   | nil  |  true    |
             //
             // If a client does not send `If-None-Match` or the
             // wrong value, then the server won't increment the
             // counter, so this test should break.
+            //
+            // We also verify that a 304 Not Modified with updated
+            // headers does result in those headers being merged in
+            // with the original response and delivered up to the user.
 
             let expectedResponse = String(i)
-            for _ in 0..<2 {
+            for attempt in 0..<2 {
                 try await client.perform(
                     request: request
                 ) { response, responseBodyAndTrailers in
                     #expect(response.status == .ok)
+                    #expect(response.headerFields[.eTag] == expectedResponse)
+                    if attempt == 0 {
+                        // First attempt, Cached == false
+                        #expect(response.headerFields[.cached] == "false")
+                    } else {
+                        // Second attempt, Cached == true
+                        #expect(response.headerFields[.cached] == "true")
+                    }
                     let (response, _) = try await responseBodyAndTrailers.collect(upTo: 5) { span in
                         return String(copying: try UTF8Span(validating: span))
                     }

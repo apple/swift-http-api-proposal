@@ -19,6 +19,8 @@ let package = Package(
     products: [
         .library(name: "HTTPAPIs", targets: ["HTTPAPIs"]),
         .library(name: "HTTPClient", targets: ["HTTPClient"]),
+        .library(name: "URLSessionHTTPClient", targets: ["URLSessionHTTPClient"]),
+        .library(name: "AHCHTTPClient", targets: ["AHCHTTPClient"]),
         .library(name: "AsyncStreaming", targets: ["AsyncStreaming"]),
         .library(name: "NetworkTypes", targets: ["NetworkTypes"]),
         .library(name: "HTTPClientConformance", targets: ["HTTPClientConformance"]),
