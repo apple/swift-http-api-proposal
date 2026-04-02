@@ -49,6 +49,9 @@ public protocol HTTPClient<RequestOptions>: Sendable, ~Copyable, ~Escapable {
     /// - Returns: The value returned by the response handler closure.
     ///
     /// - Throws: An error if the request fails or if the response handler throws.
+    #if compiler(<6.3)
+    @_lifetime(&self)
+    #endif
     mutating func perform<Return: ~Copyable>(
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<RequestWriter>?,
