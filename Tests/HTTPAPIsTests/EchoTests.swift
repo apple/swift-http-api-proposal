@@ -53,7 +53,7 @@ struct HTTPClientAndServerTests {
                 authority: nil,
                 path: nil
             )
-            let client = clientAndServer
+            var client = clientAndServer
             try await client.perform(
                 request: request,
                 body: .restartable { (requestBody: consuming TestClientAndServer.RequestWriter) async throws -> HTTPFields? in

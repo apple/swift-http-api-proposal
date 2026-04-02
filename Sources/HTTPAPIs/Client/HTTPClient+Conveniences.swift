@@ -37,6 +37,9 @@ extension HTTPClient where Self: ~Copyable & ~Escapable {
     /// - Returns: The value returned by the response handler closure.
     ///
     /// - Throws: An error if the request fails or if the response handler throws.
+    #if compiler(<6.3)
+    @_lifetime(&self)
+    #endif
     public mutating func perform<Return: ~Copyable>(
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<RequestWriter>? = nil,
@@ -61,6 +64,9 @@ extension HTTPClient where Self: ~Copyable & ~Escapable {
     /// - Returns: A tuple containing the HTTP response header and the collected response body data.
     ///
     /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
+    #if compiler(<6.3)
+    @_lifetime(&self)
+    #endif
     public mutating func get(
         url: URL,
         headerFields: HTTPFields = [:],
@@ -92,6 +98,9 @@ extension HTTPClient where Self: ~Copyable & ~Escapable {
     /// - Returns: A tuple containing the HTTP response header and the collected response body data.
     ///
     /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
+    #if compiler(<6.3)
+    @_lifetime(&self)
+    #endif
     public mutating func post(
         url: URL,
         headerFields: HTTPFields = [:],
@@ -124,6 +133,9 @@ extension HTTPClient where Self: ~Copyable & ~Escapable {
     /// - Returns: A tuple containing the HTTP response header and the collected response body data.
     ///
     /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
+    #if compiler(<6.3)
+    @_lifetime(&self)
+    #endif
     public mutating func put(
         url: URL,
         headerFields: HTTPFields = [:],
@@ -156,6 +168,9 @@ extension HTTPClient where Self: ~Copyable & ~Escapable {
     /// - Returns: A tuple containing the HTTP response header and the collected response body data.
     ///
     /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
+    #if compiler(<6.3)
+    @_lifetime(&self)
+    #endif
     public mutating func delete(
         url: URL,
         headerFields: HTTPFields = [:],
@@ -188,6 +203,9 @@ extension HTTPClient where Self: ~Copyable & ~Escapable {
     /// - Returns: A tuple containing the HTTP response header and the collected response body data.
     ///
     /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
+    #if compiler(<6.3)
+    @_lifetime(&self)
+    #endif
     public mutating func patch(
         url: URL,
         headerFields: HTTPFields = [:],
