@@ -12,5 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+@_exported public import AsyncStreaming
+@_exported public import HTTPTypes
+
 /// The namespace for HTTP.
 public enum HTTP {}
