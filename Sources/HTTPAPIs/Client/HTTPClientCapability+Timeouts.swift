@@ -12,9 +12,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// The options for the default HTTP client implementation.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-public struct HTTPRequestOptions: HTTPClientCapability.Timeouts {
-    public var stallTimeout: Duration? = nil
-    public init() {}
+extension HTTPClientCapability {
+    /// A protocol for HTTP request options that support timeout configuration.
+    public protocol Timeouts: RequestOptions {
+        /// The maximum duration a request can wait for new bytes before being cancelled.
+        ///
+        /// This timeout applies to both connection establishment and waiting for
+        /// additional data after a connection is established. A value of `nil`
+        /// indicates no stall timeout is configured, and the client's default
+        /// behavior applies.
+        var stallTimeout: Duration? { get set }
+    }
 }
