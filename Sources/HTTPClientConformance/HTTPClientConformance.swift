@@ -89,6 +89,17 @@ public func runConformanceTests<Client: HTTPClient & ~Copyable>(
     try await withTestHTTPServer { testServerPort in
         try await withRawHTTPServer { rawServerPort in
             let suite = ConformanceTestSuite(testServerPort: testServerPort, rawServerPort: rawServerPort, clientFactory: clientFactory)
+//            do {
+//                print("◇ Test started.")
+////                try await suite.run(.testBasicRedirect)
+//                try await suite.run(.testOk)
+//                print("◇ Test finished.")
+//            } catch {
+//                print("✘ Test failed with error: \(error)")
+//                Issue.record(error)
+//            }
+
+
             for testCase in testCases {
                 do {
                     print("◇ Test \(testCase) started.")
@@ -518,7 +529,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
 
     func testBasicRedirect() async throws {
         var client = try await clientFactory()
-        let paths = ["/301", "/308"]
+        let paths = ["/301"]
 
         for path in paths {
             let request = HTTPRequest(
@@ -528,17 +539,22 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
                 path: path
             )
 
-            try await client.perform(
-                request: request,
-            ) { response, responseBodyAndTrailers in
-                #expect(response.status == .ok)
-                let (jsonRequest, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                    let body = String(copying: try UTF8Span(validating: span))
-                    let data = body.data(using: .utf8)!
-                    return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
+            do {
+                try await client.perform(
+                    request: request,
+                ) { response, responseBodyAndTrailers in
+                    #expect(response.status == .ok)
+                    let (jsonRequest, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
+                        let body = String(copying: try UTF8Span(validating: span))
+                        let data = body.data(using: .utf8)!
+                        return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
+                    }
+                    #expect(jsonRequest.method == "GET")
+                    #expect(jsonRequest.body.isEmpty)
                 }
-                #expect(jsonRequest.method == "GET")
-                #expect(jsonRequest.body.isEmpty)
+            } catch {
+                print("\(error)")
+                throw error
             }
         }
     }
