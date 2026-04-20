@@ -89,35 +89,4 @@ public protocol HTTPServerRequestHandler<RequestReader, ResponseWriter>: Sendabl
         responseSender: consuming sending HTTPResponseSender<ResponseWriter>
     ) async throws
 }
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-protocol ProtocolResponsSender {
-    associatedtype ResponseWriter: AsyncWriter<UInt8, any Error>
-
-    consuming func send(
-        _ response: HTTPResponse,
-        body: (consuming sending ResponseWriter) async throws -> HTTPFields?
-    ) async throws
-
-    consuming func send(
-        _ response: HTTPResponse,
-        _ responseBody: Span<UInt8>,
-        _ responseTrailers: HTTPFields?
-    ) async throws
-
-    func sendInformational(_ response: HTTPResponse) async throws
-}
-
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-extension ProtocolResponsSender {
-    consuming func send(
-        _ response: HTTPResponse,
-        _ responseBody: Span<UInt8>,
-        _ responseTrailers: HTTPFields?
-    ) async throws {
-        try await self.send(response) { writer in
-            var writer = writer
-            try await writer.write(responseBody)
-            return responseTrailers
-        }
-    }
 }

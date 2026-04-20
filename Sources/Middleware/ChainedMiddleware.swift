@@ -50,7 +50,7 @@ where First.Input: ~Copyable, First.NextInput: ~Copyable, Second.NextInput: ~Cop
     public func intercept<Return: ~Copyable>(
         input: consuming First.Input,
         next: (consuming Second.NextInput) async throws -> Return
-    ) async throws -> Return{
+    ) async throws -> Return {
         try await first.intercept(input: input) { middleInput in
             try await second.intercept(input: middleInput, next: next)
         }

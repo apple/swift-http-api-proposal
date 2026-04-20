@@ -6,7 +6,6 @@
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
-// See CONTRIBUTORS.txt for the list of Swift HTTP API Proposal project authors
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -14,9 +13,10 @@
 
 public import Middleware
 
+/// A simple middleware that fowrards the input to the next middleware.
 public struct ForwardingMiddleware<Input: ~Copyable & ~Escapable>: Middleware {
     public init() {}
-    
+
     public func intercept<Return: ~Copyable>(
         input: consuming Input,
         next: (consuming Input) async throws -> Return

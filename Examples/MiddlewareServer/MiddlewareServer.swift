@@ -6,14 +6,13 @@
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
-// See CONTRIBUTORS.txt for the list of Swift HTTP API Proposal project authors
 //
 // SPDX-License-Identifier: Apache-2.0
 //
 //===----------------------------------------------------------------------===//
 
 import ExampleMiddleware
-import HTTPServer
+import HTTPAPIs
 import Logging
 import Middleware
 
@@ -22,12 +21,21 @@ import Middleware
 @main
 struct MiddlewareServer {
     static func main() async throws {
-//        try await ExampleMiddlewareServer(
-//            server: httpServer
-//        ) { server in
-//            server
-//                .logging(logger: Logger(label: "Logger"))
-//                .requestHandler()
-//        }.serve()
+    }
+
+    static func serve<Server: HTTPServer>(server: Server) async throws
+    where
+        Server.RequestConcludingReader: ~Copyable,
+        Server.RequestConcludingReader.Underlying: ~Copyable & Escapable,
+        Server.ResponseConcludingWriter: ~Copyable,
+        Server.ResponseConcludingWriter.Underlying: ~Copyable & Escapable
+    {
+        try await ExampleMiddlewareServer(
+            server: server
+        ) { server in
+            server
+                .logging(logger: Logger(label: "Logger"))
+                .requestHandler()
+        }.serve()
     }
 }

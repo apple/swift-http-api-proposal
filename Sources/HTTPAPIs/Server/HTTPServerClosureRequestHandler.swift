@@ -92,8 +92,6 @@ where
     }
 }
 
-public import Foundation
-
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 extension HTTPServer
 where

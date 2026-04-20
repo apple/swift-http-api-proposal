@@ -6,7 +6,6 @@
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
-// See CONTRIBUTORS.txt for the list of Swift HTTP API Proposal project authors
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -26,8 +25,10 @@ public struct HTTPServerRequestHandlerMiddleware<
     ResponseConcludingAsyncWriter: ConcludingAsyncWriter & ~Copyable,
 >: Middleware, Sendable
 where
+    RequestConcludingAsyncReader.Underlying: ~Copyable,
     RequestConcludingAsyncReader.Underlying.ReadElement == UInt8,
     RequestConcludingAsyncReader.FinalElement == HTTPFields?,
+    ResponseConcludingAsyncWriter.Underlying: ~Copyable,
     ResponseConcludingAsyncWriter.Underlying.WriteElement == UInt8,
     ResponseConcludingAsyncWriter.FinalElement == HTTPFields?
 {
@@ -57,13 +58,13 @@ where
                 }
             }
         }
-        
+
         return try await next(())
     }
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-extension Middleware {
+extension Middleware where Input: ~Copyable, NextInput: ~Copyable {
     /// Creates a request handler middleware that echoes the request body back as the response.
     ///
     /// This is a simple example middleware that reads the entire request body and writes it
@@ -85,9 +86,11 @@ extension Middleware {
     where
         Input == HTTPServerMiddlewareInput<RequestReader, ResponseWriter>,
         RequestReader: ConcludingAsyncReader & ~Copyable,
+        RequestReader.Underlying: ~Copyable,
         RequestReader.Underlying.ReadElement == UInt8,
         RequestReader.FinalElement == HTTPFields?,
         ResponseWriter: ConcludingAsyncWriter & ~Copyable,
+        ResponseWriter.Underlying: ~Copyable,
         ResponseWriter.Underlying.WriteElement == UInt8,
         ResponseWriter.FinalElement == HTTPFields?
     {

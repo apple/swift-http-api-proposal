@@ -6,7 +6,6 @@
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
-// See CONTRIBUTORS.txt for the list of Swift HTTP API Proposal project authors
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -16,14 +15,18 @@ import HTTPAPIs
 import Middleware
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-final class ExampleMiddlewareClient<Client: HTTPClient & ~Copyable, ClientMiddleware: Middleware<HTTPRequest, HTTPRequest>>: HTTPClient {
+struct ExampleMiddlewareClient<Client: HTTPClient & ~Copyable, ClientMiddleware: Middleware<HTTPRequest, HTTPRequest>>: HTTPClient, ~Copyable {
     typealias RequestOptions = Client.RequestOptions
     typealias RequestWriter = Client.RequestWriter
     typealias ResponseConcludingReader = Client.ResponseConcludingReader
-    
-    private let client: Client
+
+    var defaultRequestOptions: Client.RequestOptions {
+        self.client.defaultRequestOptions
+    }
+
+    private var client: Client
     private let middleware: ClientMiddleware
-    
+
     init(
         client: consuming Client,
         @MiddlewareBuilder
@@ -33,7 +36,7 @@ final class ExampleMiddlewareClient<Client: HTTPClient & ~Copyable, ClientMiddle
         self.middleware = middlewareBuilder(RequestMiddleware<Client>())
     }
 
-    func perform<Return: ~Copyable>(
+    mutating func perform<Return: ~Copyable>(
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<RequestWriter>?,
         options: RequestOptions,
@@ -57,7 +60,7 @@ final class ExampleMiddlewareClient<Client: HTTPClient & ~Copyable, ClientMiddle
 struct RequestMiddleware<Client: HTTPClient & ~Copyable>: Middleware {
     typealias Input = HTTPRequest
     typealias NextInput = Input
-    
+
     func intercept<Return: ~Copyable>(
         input: consuming Input,
         next: (consuming NextInput) async throws -> Return

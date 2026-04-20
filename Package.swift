@@ -17,6 +17,13 @@ let extraSettings: [SwiftSetting] = [
 
 let package = Package(
     name: "HTTPAPIProposal",
+    platforms: [ // TODO: Needed until https://github.com/swiftlang/swift/issues/89028 is fixed
+        .macOS(.v15),
+        .iOS(.v18),
+        .watchOS(.v11),
+        .tvOS(.v18),
+        .visionOS(.v2),
+    ],
     products: [
         .library(name: "HTTPAPIs", targets: ["HTTPAPIs"]),
         .library(name: "HTTPClient", targets: ["HTTPClient"]),
@@ -47,7 +54,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.30.0"),
         .package(url: "https://github.com/apple/swift-nio-http2.git", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-configuration", from: "1.0.0"),
-        .package(url: "https://github.com/swift-server/async-http-client.git", branch: "ff-spi-for-httpapis"),
+        .package(url: "https://github.com/swift-server/async-http-client.git", revision: "393104434ea57710f2469036e816672fe15e8212"),
     ],
     targets: [
         // MARK: Libraries
@@ -227,7 +234,6 @@ let package = Package(
             name: "MiddlewareServer",
             dependencies: [
                 "HTTPAPIs",
-                "HTTPServer",
                 "Middleware",
                 "ExampleMiddleware",
             ],

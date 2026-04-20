@@ -6,7 +6,6 @@
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
-// See CONTRIBUTORS.txt for the list of Swift HTTP API Proposal project authors
 //
 // SPDX-License-Identifier: Apache-2.0
 //
@@ -28,10 +27,12 @@ public struct HTTPServerLoggingMiddleware<
     ResponseConcludingAsyncWriter: ConcludingAsyncWriter & ~Copyable
 >: Middleware
 where
-    RequestConcludingAsyncReader: Escapable,
+    RequestConcludingAsyncReader: ~Copyable & Escapable,
+    RequestConcludingAsyncReader.Underlying: ~Copyable & Escapable,
     RequestConcludingAsyncReader.Underlying.ReadElement == UInt8,
     RequestConcludingAsyncReader.FinalElement == HTTPFields?,
-    ResponseConcludingAsyncWriter: Escapable,
+    ResponseConcludingAsyncWriter: ~Copyable & Escapable,
+    ResponseConcludingAsyncWriter.Underlying: ~Copyable & Escapable,
     ResponseConcludingAsyncWriter.Underlying.WriteElement == UInt8,
     ResponseConcludingAsyncWriter.FinalElement == HTTPFields?
 {
@@ -98,7 +99,7 @@ where
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-extension Middleware {
+extension Middleware where Input: ~Copyable, NextInput: ~Copyable {
     /// Creates logging middleware for HTTP servers.
     ///
     /// This middleware logs all incoming requests and outgoing responses, including the request
@@ -122,9 +123,11 @@ extension Middleware {
     where
         Input == HTTPServerMiddlewareInput<RequestReader, ResponseWriter>,
         RequestReader: ConcludingAsyncReader & ~Copyable & Escapable,
+        RequestReader.Underlying: ~Copyable & Escapable,
         RequestReader.Underlying.ReadElement == UInt8,
         RequestReader.FinalElement == HTTPFields?,
         ResponseWriter: ConcludingAsyncWriter & ~Copyable & Escapable,
+        ResponseWriter.Underlying: ~Copyable & Escapable,
         ResponseWriter.Underlying.WriteElement == UInt8,
         ResponseWriter.FinalElement == HTTPFields?
     {
@@ -137,26 +140,26 @@ public struct HTTPRequestLoggingConcludingAsyncReader<
     Base: ConcludingAsyncReader & ~Copyable
 >: ConcludingAsyncReader, ~Copyable
 where
+    Base.Underlying: ~Copyable,
+    Base.Underlying: Escapable,
     Base.Underlying.ReadElement == UInt8,
     Base.FinalElement == HTTPFields?
 {
     public typealias Underlying = RequestBodyAsyncReader
     public typealias FinalElement = HTTPFields?
 
-    public struct RequestBodyAsyncReader: AsyncReader, ~Copyable, ~Escapable {
+    public struct RequestBodyAsyncReader: AsyncReader, ~Copyable {
         public typealias ReadElement = UInt8
         public typealias ReadFailure = Base.Underlying.ReadFailure
 
         private var underlying: Base.Underlying
         private let logger: Logger
 
-        @_lifetime(copy underlying)
         init(underlying: consuming Base.Underlying, logger: Logger) {
             self.underlying = underlying
             self.logger = logger
         }
 
-        @_lifetime(self: copy self)
         public mutating func read<Return, Failure>(
             maximumCount: Int?,
             body: (consuming Span<UInt8>) async throws(Failure) -> Return
@@ -205,26 +208,26 @@ public struct HTTPResponseLoggingConcludingAsyncWriter<
     Base: ConcludingAsyncWriter & ~Copyable
 >: ConcludingAsyncWriter, ~Copyable
 where
+    Base.Underlying: ~Copyable,
+    Base.Underlying: Escapable,
     Base.Underlying.WriteElement == UInt8,
     Base.FinalElement == HTTPFields?
 {
     public typealias Underlying = ResponseBodyAsyncWriter
     public typealias FinalElement = HTTPFields?
 
-    public struct ResponseBodyAsyncWriter: AsyncWriter, ~Copyable, ~Escapable {
+    public struct ResponseBodyAsyncWriter: AsyncWriter, ~Copyable {
         public typealias WriteElement = UInt8
         public typealias WriteFailure = Base.Underlying.WriteFailure
 
         private var underlying: Base.Underlying
         private let logger: Logger
 
-        @_lifetime(copy underlying)
         init(underlying: consuming Base.Underlying, logger: Logger) {
             self.underlying = underlying
             self.logger = logger
         }
 
-        @_lifetime(self: copy self)
         public mutating func write<Result, Failure>(
             _ body: (inout OutputSpan<UInt8>) async throws(Failure) -> Result
         ) async throws(EitherError<Base.Underlying.WriteFailure, Failure>) -> Result {

@@ -40,6 +40,7 @@ public protocol Middleware<Input, NextInput>: Sendable {
     ///   - next: A closure representing the next step in the middleware chain.
     ///           It accepts a parameter of type `NextInput`.
     ///
+    /// - Returns: The return value of the next closure.
     /// - Throws: Any error that occurs during processing.
     func intercept<Return: ~Copyable>(
         input: consuming Input,

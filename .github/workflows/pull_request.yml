@@ -28,11 +28,9 @@ jobs:
     with:
       runner_pool: general
       build_scheme: HTTPAPIProposal-Package
-      xcode_16_3_enabled: false
-      xcode_16_4_enabled: false
-      xcode_26_0_enabled: false
-      xcode_26_1_enabled: false
-      xcode_26_2_enabled: false
+      swift_6_1_enabled: false
+      swift_6_2_enabled: false
+      swift_6_3_enabled: false
       macos_xcode_build_enabled: false
       ios_xcode_build_enabled: false
       watchos_xcode_build_enabled: false
