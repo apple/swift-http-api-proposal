@@ -18,6 +18,6 @@ public enum HTTPClientCapability {
     ///
     /// Child protocols define additional options that a subset of clients support,
     /// allowing libraries to depend on specific capabilities.
-    public protocol RequestOptions {
+    public protocol RequestOptions: Sendable {
     }
 }
