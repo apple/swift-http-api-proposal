@@ -4,7 +4,7 @@ import PackageDescription
 
 let extraSettings: [SwiftSetting] = [
     .strictMemorySafety(),
-    .enableExperimentalFeature("SuppressedAssociatedTypes"),
+    .enableExperimentalFeature("SuppressedAssociatedTypesWithDefaults"),
     .enableExperimentalFeature("LifetimeDependence"),
     .enableExperimentalFeature("Lifetimes"),
     .enableUpcomingFeature("LifetimeDependence"),
@@ -95,7 +95,6 @@ let package = Package(
                 "NetworkTypes",
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "HTTPTypesFoundation", package: "swift-http-types"),
-
                 .product(name: "AsyncHTTPClient", package: "async-http-client"),
                 .product(name: "NIOHTTP1", package: "swift-nio"),
             ],

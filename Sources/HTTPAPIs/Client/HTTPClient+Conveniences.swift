@@ -20,7 +20,13 @@ public import struct Foundation.Data
 #endif
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-extension HTTPClient where Self: ~Copyable & ~Escapable {
+extension HTTPClient
+where
+    Self: ~Copyable & ~Escapable,
+    ResponseConcludingReader: ~Copyable,
+    ResponseConcludingReader.Underlying: ~Copyable,
+    RequestWriter: ~Copyable
+{
     /// Performs an HTTP request and processes the response.
     ///
     /// This convenience method provides default values for `body` and `options` arguments,
@@ -223,7 +229,7 @@ extension HTTPClient where Self: ~Copyable & ~Escapable {
     }
 
     private static func collectBody<Reader: ConcludingAsyncReader>(_ body: consuming Reader, upTo limit: Int) async throws -> Data
-    where Reader: ~Copyable, Reader.Underlying.ReadElement == UInt8 {
+    where Reader: ~Copyable, Reader.Underlying: ~Copyable, Reader.Underlying.ReadElement == UInt8 {
         try await body.collect(upTo: limit == .max ? .max : limit + 1) {
             if $0.count > limit {
                 throw LengthLimitExceededError()
