@@ -1,0 +1,3 @@
+[submodule "Submodules/swift-http-server"]
+	path = Submodules/swift-http-server
+	url = https://github.com/swift-server/swift-http-server.git

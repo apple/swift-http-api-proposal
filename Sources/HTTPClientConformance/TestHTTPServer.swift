@@ -13,7 +13,7 @@
 
 import AsyncStreaming
 import Foundation
-import HTTPTypes
+import HTTPAPIs
 import Logging
 import Synchronization
 
@@ -45,7 +45,12 @@ struct JSONHTTPRequest: Codable {
 public func withTestHTTPServer(perform: (Int) async throws -> Void) async throws {
     try await withThrowingTaskGroup {
         let logger = Logger(label: "TestHTTPServer")
-        let server = NIOHTTPServer(logger: logger, configuration: .init(bindTarget: .hostAndPort(host: "127.0.0.1", port: 0)))
+        let configuration = try NIOHTTPServerConfiguration(
+            bindTarget: .hostAndPort(host: "127.0.0.1", port: 0),
+            supportedHTTPVersions: [.http1_1],
+            transportSecurity: .plaintext
+        )
+        let server = NIOHTTPServer(logger: logger, configuration: configuration)
         $0.addTask {
             try await serve(server: server)
         }
