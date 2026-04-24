@@ -20,12 +20,18 @@ public protocol HTTPServer<RequestConcludingReader, ResponseConcludingWriter>: S
     /// The type used to read request body data and trailers.
     // TODO: Check if we should allow ~Escapable readers https://github.com/apple/swift-http-api-proposal/issues/13
     associatedtype RequestConcludingReader: ConcludingAsyncReader, ~Copyable, SendableMetatype
-    where RequestConcludingReader.Underlying.ReadElement == UInt8, RequestConcludingReader.FinalElement == HTTPFields?
+    where
+        RequestConcludingReader.Underlying: ~Copyable,
+        RequestConcludingReader.Underlying.ReadElement == UInt8,
+        RequestConcludingReader.FinalElement == HTTPFields?
 
     /// The type used to write response body data and trailers.
     // TODO: Check if we should allow ~Escapable writers https://github.com/apple/swift-http-api-proposal/issues/13
     associatedtype ResponseConcludingWriter: ConcludingAsyncWriter, ~Copyable, SendableMetatype
-    where ResponseConcludingWriter.Underlying.WriteElement == UInt8, ResponseConcludingWriter.FinalElement == HTTPFields?
+    where
+        ResponseConcludingWriter.Underlying: ~Copyable,
+        ResponseConcludingWriter.Underlying.WriteElement == UInt8,
+        ResponseConcludingWriter.FinalElement == HTTPFields?
 
     /// Starts an HTTP server with the specified request handler.
     ///
@@ -44,5 +50,10 @@ public protocol HTTPServer<RequestConcludingReader, ResponseConcludingWriter>: S
     /// let server = // create an instance of a type conforming to the `ServerProtocol`
     /// try await server.serve(handler: YourRequestHandler())
     /// ```
-    func serve(handler: some HTTPServerRequestHandler<RequestConcludingReader, ResponseConcludingWriter>) async throws
+    func serve<Handler: HTTPServerRequestHandler>(handler: Handler) async throws
+    where
+        Handler.RequestReader == RequestConcludingReader,
+        Handler.RequestReader: ~Copyable,
+        Handler.ResponseWriter == ResponseConcludingWriter,
+        Handler.ResponseWriter: ~Copyable
 }

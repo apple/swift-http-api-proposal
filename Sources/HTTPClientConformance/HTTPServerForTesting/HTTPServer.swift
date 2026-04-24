@@ -25,6 +25,7 @@ public protocol HTTPServer: Sendable, ~Copyable, ~Escapable {
     /// `ReadElement`.
     associatedtype RequestReader: ConcludingAsyncReader & ~Copyable & SendableMetatype
     where
+        RequestReader.Underlying: ~Copyable,
         RequestReader.Underlying.ReadElement == UInt8,
         RequestReader.Underlying.ReadFailure == any Error,
         RequestReader.FinalElement == HTTPFields?
@@ -34,6 +35,7 @@ public protocol HTTPServer: Sendable, ~Copyable, ~Escapable {
     /// `WriteElement`.
     associatedtype ResponseWriter: ConcludingAsyncWriter & ~Copyable & SendableMetatype
     where
+        ResponseWriter.Underlying: ~Copyable,
         ResponseWriter.Underlying.WriteElement == UInt8,
         ResponseWriter.Underlying.WriteFailure == any Error,
         ResponseWriter.FinalElement == HTTPFields?
@@ -55,5 +57,12 @@ public protocol HTTPServer: Sendable, ~Copyable, ~Escapable {
     /// let server = // create an instance of a type conforming to the `HTTPServer` protocol
     /// try await server.serve(handler: YourRequestHandler())
     /// ```
-    func serve(handler: some HTTPServerRequestHandler<RequestReader, ResponseWriter>) async throws
+    func serve<RequestHandler: HTTPServerRequestHandler>(
+        handler: RequestHandler
+    ) async throws
+    where
+        RequestHandler.RequestReader == RequestReader,
+        RequestHandler.ResponseWriter == ResponseWriter,
+        RequestHandler.RequestReader: ~Copyable,
+        RequestHandler.ResponseWriter: ~Copyable
 }

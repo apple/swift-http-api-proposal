@@ -72,7 +72,7 @@ struct AsyncReaderForEachTests {
             }
             Issue.record("Expected error to be thrown")
         } catch {
-            #expect(error == TestError.failed)
+            #expect(error == EitherError.second(TestError.failed))
         }
     }
 

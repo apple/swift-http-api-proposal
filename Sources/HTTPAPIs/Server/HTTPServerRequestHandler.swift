@@ -58,11 +58,11 @@
 public protocol HTTPServerRequestHandler<RequestReader, ResponseWriter>: Sendable {
     /// The type used to read request body data and trailers.
     associatedtype RequestReader: ConcludingAsyncReader, ~Copyable
-    where RequestReader.Underlying.ReadElement == UInt8, RequestReader.FinalElement == HTTPFields?
+    where RequestReader.Underlying: ~Copyable, RequestReader.Underlying.ReadElement == UInt8, RequestReader.FinalElement == HTTPFields?
 
     /// The type used to write response body data and trailers.
     associatedtype ResponseWriter: ConcludingAsyncWriter, ~Copyable
-    where ResponseWriter.Underlying.WriteElement == UInt8, ResponseWriter.FinalElement == HTTPFields?
+    where ResponseWriter.Underlying: ~Copyable, ResponseWriter.Underlying.WriteElement == UInt8, ResponseWriter.FinalElement == HTTPFields?
 
     /// Handles an incoming HTTP request and generates a response.
     ///

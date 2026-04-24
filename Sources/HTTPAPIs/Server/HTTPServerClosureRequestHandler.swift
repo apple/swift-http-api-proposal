@@ -40,6 +40,8 @@ public struct HTTPServerClosureRequestHandler<
     ResponseWriter: ConcludingAsyncWriter & ~Copyable,
 >: HTTPServerRequestHandler
 where
+    RequestReader.Underlying: ~Copyable,
+    ResponseWriter.Underlying: ~Copyable,
     RequestReader.Underlying.ReadElement == UInt8,
     ResponseWriter.Underlying.WriteElement == UInt8,
     RequestReader.FinalElement == HTTPFields?,
@@ -91,7 +93,15 @@ where
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-extension HTTPServer where Self: ~Copyable, Self: ~Escapable {
+extension HTTPServer
+where
+    Self: ~Copyable,
+    Self: ~Escapable,
+    RequestConcludingReader: ~Copyable,
+    RequestConcludingReader.Underlying: ~Copyable,
+    ResponseConcludingWriter: ~Copyable,
+    ResponseConcludingWriter.Underlying: ~Copyable
+{
     /// Starts an HTTP server with a closure-based request handler.
     ///
     /// This method provides a convenient way to start an HTTP server using a closure to handle incoming requests.
