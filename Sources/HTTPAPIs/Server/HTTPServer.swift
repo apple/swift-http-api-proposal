@@ -44,5 +44,10 @@ public protocol HTTPServer<RequestConcludingReader, ResponseConcludingWriter>: S
     /// let server = // create an instance of a type conforming to the `ServerProtocol`
     /// try await server.serve(handler: YourRequestHandler())
     /// ```
-    func serve(handler: some HTTPServerRequestHandler<RequestConcludingReader, ResponseConcludingWriter>) async throws
+    func serve<Handler: HTTPServerRequestHandler>(handler: Handler) async throws
+    where
+        Handler.RequestReader == RequestConcludingReader,
+        Handler.RequestReader: ~Copyable,
+        Handler.ResponseWriter == ResponseConcludingWriter,
+        Handler.ResponseWriter: ~Copyable
 }

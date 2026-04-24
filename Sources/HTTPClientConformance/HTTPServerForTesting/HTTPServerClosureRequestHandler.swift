@@ -40,10 +40,13 @@ public import HTTPTypes
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public struct HTTPServerClosureRequestHandler<
     ConcludingRequestReader: ConcludingAsyncReader<RequestReader, HTTPFields?> & ~Copyable & SendableMetatype,
-    RequestReader: AsyncReader<UInt8, any Error> & ~Copyable & ~Escapable,
+    RequestReader: AsyncReader<UInt8, any Error> & ~Copyable,
     ConcludingResponseWriter: ConcludingAsyncWriter<RequestWriter, HTTPFields?> & ~Copyable & SendableMetatype,
-    RequestWriter: AsyncWriter<UInt8, any Error> & ~Copyable & ~Escapable
+    RequestWriter: AsyncWriter<UInt8, any Error> & ~Copyable
 >: HTTPServerRequestHandler {
+    public typealias ResponseWriter = ConcludingResponseWriter
+    public typealias RequestReader = ConcludingRequestReader
+
     /// The underlying closure that handles HTTP requests.
     private let _handler:
         nonisolated(nonsending) @Sendable (

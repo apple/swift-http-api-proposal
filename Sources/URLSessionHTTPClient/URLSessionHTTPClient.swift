@@ -61,6 +61,8 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
         let actual: URLSessionTaskDelegateBridge
     }
 
+    public typealias RequestOptions = URLSessionRequestOptions
+
     let poolConfiguration: URLSessionConnectionPoolConfiguration
 
     private init(poolConfiguration: URLSessionConnectionPoolConfiguration, shared: Bool) {

@@ -24,7 +24,8 @@ public import HTTPTypes
 /// This forces structure in the response flow, requiring users to send a single response before they can stream a response body and
 /// trailers using the returned `ResponseWriter`.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-public struct HTTPResponseSender<ResponseWriter: ConcludingAsyncWriter & ~Copyable>: ~Copyable {
+public struct HTTPResponseSender<ResponseWriter: ConcludingAsyncWriter & ~Copyable>: ~Copyable
+where ResponseWriter.Underlying: ~Copyable & ~Escapable {
     private let _sendInformational: (HTTPResponse) async throws -> Void
     private let _send: (HTTPResponse) async throws -> ResponseWriter
 
