@@ -19,7 +19,9 @@
 ///
 /// This type is primarily used internally by the ``MiddlewareChainBuilder`` to combine
 /// middleware components in a type-safe way.
-struct ChainedMiddleware<First: Middleware, Second: Middleware>: Middleware where First.NextInput == Second.Input {
+// TODO: Revisit if this type should be public
+public struct ChainedMiddleware<First: Middleware, Second: Middleware>: Middleware
+where First.Input: ~Copyable, First.NextInput: ~Copyable, Second.NextInput: ~Copyable, First.NextInput == Second.Input {
     /// The first middleware in the chain.
     private let first: First
 
@@ -45,7 +47,7 @@ struct ChainedMiddleware<First: Middleware, Second: Middleware>: Middleware wher
     ///   - next: The next handler function to call after both middlewares have processed the input.
     ///
     /// - Throws: Any error that occurs during processing in either middleware.
-    func intercept(
+    public func intercept(
         input: consuming First.Input,
         next: (consuming Second.NextInput) async throws -> Void
     ) async throws {
