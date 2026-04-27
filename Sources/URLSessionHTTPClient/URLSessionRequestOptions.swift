@@ -19,7 +19,8 @@ public import NetworkTypes
 public struct URLSessionRequestOptions:
     HTTPClientCapability.RedirectionHandler,
     HTTPClientCapability.TLSSecurityHandler,
-    HTTPClientCapability.TLSVersionSelection
+    HTTPClientCapability.TLSVersionSelection,
+    HTTPClientCapability.ServerHTTPVersionCapability
 {
     public var redirectionHandler: (any HTTPClientRedirectionHandler)? = nil
 
@@ -30,7 +31,7 @@ public struct URLSessionRequestOptions:
     public var maximumTLSVersion: TLSVersion = .v1_3
     public var allowsExpensiveNetworkAccess: Bool = true
     public var allowsConstrainedNetworkAccess: Bool = true
-    public var assumesHTTP3Capable: Bool = false
+    public var serverSupportedHTTPVersions: Set<HTTPVersion> = []
     public var stallTimeout: Duration? = nil
 
     public init() {}

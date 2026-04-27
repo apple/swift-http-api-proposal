@@ -11,6 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+public import NetworkTypes
+
 @_spi(ExperimentalHTTPAPIsSupport) public import AsyncHTTPClient
 import BasicContainers
 import Foundation
@@ -25,8 +27,8 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
     public typealias RequestWriter = RequestBodyWriter
     public typealias ResponseConcludingReader = ResponseReader
 
-    public struct RequestOptions: HTTPClientCapability.RequestOptions {
-
+    public struct RequestOptions: HTTPClientCapability.ServerHTTPVersionCapability {
+        public var serverSupportedHTTPVersions: Set<NetworkTypes.HTTPVersion> = []
     }
 
     public struct RequestBodyWriter: AsyncWriter, ~Copyable {
