@@ -12,7 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-extension ConcludingAsyncReader where Self: ~Copyable {
+extension ConcludingAsyncReader where Self: ~Copyable, Underlying: ~Copyable {
     /// Collects elements from the underlying async reader and returns both the processed result and final element.
     ///
     /// This method provides a convenient way to collect elements from the underlying reader while

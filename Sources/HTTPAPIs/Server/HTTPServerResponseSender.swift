@@ -19,7 +19,7 @@
 /// enforces proper HTTP semantics: exactly one non-informational response, followed by
 /// optional response body streaming and trailers.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-public struct HTTPResponseSender<ResponseWriter: ConcludingAsyncWriter & ~Copyable>: ~Copyable {
+public struct HTTPResponseSender<ResponseWriter: ConcludingAsyncWriter & ~Copyable>: ~Copyable where ResponseWriter.Underlying: ~Copyable {
     private let _sendInformational: (HTTPResponse) async throws -> Void
     private let _send: (HTTPResponse) async throws -> ResponseWriter
 
