@@ -280,6 +280,8 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
         request.assumesHTTP3Capable = options.assumesHTTP3Capable
         if let stallTimeout = options.stallTimeout {
             request.timeoutInterval = stallTimeout / .seconds(1)
+        } else {
+            request.timeoutInterval = 24 * 60 * 60 // Set to 24h to essentially disable the timeout
         }
 
         // Disable Content-Type sniffing
