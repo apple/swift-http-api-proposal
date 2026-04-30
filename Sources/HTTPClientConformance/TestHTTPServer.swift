@@ -146,12 +146,13 @@ func serve(server: NIOHTTPServer) async throws {
             try await writer.writeAndConclude(responseSpan, finalElement: nil)
         case "/head_with_cl":
             if request.method != .head {
-                try await responseSender.send(HTTPResponse(status: .methodNotAllowed))
+                let writer = try await responseSender.send(HTTPResponse(status: .methodNotAllowed))
+                try await writer.writeAndConclude("".utf8.span, finalElement: nil)
                 break
             }
 
             // OK with a theoretical 1000-byte body
-            try await responseSender.send(
+            let writer = try await responseSender.send(
                 HTTPResponse(
                     status: .ok,
                     headerFields: [
@@ -159,13 +160,12 @@ func serve(server: NIOHTTPServer) async throws {
                     ]
                 )
             )
+            try await writer.writeAndConclude("".utf8.span, finalElement: nil)
         case "/200":
-            // OK
-            let writer = try await responseSender.send(HTTPResponse(status: .ok))
-
-            // Do not write a response body for a HEAD request
-            if request.method == .head { break }
-
+            // OK (empty body)
+            let writer = try await responseSender.send(
+                HTTPResponse(status: .ok, headerFields: [.contentLength: "0"])
+            )
             try await writer.writeAndConclude("".utf8.span, finalElement: nil)
         case "/gzip":
             // If the client didn't say that they supported this encoding,
@@ -231,7 +231,7 @@ func serve(server: NIOHTTPServer) async throws {
             let writer = try await responseSender.send(HTTPResponse(status: .ok, headerFields: headers))
             try await writer.writeAndConclude(bytes.span, finalElement: nil)
         case "/header_multivalue":
-            try await responseSender.send(
+            let writer = try await responseSender.send(
                 HTTPResponse(
                     status: .ok,
                     headerFields: [
@@ -240,6 +240,7 @@ func serve(server: NIOHTTPServer) async throws {
                     ]
                 )
             )
+            try await writer.writeAndConclude("".utf8.span, finalElement: nil)
         case "/identity":
             // This will always write out the body with no encoding.
             // Used to check that a client can handle fallback to no encoding.
