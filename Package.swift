@@ -24,6 +24,7 @@ let package = Package(
         .library(name: "AsyncStreaming", targets: ["AsyncStreaming"]),
         .library(name: "NetworkTypes", targets: ["NetworkTypes"]),
         .library(name: "HTTPClientConformance", targets: ["HTTPClientConformance"]),
+        .library(name: "FetchHTTPClient", targets: ["FetchHTTPClient"])
     ],
     traits: [
         .trait(name: "Configuration"),
@@ -46,6 +47,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.30.0"),
         .package(url: "https://github.com/apple/swift-nio-http2.git", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-configuration", from: "1.0.0"),
+        .package(url: "https://github.com/swiftwasm/JavaScriptKit", from: "0.50.2"),
 
         .package(url: "https://github.com/swift-server/async-http-client.git", branch: "ff-spi-for-httpapis"),
     ],
@@ -111,6 +113,25 @@ let package = Package(
                 .product(name: "HTTPTypesFoundation", package: "swift-http-types"),
             ],
             swiftSettings: extraSettings
+        ),
+        .target(
+            name: "FetchHTTPClient",
+            dependencies: [
+                "HTTPAPIs",
+                "AsyncStreaming",
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(
+                    name: "JavaScriptKit",
+                    package: "JavaScriptKit",
+                ),
+                .product(name: "JavaScriptEventLoop", package: "JavaScriptKit"),
+            ],
+            swiftSettings: [
+                .enableExperimentalFeature("Extern"),
+            ],
+            plugins: [
+                .plugin(name: "BridgeJS", package: "JavaScriptKit")
+            ],
         ),
 
         // MARK: Conformance Testing
@@ -211,6 +232,24 @@ let package = Package(
             ],
             path: "Examples/ProxyServer",
             swiftSettings: extraSettings
+        ),
+        .executableTarget(
+            name: "WASMClient",
+            dependencies: [
+                "FetchHTTPClient",
+                .product(
+                    name: "JavaScriptKit",
+                    package: "JavaScriptKit",
+                ),
+                .product(name: "JavaScriptEventLoop", package: "JavaScriptKit"),
+            ],
+            path: "Examples/WASMClient",
+            swiftSettings: [
+                .enableExperimentalFeature("Extern"),
+            ],
+            plugins: [
+                .plugin(name: "BridgeJS", package: "JavaScriptKit")
+            ],
         ),
     ]
 )
