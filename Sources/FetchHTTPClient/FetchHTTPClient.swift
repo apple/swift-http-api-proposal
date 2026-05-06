@@ -1,8 +1,28 @@
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift HTTP API Proposal open source project
+//
+// Copyright (c) 2026 Apple Inc. and the Swift HTTP API Proposal project authors
+// Licensed under Apache License v2.0
+//
+// See LICENSE.txt for license information
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+//===----------------------------------------------------------------------===//
+
+import BasicContainers
+import Foundation
 import HTTPAPIs
 import HTTPTypes
-import JavaScriptKit
 import JavaScriptEventLoop
-import Foundation
+import JavaScriptKit
+
+// This class is needed to allow passing references to the UniqueArray
+// between FetchHTTPClient and RequestBodyWriter.
+public class RequestBodyBuffer {
+    var array = UniqueArray<UInt8>()
+}
 
 public enum FetchError: Error {
     case BadURL
@@ -22,36 +42,47 @@ public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
 
     public init() {}
 
-    public func perform<Return>(request: HTTPTypes.HTTPRequest, body: consuming HTTPAPIs.HTTPClientRequestBody<RequestBodyWriter>?, options: RequestOptions, responseHandler: nonisolated(nonsending) (HTTPTypes.HTTPResponse, consuming ResponseReader) async throws -> Return) async throws -> Return where Return : ~Copyable {
+    public func perform<Return>(
+        request: HTTPTypes.HTTPRequest,
+        body: consuming HTTPAPIs.HTTPClientRequestBody<RequestBodyWriter>?,
+        options: RequestOptions,
+        responseHandler: nonisolated(nonsending) (HTTPTypes.HTTPResponse, consuming ResponseReader) async throws -> Return
+    ) async throws -> Return where Return: ~Copyable {
         guard let url = request.url else {
             throw FetchError.BadURL
         }
 
-        // Collect request body in advance, because some browsers (Safari, Firefox) don't support streaming bytes in request body.
-        var bodyBytes: [UInt8]? = nil
+        var jsBody: JSObject? = nil
+
         if let body = body {
-            let bufferArray = BufferArray()
-            let writer = RequestBodyWriter(bufferArray: bufferArray)
+            let buffer = RequestBodyBuffer()
+
+            let writer = RequestBodyWriter(buffer: buffer)
             // Trailers are unsupported in browsers
             let _ = try await body.produce(into: writer)
-            bodyBytes = bufferArray.toBytes()
+
+            jsBody = buffer.array.span.withUnsafeBufferPointer { bufferPtr in
+                JSTypedArray<UInt8>(buffer: bufferPtr).jsObject
+            }
         }
 
         // Collect request headers
         let requestHeaders = try Headers()
         for field in request.headerFields {
-            try requestHeaders.append(field.name.rawName, field.value)
+            try requestHeaders.append(field.name.rawName, field.isoLatin1Value)
         }
 
         // Perform the request
-        let requestInit = RequestInit(body: bodyBytes, method: request.method.rawValue, headers: requestHeaders)
-        let response = try await fetch(url.absoluteString, requestInit);
+        let requestInit = RequestInit(body: jsBody, method: request.method.rawValue, headers: requestHeaders)
+        let response = try await fetch(url.absoluteString, requestInit)
         let responseStatus = try response.status
         let responseStatusText = try response.statusText
         let stream = try response.body
         let reader = try stream.getReader()
 
-        // Collect response headers
+        // Collect response headers.
+        // Note that `Set-Cookie` headers can never be accessed because
+        // they are filtered out by the `fetch` API.
         var responseHeaders = HTTPFields()
         let iterator = try response.headers.entries()
         while true {
@@ -71,31 +102,28 @@ public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
                 throw FetchError.MalformedJS
             }
 
-            responseHeaders.append(.init(name: name, value: entry[1]))
+            responseHeaders.append(.init(name: name, isoLatin1Value: entry[1]))
         }
 
-        return try await responseHandler(HTTPResponse(status: .init(code: responseStatus, reasonPhrase: responseStatusText), headerFields: responseHeaders), ResponseReader(reader: reader))
+        return try await responseHandler(
+            HTTPResponse(status: .init(code: responseStatus, reasonPhrase: responseStatusText), headerFields: responseHeaders),
+            ResponseReader(reader: reader)
+        )
     }
 
     public struct RequestBodyWriter: AsyncWriter, ~Copyable {
-        var bufferArray: BufferArray
+        let buffer: RequestBodyBuffer
 
-        public mutating func write<Result, Failure>(_ body: nonisolated(nonsending) (inout OutputSpan<UInt8>) async throws(Failure) -> Result) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Result where Failure : Error {
+        public mutating func write<Result, Failure>(
+            _ body: nonisolated(nonsending) (inout OutputSpan<UInt8>) async throws(Failure) -> Result
+        ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Result where Failure: Error {
             do {
-                let buffer: Buffer
-                if let last = bufferArray.buffers.last, last.hasSpace() {
-                    buffer = last
-                } else {
-                    // Make a new buffer and use that span
-                    buffer = Buffer()
-                    bufferArray.buffers.append(buffer);
+                // Each write attempt gets approximately a page of memory to populate with data.
+                return try await buffer.array.append(count: 4 * 1024) { span in
+                    return try await body(&span)
                 }
-                var span = OutputSpan(buffer: buffer.storage, initializedCount: buffer.numElements)
-                let result = try await body(&span)
-                buffer.numElements = span.count
-                return result;
             } catch {
-               throw .second(error)
+                throw .first(error)
             }
         }
     }
@@ -103,43 +131,71 @@ public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
     public struct ResponseReader: ConcludingAsyncReader, ~Copyable {
         let reader: ReadableStreamDefaultReader
 
-        public consuming func consumeAndConclude<Return, Failure>(body: nonisolated(nonsending) (consuming sending FetchHTTPClient.ResponseBodyReader) async throws(Failure) -> Return) async throws(Failure) -> (Return, HTTPTypes.HTTPFields?) where Failure : Error {
+        public consuming func consumeAndConclude<Return, Failure>(
+            body: nonisolated(nonsending) (consuming sending FetchHTTPClient.ResponseBodyReader) async throws(Failure) -> Return
+        ) async throws(Failure) -> (Return, HTTPTypes.HTTPFields?) where Failure: Error {
             return (try await body(ResponseBodyReader(reader: reader)), nil)
         }
     }
 
     public struct ResponseBodyReader: AsyncReader, ~Copyable {
         let reader: ReadableStreamDefaultReader
+        var buffer = [UInt8]()
+        var curIndex = 0
 
-        public mutating func read<Return, Failure>(maximumCount: Int?, body: nonisolated(nonsending) (consuming Span<UInt8>) async throws(Failure) -> Return) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Return where Failure : Error {
-            let chunk: Chunk
-            do {
-                chunk = try await reader.read()
-            } catch {
-                throw .first(error)
-            }
-            if (chunk.done) {
+        public mutating func read<Return, Failure>(
+            maximumCount: Int?,
+            body: nonisolated(nonsending) (consuming Span<UInt8>) async throws(Failure) -> Return
+        ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Return where Failure: Error {
+            if buffer.isEmpty {
+                // Read more data in from JS
+                let chunk: Chunk
                 do {
-                    return try await body(Span())
+                    chunk = try await reader.read()
                 } catch {
-                    throw .second(error)
+                    throw .first(error)
                 }
+                if chunk.done {
+                    do {
+                        return try await body(Span())
+                    } catch {
+                        throw .second(error)
+                    }
+                }
+                guard let bytes = chunk.value else {
+                    throw .first(FetchError.MalformedJS)
+                }
+
+                buffer = bytes
             }
 
-            guard let bytes = chunk.value else {
-                throw .first(FetchError.MalformedJS)
+            let range: Range<Int>
+            let numRemainingElements = buffer.count - curIndex
+            if let maximumCount, numRemainingElements > maximumCount {
+                // There is more data in this buffer than the user wants.
+                // Give them a smaller span, update the index
+                let endIndex = curIndex + maximumCount
+                range = curIndex..<endIndex
+                curIndex = endIndex
+            } else {
+                // Return the rest of the buffer, reset the index
+                range = curIndex..<buffer.count
+                curIndex = 0
             }
 
-            if let count = maximumCount, bytes.count >= count {
-                // TODO: we may have read more than the maximum count, we should temporarily store the rest
-                // and only deliver up what the user asked for.
-            }
-
+            let result: Return
             do {
-                return try await body(bytes.span)
+                result = try await body(buffer[range].span)
             } catch {
                 throw .second(error)
             }
+
+            if range.endIndex == buffer.count {
+                // We've read the entire buffer. Clear it out
+                buffer.removeAll()
+            }
+
+            return result
         }
     }
 }

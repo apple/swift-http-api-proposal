@@ -14,6 +14,21 @@ let extraSettings: [SwiftSetting] = [
     .enableUpcomingFeature("MemberImportVisibility"),
     .enableUpcomingFeature("InternalImportsByDefault"),
 ]
+
+// BridgeJS generated code doesn't work well with
+// `NonisolatedNonsendingByDefault` and `InternalImportsByDefault`
+let wasmExtraSettings: [SwiftSetting] = [
+    .strictMemorySafety(),
+    .enableExperimentalFeature("SuppressedAssociatedTypes"),
+    .enableExperimentalFeature("LifetimeDependence"),
+    .enableExperimentalFeature("Lifetimes"),
+    .enableUpcomingFeature("LifetimeDependence"),
+    .enableUpcomingFeature("InferIsolatedConformances"),
+    .enableUpcomingFeature("ExistentialAny"),
+    .enableUpcomingFeature("MemberImportVisibility"),
+    .enableExperimentalFeature("Extern"),
+]
+
 let package = Package(
     name: "HTTPAPIProposal",
     products: [
@@ -24,7 +39,7 @@ let package = Package(
         .library(name: "AsyncStreaming", targets: ["AsyncStreaming"]),
         .library(name: "NetworkTypes", targets: ["NetworkTypes"]),
         .library(name: "HTTPClientConformance", targets: ["HTTPClientConformance"]),
-        .library(name: "FetchHTTPClient", targets: ["FetchHTTPClient"])
+        .library(name: "FetchHTTPClient", targets: ["FetchHTTPClient"]),
     ],
     traits: [
         .trait(name: "Configuration"),
@@ -126,9 +141,7 @@ let package = Package(
                 ),
                 .product(name: "JavaScriptEventLoop", package: "JavaScriptKit"),
             ],
-            swiftSettings: [
-                .enableExperimentalFeature("Extern"),
-            ],
+            swiftSettings: wasmExtraSettings,
             plugins: [
                 .plugin(name: "BridgeJS", package: "JavaScriptKit")
             ],
@@ -244,9 +257,7 @@ let package = Package(
                 .product(name: "JavaScriptEventLoop", package: "JavaScriptKit"),
             ],
             path: "Examples/WASMClient",
-            swiftSettings: [
-                .enableExperimentalFeature("Extern"),
-            ],
+            swiftSettings: wasmExtraSettings,
             plugins: [
                 .plugin(name: "BridgeJS", package: "JavaScriptKit")
             ],

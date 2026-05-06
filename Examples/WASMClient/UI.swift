@@ -1,3 +1,16 @@
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift HTTP API Proposal open source project
+//
+// Copyright (c) 2026 Apple Inc. and the Swift HTTP API Proposal project authors
+// Licensed under Apache License v2.0
+//
+// See LICENSE.txt for license information
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+//===----------------------------------------------------------------------===//
+
 import JavaScriptKit
 
 // https://developer.mozilla.org/en-US/docs/Web/API/Window/prompt
@@ -5,7 +18,7 @@ import JavaScriptKit
 
 // Prints to console and as div in HTML body
 func div(_ line: String) {
-    print(line);
+    print(line)
     let document = JSObject.global.document
     let div = document.createElement("div")
     div.innerText = .string(line)
@@ -14,7 +27,7 @@ func div(_ line: String) {
 
 // Prints to console and as header in HTML body
 func h2(_ line: String) {
-    print(line);
+    print(line)
     let document = JSObject.global.document
     let h2 = document.createElement("h2")
     h2.innerText = .string(line)
@@ -32,7 +45,7 @@ struct Status: @unchecked Sendable {
     }
 
     func set(_ status: String) {
-        print(status);
+        print(status)
         statusDiv.innerText = .string(status)
     }
 }

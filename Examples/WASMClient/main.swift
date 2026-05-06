@@ -1,41 +1,54 @@
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift HTTP API Proposal open source project
+//
+// Copyright (c) 2026 Apple Inc. and the Swift HTTP API Proposal project authors
+// Licensed under Apache License v2.0
+//
+// See LICENSE.txt for license information
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+//===----------------------------------------------------------------------===//
+
 import AsyncStreaming
-import HTTPAPIs
 import FetchHTTPClient
-import JavaScriptKit
-import JavaScriptEventLoop
 import Foundation
+import HTTPAPIs
+import JavaScriptEventLoop
+import JavaScriptKit
 
 // This is needed before any async work is done.
 typealias DefaultExecutorFactory = JavaScriptEventLoop
-JavaScriptEventLoop.installGlobalExecutor();
+JavaScriptEventLoop.installGlobalExecutor()
 
 let client = FetchHTTPClient()
 let status = Status()
 
 // Ask the user for the URL string.
-let urlString = try prompt("URL:", "http://localhost:8000/").trimmingCharacters(in: .whitespacesAndNewlines);
+let urlString = try prompt("URL:", "http://localhost:8000/").trimmingCharacters(in: .whitespacesAndNewlines)
 guard let url = URL(string: urlString) else {
-    status.set("❌ Not a valid URL");
+    status.set("❌ Not a valid URL")
     fatalError()
 }
 
 // Parse the method
-let methodString = try prompt("Method (GET, POST, etc.):", "GET").trimmingCharacters(in: .whitespacesAndNewlines).uppercased();
+let methodString = try prompt("Method (GET, POST, etc.):", "GET").trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
 guard let method = HTTPRequest.Method(methodString) else {
-    status.set("❌ Not a valid method");
+    status.set("❌ Not a valid method")
     fatalError()
 }
 
 // Optionally accept a body
-var body: HTTPClientRequestBody<FetchHTTPClient.RequestBodyWriter>? = nil;
+var body: HTTPClientRequestBody<FetchHTTPClient.RequestBodyWriter>? = nil
 if method == .post || method == .put {
-    let bodyString = try prompt("Body:", "Hello World!");
+    let bodyString = try prompt("Body:", "Hello World!")
     body = .restartable { writer in
         var writer = writer
         let span = bodyString.utf8Span.span
         status.set("⏳ Writing \(span.count) bytes")
         try await writer.write(span)
-        return nil;
+        return nil
     }
 }
 
@@ -43,20 +56,24 @@ status.set("⏳ Making \(method) request to \(url)")
 
 do {
     try await client.perform(
-        request: .init(method: method, url: url, headerFields: [
-            .init("Client")! : "Swift-WASM"
-        ]),
+        request: .init(
+            method: method,
+            url: url,
+            headerFields: [
+                .init("Client")!: "Swift-WASM"
+            ]
+        ),
         body: body,
         options: .init()
     ) { (response, reader) in
         h2("Response")
-        div("\(response.status)");
+        div("\(response.status)")
 
         var contentLength: Int? = nil
         for header in response.headerFields {
             div("\(header.name): \(header.value)")
 
-            if (header.name == .contentLength) {
+            if header.name == .contentLength {
                 contentLength = Int(header.value)
             }
         }
@@ -74,22 +91,22 @@ do {
 
             var reader = reader
             status.set("⏳ Read \(bytes.count) bytes")
-            while (true) {
+            while true {
                 let shouldContinue = try await reader.read(maximumCount: nil) { span in
-                    if (span.isEmpty) {
-                        return false;
+                    if span.isEmpty {
+                        return false
                     }
                     for i in span.indices {
                         bytes.append(span[i])
                     }
                     status.set("⏳ Read \(bytes.count) bytes")
-                    return true;
+                    return true
                 }
-                if (!shouldContinue) {
-                    break;
+                if !shouldContinue {
+                    break
                 }
             }
-            return bytes;
+            return bytes
         }
         status.set("✅ Read \(bytes.count) bytes")
 
@@ -103,4 +120,3 @@ do {
 } catch {
     status.set("❌ Fetch failed: \(error)")
 }
-
