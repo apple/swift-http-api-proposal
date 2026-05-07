@@ -2,6 +2,9 @@
 
 import PackageDescription
 
+// This environment variable is needed to allow WASM to compile only
+// when the WASM SDK is available and being used. Attempting to compile
+// WASM targets using non-WASM SDKs causes build failures.
 let enableWASM = Context.environment["HTTP_API_ENABLE_WASM"] != nil
 
 let extraSettings: [SwiftSetting] = [
