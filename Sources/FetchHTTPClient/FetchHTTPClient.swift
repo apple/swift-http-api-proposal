@@ -30,6 +30,10 @@ enum FetchError: Error {
     // An expected invariant of a JS API was broken.
     // This usually indicates a faulty assumption about said JS API.
     case BadAssumptionJS
+
+    // Browsers don't support trailers, so providing them
+    // in request bodies is not allowed.
+    case TrailersUnsupported
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, *)
@@ -61,8 +65,11 @@ public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
             let buffer = RequestBodyBuffer()
 
             let writer = RequestBodyWriter(buffer: buffer)
-            // Trailers are unsupported in browsers
-            let _ = try await body.produce(into: writer)
+            let trailers = try await body.produce(into: writer)
+
+            if let trailers {
+                throw FetchError.TrailersUnsupported
+            }
 
             jsBody = buffer.array.span.withUnsafeBufferPointer { bufferPtr in
                 JSTypedArray<UInt8>(buffer: bufferPtr).jsObject
