@@ -20,13 +20,16 @@ import JavaScriptKit
 
 // This class is needed to allow passing references to the UniqueArray
 // between FetchHTTPClient and RequestBodyWriter.
-public class RequestBodyBuffer {
+class RequestBodyBuffer {
     var array = UniqueArray<UInt8>()
 }
 
-public enum FetchError: Error {
+enum FetchError: Error {
     case BadURL
-    case MalformedJS
+
+    // An expected invariant of a JS API was broken.
+    // This usually indicates a faulty assumption about said JS API.
+    case BadAssumptionJS
 }
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, *)
@@ -91,15 +94,18 @@ public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
                 break
             }
             guard let entry = result.value else {
-                throw FetchError.MalformedJS
+                // If iterator is not done, there must be a header
+                throw FetchError.BadAssumptionJS
             }
 
             guard entry.count == 2 else {
-                throw FetchError.MalformedJS
+                // There have to be exactly 2 in the array (name and value)
+                throw FetchError.BadAssumptionJS
             }
 
             guard let name = HTTPField.Name(entry[0]) else {
-                throw FetchError.MalformedJS
+                // The name must be a valid HTTP header name
+                throw FetchError.BadAssumptionJS
             }
 
             responseHeaders.append(.init(name: name, isoLatin1Value: entry[1]))
@@ -162,8 +168,9 @@ public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
                         throw .second(error)
                     }
                 }
-                guard let bytes = chunk.value else {
-                    throw .first(FetchError.MalformedJS)
+                guard let bytes = chunk.value, !bytes.isEmpty else {
+                    // If not done, there must be bytes that can be read
+                    throw .first(FetchError.BadAssumptionJS)
                 }
 
                 buffer = bytes

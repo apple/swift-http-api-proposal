@@ -9,7 +9,7 @@ It is built on top of Javascript `fetch()` API using JavascriptKit and BridgeJS.
 1. Create an executable WASM target that depends on `FetchHTTPClient`
 1. Build the executable target using the WASM SDK
    ```bash
-   $ export SWIFT_ENABLE_WASM_TARGETS=1
+   $ export HTTP_API_ENABLE_WASM=1
    $ swift sdk list
    $ swift package --swift-sdk <WASM SDK ID> js --product <executable target> --use-cdn
    ```

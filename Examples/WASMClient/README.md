@@ -8,7 +8,7 @@ from Swift.
 1. Install the latest WASM SDK from swift.org
 1. Build the WASMClient using the WASM SDK
    ```bash
-   $ export SWIFT_ENABLE_WASM_TARGETS=1
+   $ export HTTP_API_ENABLE_WASM=1
    $ swift sdk list
    $ swift package --swift-sdk <WASM SDK ID> js --product WASMClient --use-cdn
    ```

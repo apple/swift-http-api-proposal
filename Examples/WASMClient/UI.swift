@@ -14,7 +14,7 @@
 import JavaScriptKit
 
 // https://developer.mozilla.org/en-US/docs/Web/API/Window/prompt
-@JSFunction(from: .global) public func prompt(_ prompt: String, _ defaultValue: String) throws(JSException) -> String
+@JSFunction(from: .global) func prompt(_ prompt: String, _ defaultValue: String) throws(JSException) -> String
 
 // Prints to console and as div in HTML body
 func div(_ line: String) {

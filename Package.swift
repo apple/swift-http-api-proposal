@@ -2,7 +2,7 @@
 
 import PackageDescription
 
-let enableWASM = Context.environment["SWIFT_ENABLE_WASM_TARGETS"] != nil
+let enableWASM = Context.environment["HTTP_API_ENABLE_WASM"] != nil
 
 let extraSettings: [SwiftSetting] = [
     .strictMemorySafety(),
