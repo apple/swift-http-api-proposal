@@ -1,4 +1,4 @@
-# WASM HTTP Client
+# WASM HTTP Client Example
 
 ## Introduction
 This is an example WASM binary that uses the `FetchHTTPClient` (built on Javascript `fetch()` API) to make HTTP requests
@@ -8,6 +8,7 @@ from Swift.
 1. Install the latest WASM SDK from swift.org
 1. Build the WASMClient using the WASM SDK
    ```bash
+   $ export SWIFT_ENABLE_WASM_TARGETS=1
    $ swift sdk list
    $ swift package --swift-sdk <WASM SDK ID> js --product WASMClient --use-cdn
    ```
