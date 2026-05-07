@@ -42,7 +42,7 @@ A simple GET request looks like this:
 
 ```swift
 let data = try await client.perform(request: request) { response, body in
-    let (data, trailer) = try await body.collect(upTo: 1024 * 1024) { $0 }
+    let (data, trailer) = try await body.collect(upTo: 1024 * 1024) { Data(copying: $0) }
     return data
 }
 ```
@@ -57,7 +57,7 @@ let (response, data) = try await client.perform(request: request, body: .restart
     try await writer.write(bodyBytes)
     return nil // no trailer
 }) { response, body in
-    let (data, trailer) = try await body.collect(upTo: 1024 * 1024) { $0 }
+    let (data, trailer) = try await body.collect(upTo: 1024 * 1024) { Data(copying: $0) }
     return (response, data)
 }
 
@@ -66,7 +66,7 @@ let (response, data) = try await client.perform(request: request, body: .seekabl
     try await writer.write(fileBytes[offset...])
     return nil
 }) { response, body in
-    let (data, trailer) = try await body.collect(upTo: 1024 * 1024) { $0 }
+    let (data, trailer) = try await body.collect(upTo: 1024 * 1024) { Data(copying: $0) }
     return (response, data)
 }
 ```
