@@ -21,18 +21,15 @@ HTTP is the Internet's foundational application-layer protocol, yet the Swift ec
 4. Supports advanced HTTP features, like bidirectional streaming, trailers, and resumable uploads, with progressive disclosure
 5. Enables middleware usage to extend HTTP client functionality
 
-Other languages, including Rust and Go, typically have a highly popular, if not built-in, HTTP client that works across platforms out-of-the-box, and also utilizes the patterns and capabilities of those languages.
+Other languages, including Rust and Go, typically have a highly popular, if not built-in, HTTP client that works across platforms out-of-the-box, and also utilizes the patterns and capabilities of those languages. As outlined by [Swift networking vision](https://github.com/swiftlang/swift-evolution/blob/main/visions/networking.md), a cross-platform HTTP API is crucial for Swift competitiveness in networking applications.
 
 ## Proposed solution
 
-We propose a new HTTP Client API built on two pieces:
-
-1. **Abstract protocol interface** (`HTTPClient`) for dependency injection and testability
-2. **Convenience methods** for common use cases with progressive disclosure
+We propose a new HTTP Client API, starting with the abstract `HTTPClient` protocol in this proposal. Followup proposals about convenience methods and the concrete implementations are based on the protocol defined here.
 
 ### Core protocol
 
-The `HTTPClient` protocol provides a single `perform` method that handles all HTTP interactions. The request and response metadata are expressed as `HTTPRequest` and `HTTPResponse` types, from the Swift HTTP types package. The protocol requires `Sendable`, ensuring all conforming clients are safe to share across concurrency domains.
+The `HTTPClient` protocol provides a single `perform` method that handles all HTTP interactions. The request and response metadata are expressed as `HTTPRequest` and `HTTPResponse` types, from the Swift HTTP Types package. The protocol requires `Sendable`, ensuring all conforming clients are safe to share across concurrency domains. It also allows ~Copyable and ~Escapable types to conform to the protocol. The `perform` method is mutating, allowing it to mutate state of the client instance.
 
 ```swift
 public protocol HTTPClient<RequestOptions>: Sendable, ~Copyable, ~Escapable {
@@ -51,57 +48,6 @@ public protocol HTTPClient<RequestOptions>: Sendable, ~Copyable, ~Escapable {
         options: RequestOptions,
         responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return
     ) async throws -> Return
-}
-```
-
-### Convenience methods for progressive disclosure
-
-Simple HTTP requests use static methods on the `HTTP` enum. Methods are provided for `get`, `post`, `put`, `delete`, and `patch`, each collecting the response body up to a specified limit. For example, the `get` method signature:
-
-```swift
-public static func get<Client: HTTPClient & ~Copyable & ~Escapable>(
-    url: URL,
-    headerFields: HTTPFields = [:],
-    options: Client.RequestOptions? = nil,
-    on client: borrowing Client = DefaultHTTPClient.shared,
-    collectUpTo limit: Int
-) async throws -> (response: HTTPResponse, bodyData: Data)
-```
-
-The other methods (`post`, `put`, `delete`, `patch`) follow the same pattern, with `post`, `put`, and `patch` accepting a required `bodyData: Data` parameter and `delete` accepting an optional one. Usage examples:
-
-```swift
-import HTTPClient
-
-// Simple GET request
-let (response, data) = try await HTTP.get(url: url, collectUpTo: .max)
-
-// POST with a body
-let (response, data) = try await HTTP.post(
-    url: url,
-    bodyData: jsonData,
-    collectUpTo: 1024 * 1024
-)
-
-// DELETE
-let (response, data) = try await HTTP.delete(url: url, collectUpTo: .max)
-
-// Advanced usage with streaming
-try await HTTP.perform(request: request) { response, body in
-    guard response.status == .ok else {
-        throw MyNetworkingError.badResponse(response)
-    }
-
-    // Stream the response body
-    let (_, trailer) = try await body.consumeAndConclude { reader in
-        try await reader.forEach { span in
-            print("Received \(span.count) bytes")
-        }
-    }
-
-    if let trailer = trailer {
-        print("Trailer: \(trailer)")
-    }
 }
 ```
 
@@ -128,7 +74,20 @@ extension HTTPClientRequestBody {
 }
 ```
 
-Responses are delivered via a closure passed into the `responseHandler` parameter of `perform`, which supplies an `HTTPResponse` for HTTP response metadata and a body reader. The return value of the closure is forwarded to the `perform` method.
+Responses are delivered via a closure passed into the `responseHandler` parameter of `perform`, which supplies an `HTTPResponse` for HTTP response metadata and a body reader. The return value of the closure is forwarded to the `perform` method. This ensures that the method is compliant with structured resource management, as all the work of `perform` concludes when the function returns.
+
+`AsyncReader` and `AsyncWriter` are defined in the Swift Async Algorithms package. `ConcludingAsyncReader` builds on top of `AsyncReader`, allowing a final element which is used for the trailer fields.
+
+```swift
+public protocol ConcludingAsyncReader<Underlying, FinalElement>: ~Copyable, ~Escapable {
+    associatedtype Underlying: AsyncReader, ~Copyable, ~Escapable
+    associatedtype FinalElement
+
+    consuming func consumeAndConclude<Return, Failure: Error>(
+        body: (consuming sending Underlying) async throws(Failure) -> Return
+    ) async throws(Failure) -> (Return, FinalElement)
+}
+```
 
 ### Capability-based request options
 
@@ -137,29 +96,20 @@ Request options are modeled through capability protocols, allowing clients to ad
 ```swift
 public enum HTTPClientCapability {
     public protocol RequestOptions {}
-
-    public protocol TLSVersionSelection: RequestOptions {
-        var minimumTLSVersion: TLSVersion { get set }
-        var maximumTLSVersion: TLSVersion { get set }
-    }
 }
 ```
 
-Whenever possible, options are offered on an individual request basis.
+Whenever possible, options are offered on an individual request basis. Options affecting the behaviors of the connection pool are configured on the concrete client implementation itself.
 
 The abstract API offers the following request options, which may or may not be supported by a particular concrete implementation:
 - **TLS Version Selection**: a minimum and maximum TLS version to allow during TLS handshake.
 
-### Middleware
-
-A separate `Middleware` module provides a generic, composable protocol for intercepting and transforming values through a chain. The `Middleware` protocol defines a single `intercept(input:next:)` method that receives a value, processes it, and passes a (potentially transformed) value to the next stage. Middleware pipelines can be built declaratively using the `@MiddlewareBuilder` result builder:
-
 ```swift
-@MiddlewareBuilder
-var pipeline: some Middleware<MyRequest, MyRequest> {
-    LoggingMiddleware()
-    AuthenticationMiddleware()
-    RetryMiddleware()
+extension HTTPClientCapability {
+    public protocol TLSVersionSelection: RequestOptions {
+        var minimumTLSVersion: TLSVersion { get set }
+        var maximumTLSVersion: TLSVersion { get set }
+    }
 }
 ```
 
@@ -171,13 +121,15 @@ The proposal consists of several interconnected modules, and the abstract API is
 - **HTTPAPIs**: Protocol definitions for `HTTPClient` and shared types
 - **NetworkTypes**: Currency types defined as needed for request option capabilities
 
+NetworkTypes module includes common currency types such as IP addresses and TLS versions that are useful outside HTTP. It will become its own separate library.
+
 ### `perform` lifecycle
 
 A call to `perform` proceeds through the following stages:
 
 1. If a `body` is provided, the implementation invokes its closure, passing a `RequestWriter`. The closure may optionally return trailing `HTTPFields`.
 2. The implementation invokes `responseHandler` exactly once, passing an `HTTPResponse` and a `ResponseConcludingReader`. The response handler closure can be invoked concurrently with the request body closure in the case of bidirectional streaming.
-3. `perform` returns only after `responseHandler` completes, ensuring the entire request–response cycle is scoped within the call.
+3. `perform` returns only after the request body closure, `responseHandler`, and all other callbacks in `RequestOptions` complete, ensuring the entire request–response cycle is scoped within the call.
 
 If `responseHandler` throws, the error propagates out of `perform`.
 
@@ -191,16 +143,16 @@ let (response, data) = try await HTTP.perform(request: request, body: .restartab
     try await writer.write(bodyBytes)
     return nil // no trailer
 }) { response, body in
-    let (data, _) = try await body.collect(upTo: 1024 * 1024) { $0 }
+    let (data, trailer) = try await body.collect(upTo: 1024 * 1024) { $0 }
     return (response, data)
 }
 
 // Seekable: can resume from an arbitrary offset for resumable uploads
-let (response, data) = try await HTTP.perform(request: request, body: .seekable { offset, writer in
+let (response, data) = try await HTTP.perform(request: request, body: .seekable(knownLength: fileBytes.count) { offset, writer in
     try await writer.write(fileBytes[offset...])
     return nil
 }) { response, body in
-    let (data, _) = try await body.collect(upTo: 1024 * 1024) { $0 }
+    let (data, trailer) = try await body.collect(upTo: 1024 * 1024) { $0 }
     return (response, data)
 }
 ```
@@ -230,12 +182,6 @@ func fetchMoreSecurely(
 - Library code can require specific capabilities via generic constraints
 - Future capabilities can be added without breaking existing clients
 - Clear separation between core functionality and optional features
-
-The protocol's `perform` method takes a non-optional `RequestOptions` parameter. The convenience layer (`HTTP.get`, `HTTP.perform`, etc.) wraps this with an optional `options` parameter that falls back to `client.defaultRequestOptions` when `nil` is passed. This two-layer design keeps the protocol contract explicit while making the common case concise.
-
-### Middleware
-
-The `Middleware` protocol and its composition primitives (`ChainedMiddleware`, `@MiddlewareBuilder`) are described in the Proposed solution. This proposal does not define a standardized HTTP middleware contract — the concrete input/output types, response-side interception, and integration with `HTTPClient.perform` are left to a future proposal.
 
 ### Testability
 
@@ -290,6 +236,17 @@ Background URLSession supports system-scheduled uploads, downloads, and media as
 WebSocket connections upgrade from HTTP but have significantly different semantics. A separate `WebSocketClient` API could be designed in the future, potentially sharing some abstractions with `HTTPClient`.
 
 ### Middleware standardization
+
+A separate `Middleware` module provides a generic, composable protocol for intercepting and transforming values through a chain. The `Middleware` protocol defines a single `intercept(input:next:)` method that receives a value, processes it, and passes a (potentially transformed) value to the next stage. Middleware pipelines can be built declaratively using the `@MiddlewareBuilder` result builder:
+
+```swift
+@MiddlewareBuilder
+var pipeline: some Middleware<MyRequest, MyRequest> {
+    LoggingMiddleware()
+    AuthenticationMiddleware()
+    RetryMiddleware()
+}
+```
 
 While the repository explores middleware patterns, standardizing middleware protocols for HTTP clients could be addressed in a follow-up proposal, enabling composable request/response transformations.
 
