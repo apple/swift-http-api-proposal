@@ -2,11 +2,6 @@
 
 import PackageDescription
 
-// This environment variable is needed to allow WASM to compile only
-// when the WASM SDK is available and being used. Attempting to compile
-// WASM targets using non-WASM SDKs causes build failures.
-let enableWASM = Context.environment["HTTP_API_ENABLE_WASM"] != nil
-
 let extraSettings: [SwiftSetting] = [
     .strictMemorySafety(),
     .enableExperimentalFeature("SuppressedAssociatedTypes"),
@@ -20,223 +15,235 @@ let extraSettings: [SwiftSetting] = [
     .enableUpcomingFeature("InternalImportsByDefault"),
 ]
 
-// BridgeJS generated code doesn't work well with
-// `NonisolatedNonsendingByDefault` and `InternalImportsByDefault`
-let wasmExtraSettings: [SwiftSetting] = [
-    .strictMemorySafety(),
-    .enableExperimentalFeature("SuppressedAssociatedTypes"),
-    .enableExperimentalFeature("LifetimeDependence"),
-    .enableExperimentalFeature("Lifetimes"),
-    .enableUpcomingFeature("LifetimeDependence"),
-    .enableUpcomingFeature("InferIsolatedConformances"),
-    .enableUpcomingFeature("ExistentialAny"),
-    .enableUpcomingFeature("MemberImportVisibility"),
-    .enableExperimentalFeature("Extern"),
-]
+let package = Package(
+    name: "HTTPAPIProposal",
+    products: [
+        .library(name: "HTTPAPIs", targets: ["HTTPAPIs"]),
+        .library(name: "HTTPClient", targets: ["HTTPClient"]),
+        .library(name: "URLSessionHTTPClient", targets: ["URLSessionHTTPClient"]),
+        .library(name: "AHCHTTPClient", targets: ["AHCHTTPClient"]),
+        .library(name: "AsyncStreaming", targets: ["AsyncStreaming"]),
+        .library(name: "NetworkTypes", targets: ["NetworkTypes"]),
+        .library(name: "HTTPClientConformance", targets: ["HTTPClientConformance"]),
+    ],
+    traits: [
+        .trait(name: "Configuration"),
+        .default(enabledTraits: ["Configuration"]),
+    ],
+    dependencies: [
+        .package(
+            url: "https://github.com/FranzBusch/swift-collections.git",
+            branch: "fb-async"
+        ),
+        .package(
+            url: "https://github.com/apple/swift-async-algorithms.git",
+            from: "1.1.0"
+        ),
+        .package(url: "https://github.com/apple/swift-http-types.git", from: "1.5.1"),
+        .package(url: "https://github.com/apple/swift-certificates.git", from: "1.16.0"),
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
+        .package(url: "https://github.com/apple/swift-nio.git", from: "2.92.2"),
+        .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.36.0"),
+        .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.30.0"),
+        .package(url: "https://github.com/apple/swift-nio-http2.git", from: "1.0.0"),
+        .package(url: "https://github.com/apple/swift-configuration", from: "1.0.0"),
+        .package(url: "https://github.com/swift-server/async-http-client.git", branch: "ff-spi-for-httpapis"),
+    ],
+    targets: [
+        // MARK: Libraries
+        .target(
+            name: "HTTPAPIs",
+            dependencies: [
+                "AsyncStreaming",
+                "NetworkTypes",
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+            ],
+            swiftSettings: extraSettings
+        ),
+        .target(
+            name: "HTTPClient",
+            dependencies: [
+                "AHCHTTPClient",
+                "URLSessionHTTPClient",
+                .product(name: "AsyncHTTPClient", package: "async-http-client"),
+            ],
+            swiftSettings: extraSettings
+        ),
+        .target(
+            name: "NetworkTypes",
+            swiftSettings: extraSettings
+        ),
+        .target(
+            name: "AsyncStreaming",
+            dependencies: [
+                .product(
+                    name: "BasicContainers",
+                    package: "swift-collections"
+                )
+            ],
+            swiftSettings: extraSettings
+        ),
+        .target(
+            name: "Middleware",
+            swiftSettings: extraSettings
+        ),
+        .target(
+            name: "AHCHTTPClient",
+            dependencies: [
+                "HTTPAPIs",
+                "AsyncStreaming",
+                "NetworkTypes",
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "HTTPTypesFoundation", package: "swift-http-types"),
 
-var products: [Product] = [
-    .library(name: "HTTPAPIs", targets: ["HTTPAPIs"]),
-    .library(name: "HTTPClient", targets: ["HTTPClient"]),
-    .library(name: "URLSessionHTTPClient", targets: ["URLSessionHTTPClient"]),
-    .library(name: "AHCHTTPClient", targets: ["AHCHTTPClient"]),
-    .library(name: "AsyncStreaming", targets: ["AsyncStreaming"]),
-    .library(name: "NetworkTypes", targets: ["NetworkTypes"]),
-    .library(name: "HTTPClientConformance", targets: ["HTTPClientConformance"]),
-]
+                .product(name: "AsyncHTTPClient", package: "async-http-client"),
+                .product(name: "NIOHTTP1", package: "swift-nio"),
+            ],
+            swiftSettings: extraSettings
+        ),
+        .target(
+            name: "URLSessionHTTPClient",
+            dependencies: [
+                "HTTPAPIs",
+                "AsyncStreaming",
+                "NetworkTypes",
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "HTTPTypesFoundation", package: "swift-http-types"),
+            ],
+            swiftSettings: extraSettings
+        ),
 
-var dependencies: [Package.Dependency] = [
-    .package(
-        url: "https://github.com/FranzBusch/swift-collections.git",
-        branch: "fb-async"
-    ),
-    .package(
-        url: "https://github.com/apple/swift-async-algorithms.git",
-        from: "1.1.0"
-    ),
-    .package(url: "https://github.com/apple/swift-http-types.git", from: "1.5.1"),
-    .package(url: "https://github.com/apple/swift-certificates.git", from: "1.16.0"),
-    .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
-    .package(url: "https://github.com/apple/swift-nio.git", from: "2.92.2"),
-    .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.36.0"),
-    .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.30.0"),
-    .package(url: "https://github.com/apple/swift-nio-http2.git", from: "1.0.0"),
-    .package(url: "https://github.com/apple/swift-configuration", from: "1.0.0"),
-    .package(url: "https://github.com/swift-server/async-http-client.git", branch: "ff-spi-for-httpapis"),
-]
+        // MARK: Conformance Testing
 
-var targets: [Target] = [
-    // MARK: Libraries
-    .target(
-        name: "HTTPAPIs",
-        dependencies: [
-            "AsyncStreaming",
-            "NetworkTypes",
-            .product(name: "HTTPTypes", package: "swift-http-types"),
-        ],
-        swiftSettings: extraSettings
-    ),
-    .target(
-        name: "HTTPClient",
-        dependencies: [
-            "AHCHTTPClient",
-            "URLSessionHTTPClient",
-            .product(name: "AsyncHTTPClient", package: "async-http-client"),
-        ],
-        swiftSettings: extraSettings
-    ),
-    .target(
-        name: "NetworkTypes",
-        swiftSettings: extraSettings
-    ),
-    .target(
-        name: "AsyncStreaming",
-        dependencies: [
-            .product(
-                name: "BasicContainers",
-                package: "swift-collections"
-            )
-        ],
-        swiftSettings: extraSettings
-    ),
-    .target(
-        name: "Middleware",
-        swiftSettings: extraSettings
-    ),
-    .target(
-        name: "AHCHTTPClient",
-        dependencies: [
-            "HTTPAPIs",
-            "AsyncStreaming",
-            "NetworkTypes",
-            .product(name: "HTTPTypes", package: "swift-http-types"),
-            .product(name: "HTTPTypesFoundation", package: "swift-http-types"),
+        .target(
+            name: "HTTPClientConformance",
+            dependencies: [
+                "HTTPClient",
+                .product(name: "HTTPTypes", package: "swift-http-types"),
 
-            .product(name: "AsyncHTTPClient", package: "async-http-client"),
-            .product(name: "NIOHTTP1", package: "swift-nio"),
-        ],
-        swiftSettings: extraSettings
-    ),
-    .target(
-        name: "URLSessionHTTPClient",
-        dependencies: [
-            "HTTPAPIs",
-            "AsyncStreaming",
-            "NetworkTypes",
-            .product(name: "HTTPTypes", package: "swift-http-types"),
-            .product(name: "HTTPTypesFoundation", package: "swift-http-types"),
-        ],
-        swiftSettings: extraSettings
-    ),
+                // These dependencies are needed by the `swift-http-server` that
+                // we borrowed.
+                "AsyncStreaming",
+                .product(name: "DequeModule", package: "swift-collections"),
+                .product(name: "BasicContainers", package: "swift-collections"),
+                .product(name: "X509", package: "swift-certificates"),
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "NIOCore", package: "swift-nio"),
+                .product(name: "NIOPosix", package: "swift-nio"),
+                .product(name: "NIOHTTP1", package: "swift-nio"),
+                .product(name: "NIOHTTP2", package: "swift-nio-http2"),
+                .product(name: "NIOSSL", package: "swift-nio-ssl"),
+                .product(name: "Logging", package: "swift-log"),
+                .product(name: "NIOHTTPTypesHTTP1", package: "swift-nio-extras"),
+                .product(name: "NIOHTTPTypesHTTP2", package: "swift-nio-extras"),
+                .product(name: "NIOCertificateReloading", package: "swift-nio-extras"),
+                .product(
+                    name: "Configuration",
+                    package: "swift-configuration",
+                    condition: .when(traits: ["Configuration"])
+                ),
+            ],
+            swiftSettings: extraSettings
+        ),
 
-    // MARK: Conformance Testing
+        // MARK: Tests
 
-    .target(
-        name: "HTTPClientConformance",
-        dependencies: [
-            "HTTPClient",
-            .product(name: "HTTPTypes", package: "swift-http-types"),
+        .testTarget(
+            name: "NetworkTypesTests",
+            dependencies: [
+                "NetworkTypes"
+            ],
+            swiftSettings: extraSettings
+        ),
+        .testTarget(
+            name: "AsyncStreamingTests",
+            dependencies: [
+                "AsyncStreaming"
+            ],
+            swiftSettings: extraSettings
+        ),
+        .testTarget(
+            name: "HTTPAPIsTests",
+            dependencies: [
+                "HTTPAPIs",
+                "AsyncStreaming",
+                "NetworkTypes",
+                .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+            ],
+            swiftSettings: extraSettings
+        ),
+        .testTarget(
+            name: "AsyncHTTPClientConformanceTests",
+            dependencies: [
+                "AHCHTTPClient",
+                "HTTPClientConformance",
+            ]
+        ),
+        .testTarget(
+            name: "HTTPClientTests",
+            dependencies: [
+                "HTTPClient",
+                "HTTPClientConformance",
+            ],
+            swiftSettings: extraSettings
+        ),
+        .testTarget(
+            name: "MiddlewareTests",
+            dependencies: [
+                "Middleware"
+            ],
+            swiftSettings: extraSettings
+        ),
 
-            // These dependencies are needed by the `swift-http-server` that
-            // we borrowed.
-            "AsyncStreaming",
-            .product(name: "DequeModule", package: "swift-collections"),
-            .product(name: "BasicContainers", package: "swift-collections"),
-            .product(name: "X509", package: "swift-certificates"),
-            .product(name: "HTTPTypes", package: "swift-http-types"),
-            .product(name: "NIOCore", package: "swift-nio"),
-            .product(name: "NIOPosix", package: "swift-nio"),
-            .product(name: "NIOHTTP1", package: "swift-nio"),
-            .product(name: "NIOHTTP2", package: "swift-nio-http2"),
-            .product(name: "NIOSSL", package: "swift-nio-ssl"),
-            .product(name: "Logging", package: "swift-log"),
-            .product(name: "NIOHTTPTypesHTTP1", package: "swift-nio-extras"),
-            .product(name: "NIOHTTPTypesHTTP2", package: "swift-nio-extras"),
-            .product(name: "NIOCertificateReloading", package: "swift-nio-extras"),
-            .product(
-                name: "Configuration",
-                package: "swift-configuration",
-                condition: .when(traits: ["Configuration"])
-            ),
-        ],
-        swiftSettings: extraSettings
-    ),
+        // MARK: Examples
+        .executableTarget(
+            name: "EchoServer",
+            dependencies: [
+                "HTTPAPIs"
+            ],
+            path: "Examples/EchoServer",
+            swiftSettings: extraSettings
+        ),
+        .executableTarget(
+            name: "ProxyServer",
+            dependencies: [
+                "HTTPAPIs"
+            ],
+            path: "Examples/ProxyServer",
+            swiftSettings: extraSettings
+        ),
+    ]
+)
 
-    // MARK: Tests
+// ------- WASM specific targets --------
 
-    .testTarget(
-        name: "NetworkTypesTests",
-        dependencies: [
-            "NetworkTypes"
-        ],
-        swiftSettings: extraSettings
-    ),
-    .testTarget(
-        name: "AsyncStreamingTests",
-        dependencies: [
-            "AsyncStreaming"
-        ],
-        swiftSettings: extraSettings
-    ),
-    .testTarget(
-        name: "HTTPAPIsTests",
-        dependencies: [
-            "HTTPAPIs",
-            "AsyncStreaming",
-            "NetworkTypes",
-            .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
-        ],
-        swiftSettings: extraSettings
-    ),
-    .testTarget(
-        name: "AsyncHTTPClientConformanceTests",
-        dependencies: [
-            "AHCHTTPClient",
-            "HTTPClientConformance",
-        ]
-    ),
-    .testTarget(
-        name: "HTTPClientTests",
-        dependencies: [
-            "HTTPClient",
-            "HTTPClientConformance",
-        ],
-        swiftSettings: extraSettings
-    ),
-    .testTarget(
-        name: "MiddlewareTests",
-        dependencies: [
-            "Middleware"
-        ],
-        swiftSettings: extraSettings
-    ),
-
-    // MARK: Examples
-    .executableTarget(
-        name: "EchoServer",
-        dependencies: [
-            "HTTPAPIs"
-        ],
-        path: "Examples/EchoServer",
-        swiftSettings: extraSettings
-    ),
-    .executableTarget(
-        name: "ProxyServer",
-        dependencies: [
-            "HTTPAPIs"
-        ],
-        path: "Examples/ProxyServer",
-        swiftSettings: extraSettings
-    ),
-]
+// This environment variable is needed to allow WASM to compile only
+// when the WASM SDK is available and being used. Attempting to compile
+// WASM targets using non-WASM SDKs causes build failures.
+let enableWASM = Context.environment["HTTP_API_ENABLE_WASM"] != nil
 
 if enableWASM {
-    dependencies.append(
+    // BridgeJS generated code wants `Extern` and doesn't work well with
+    // `NonisolatedNonsendingByDefault` and `InternalImportsByDefault`
+    let wasmExtraSettings: [SwiftSetting] = [
+        .strictMemorySafety(),
+        .enableExperimentalFeature("SuppressedAssociatedTypes"),
+        .enableExperimentalFeature("LifetimeDependence"),
+        .enableExperimentalFeature("Lifetimes"),
+        .enableUpcomingFeature("LifetimeDependence"),
+        .enableUpcomingFeature("InferIsolatedConformances"),
+        .enableUpcomingFeature("ExistentialAny"),
+        .enableUpcomingFeature("MemberImportVisibility"),
+        .enableExperimentalFeature("Extern"),
+    ]
+
+    package.dependencies.append(
         .package(url: "https://github.com/swiftwasm/JavaScriptKit", from: "0.50.2")
     )
-    products.append(
+    package.products.append(
         .library(name: "FetchHTTPClient", targets: ["FetchHTTPClient"])
     )
-    targets += [
+    package.targets.append(
         .target(
             name: "FetchHTTPClient",
             dependencies: [
@@ -253,7 +260,9 @@ if enableWASM {
             plugins: [
                 .plugin(name: "BridgeJS", package: "JavaScriptKit")
             ],
-        ),
+        )
+    )
+    package.targets.append(
         .executableTarget(
             name: "WASMClient",
             dependencies: [
@@ -269,17 +278,6 @@ if enableWASM {
             plugins: [
                 .plugin(name: "BridgeJS", package: "JavaScriptKit")
             ],
-        ),
-    ]
+        )
+    )
 }
-
-let package = Package(
-    name: "HTTPAPIProposal",
-    products: products,
-    traits: [
-        .trait(name: "Configuration"),
-        .default(enabledTraits: ["Configuration"]),
-    ],
-    dependencies: dependencies,
-    targets: targets
-)
