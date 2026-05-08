@@ -125,7 +125,6 @@ let package = Package(
                 // we borrowed.
                 "AsyncStreaming",
                 .product(name: "X509", package: "swift-certificates"),
-                .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOPosix", package: "swift-nio"),
                 .product(name: "NIOHTTP1", package: "swift-nio"),
