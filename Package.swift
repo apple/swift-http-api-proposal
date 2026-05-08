@@ -14,6 +14,7 @@ let extraSettings: [SwiftSetting] = [
     .enableUpcomingFeature("MemberImportVisibility"),
     .enableUpcomingFeature("InternalImportsByDefault"),
 ]
+
 let package = Package(
     name: "HTTPAPIProposal",
     products: [
@@ -46,7 +47,6 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.30.0"),
         .package(url: "https://github.com/apple/swift-nio-http2.git", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-configuration", from: "1.0.0"),
-
         .package(url: "https://github.com/swift-server/async-http-client.git", branch: "ff-spi-for-httpapis"),
     ],
     targets: [
@@ -214,3 +214,70 @@ let package = Package(
         ),
     ]
 )
+
+// ------- WASM specific targets --------
+
+// This environment variable is needed to allow WASM to compile only
+// when the WASM SDK is available and being used. Attempting to compile
+// WASM targets using non-WASM SDKs causes build failures.
+let enableWASM = Context.environment["HTTP_API_ENABLE_WASM"] != nil
+
+if enableWASM {
+    // BridgeJS generated code wants `Extern` and doesn't work well with
+    // `NonisolatedNonsendingByDefault` and `InternalImportsByDefault`
+    let wasmExtraSettings: [SwiftSetting] = [
+        .strictMemorySafety(),
+        .enableExperimentalFeature("SuppressedAssociatedTypes"),
+        .enableExperimentalFeature("LifetimeDependence"),
+        .enableExperimentalFeature("Lifetimes"),
+        .enableUpcomingFeature("LifetimeDependence"),
+        .enableUpcomingFeature("InferIsolatedConformances"),
+        .enableUpcomingFeature("ExistentialAny"),
+        .enableUpcomingFeature("MemberImportVisibility"),
+        .enableExperimentalFeature("Extern"),
+    ]
+
+    package.dependencies.append(
+        .package(url: "https://github.com/swiftwasm/JavaScriptKit", from: "0.50.2")
+    )
+    package.products.append(
+        .library(name: "FetchHTTPClient", targets: ["FetchHTTPClient"])
+    )
+    package.targets.append(
+        .target(
+            name: "FetchHTTPClient",
+            dependencies: [
+                "HTTPAPIs",
+                "AsyncStreaming",
+                .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(
+                    name: "JavaScriptKit",
+                    package: "JavaScriptKit",
+                ),
+                .product(name: "JavaScriptEventLoop", package: "JavaScriptKit"),
+            ],
+            swiftSettings: wasmExtraSettings,
+            plugins: [
+                .plugin(name: "BridgeJS", package: "JavaScriptKit")
+            ],
+        )
+    )
+    package.targets.append(
+        .executableTarget(
+            name: "WASMClient",
+            dependencies: [
+                "FetchHTTPClient",
+                .product(
+                    name: "JavaScriptKit",
+                    package: "JavaScriptKit",
+                ),
+                .product(name: "JavaScriptEventLoop", package: "JavaScriptKit"),
+            ],
+            path: "Examples/WASMClient",
+            swiftSettings: wasmExtraSettings,
+            plugins: [
+                .plugin(name: "BridgeJS", package: "JavaScriptKit")
+            ],
+        )
+    )
+}
