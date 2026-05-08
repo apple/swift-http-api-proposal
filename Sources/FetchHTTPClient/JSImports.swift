@@ -16,6 +16,13 @@ import JavaScriptKit
 /// # Javascript Imports
 /// This file defines the Javascript classes and functions imported into Swift.
 
+// https://developer.mozilla.org/en-US/docs/Web/API/AbortController
+@JSClass(from: .global) struct AbortController: @unchecked Sendable {
+    @JSGetter var signal: JSObject?
+    @JSFunction init() throws(JSException)
+    @JSFunction func abort() throws(JSException)
+}
+
 // https://developer.mozilla.org/en-US/docs/Web/API/Headers
 @JSClass(from: .global) struct Headers {
     @JSFunction init() throws(JSException)
@@ -58,11 +65,13 @@ import JavaScriptKit
     let body: JSObject?
     let method: String?
     let headers: Headers?
+    let signal: JSObject?
 
-    init(body: JSObject?, method: String?, headers: Headers?) {
+    init(body: JSObject?, method: String?, headers: Headers?, signal: JSObject?) {
         self.body = body
         self.method = method
         self.headers = headers
+        self.signal = signal
     }
 }
 
@@ -76,6 +85,7 @@ import JavaScriptKit
 // TODO: Find a way to remove the @unchecked. This object has to be moved through the different Swift reader types.
 @JSClass(from: .global) struct ReadableStreamDefaultReader: @unchecked Sendable {
     @JSFunction func read() async throws(JSException) -> Chunk
+    @JSFunction func releaseLock() throws(JSException)
 }
 
 // https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream

@@ -83,8 +83,21 @@ public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
         }
 
         // Perform the request
-        let requestInit = RequestInit(body: jsBody, method: request.method.rawValue, headers: requestHeaders)
-        let response = try await fetch(url.absoluteString, requestInit)
+        let abortController = try AbortController()
+        let signal = try abortController.signal
+        let requestInit = RequestInit(body: jsBody, method: request.method.rawValue, headers: requestHeaders, signal: signal)
+
+        // No matter what, we should abort the request at the end of this function
+        defer {
+            try? abortController.abort()
+        }
+
+        let response = try await withTaskCancellationHandler {
+            return try await fetch(url.absoluteString, requestInit)
+        } onCancel: {
+            try? abortController.abort()
+        }
+
         let responseStatus = try response.status
         let responseStatusText = try response.statusText
         let stream = try response.body
@@ -163,8 +176,16 @@ public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
             if buffer.isEmpty {
                 // Read more data in from JS
                 let chunk: Chunk
+
+                // TODO: Find a way to make this safe.
+                nonisolated(unsafe) let reader = reader
+
                 do {
-                    chunk = try await reader.read()
+                    chunk = try await withTaskCancellationHandler {
+                        try await reader.read()
+                    } onCancel: {
+                        try? reader.releaseLock()
+                    }
                 } catch {
                     throw .first(error)
                 }
