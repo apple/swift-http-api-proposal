@@ -27,7 +27,10 @@ public protocol HTTPClient<RequestOptions>: Sendable, ~Copyable, ~Escapable {
     /// The type used to read response body data and trailers.
     // TODO: Check if we should allow ~Escapable writers https://github.com/apple/swift-http-api-proposal/issues/13
     associatedtype ResponseConcludingReader: ConcludingAsyncReader, ~Copyable, SendableMetatype
-    where ResponseConcludingReader.Underlying.ReadElement == UInt8, ResponseConcludingReader.FinalElement == HTTPFields?
+    where
+        ResponseConcludingReader.Underlying: ~Copyable,
+        ResponseConcludingReader.Underlying.ReadElement == UInt8,
+        ResponseConcludingReader.FinalElement == HTTPFields?
 
     /// The default request options for `perform`.
     var defaultRequestOptions: RequestOptions { get }

@@ -77,6 +77,7 @@ public protocol HTTPServerRequestHandler<RequestReader, ResponseWriter>: Sendabl
     /// `ReadElement`.
     associatedtype RequestReader: ConcludingAsyncReader & ~Copyable & SendableMetatype
     where
+        RequestReader.Underlying: ~Copyable,
         RequestReader.Underlying.ReadElement == UInt8,
         RequestReader.FinalElement == HTTPFields?
 
@@ -85,6 +86,7 @@ public protocol HTTPServerRequestHandler<RequestReader, ResponseWriter>: Sendabl
     /// `WriteElement`.
     associatedtype ResponseWriter: ConcludingAsyncWriter & ~Copyable & SendableMetatype
     where
+        ResponseWriter.Underlying: ~Copyable,
         ResponseWriter.Underlying.WriteElement == UInt8,
         ResponseWriter.FinalElement == HTTPFields?
 

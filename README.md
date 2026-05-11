@@ -10,6 +10,9 @@ concurrency—to provide modern, safe, and efficient HTTP abstractions.
 final—we're iterating on designs based on feedback and real-world usage. The
 APIs and structure will continue to evolve as we refine the approach.
 
+> [!IMPORTANT]
+> This repository requires a Swift 6.4 aligned toolchain.
+
 ## Motivation
 
 The Swift ecosystem currently lacks standardized, modern, and cross-platform

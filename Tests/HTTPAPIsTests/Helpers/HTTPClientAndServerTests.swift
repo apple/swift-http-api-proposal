@@ -11,7 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import AsyncAlgorithms
+public import AsyncAlgorithms  // TODO: This public import is only needed to work around a compiler assertion which is fixed by https://github.com/swiftlang/swift/pull/88829
 import AsyncStreaming
 import BasicContainers
 import HTTPAPIs

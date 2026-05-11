@@ -77,27 +77,22 @@ extension AsyncReader where Self: ~Copyable, Self: ~Escapable {
     /// }
     /// ```
     @inlinable
-    public consuming func forEach<Failure: Error>(
-        body: (consuming Span<ReadElement>) async throws(Failure) -> Void
-    ) async throws(Failure) where ReadFailure == Never {
+    public consuming func forEach(
+        body: (consuming Span<ReadElement>) async -> Void
+    ) async where ReadFailure == Never {
         var shouldContinue = true
         while shouldContinue {
             do {
-                try await self.read(maximumCount: nil) { (next) throws(Failure) -> Void in
+                try await self.read(maximumCount: nil) { (next) -> Void in
                     guard next.count > 0 else {
                         shouldContinue = false
                         return
                     }
 
-                    try await body(next)
+                    await body(next)
                 }
             } catch {
-                switch error {
-                case .first:
-                    fatalError()
-                case .second(let error):
-                    throw error
-                }
+                fatalError()
             }
         }
     }
