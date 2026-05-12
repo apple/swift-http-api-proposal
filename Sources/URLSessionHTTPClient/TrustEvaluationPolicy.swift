@@ -13,7 +13,7 @@
 
 /// An enumeration that represents the policy for the server trust evaluation during TLS handshakes.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-public enum TrustEvaluationPolicy: Hashable {
+public enum TrustEvaluationPolicy: Hashable, Sendable {
     /// The default system policy.
     case `default`
 

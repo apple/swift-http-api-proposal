@@ -21,7 +21,11 @@ extension HTTPClientCapability {
     }
 
     struct ClosureHTTPClientRedirectionHandler: HTTPClientRedirectionHandler {
-        var closure: (HTTPResponse, HTTPRequest) async throws -> HTTPClientRedirectionAction
+        var closure:
+            @Sendable (
+                HTTPResponse,
+                HTTPRequest
+            ) async throws -> HTTPClientRedirectionAction
         func handleRedirection(response: HTTPResponse, newRequest: HTTPRequest) async throws -> HTTPClientRedirectionAction {
             try await closure(response, newRequest)
         }
@@ -32,7 +36,7 @@ extension HTTPClientCapability {
 extension HTTPClientCapability.RedirectionHandler {
     /// The redirection handler closure to be invoked when a 3xx response is received and
     /// a redirection is about to be taken.
-    public var redirectionHandlerClosure: ((HTTPResponse, HTTPRequest) async throws -> HTTPClientRedirectionAction)? {
+    public var redirectionHandlerClosure: (@Sendable (HTTPResponse, HTTPRequest) async throws -> HTTPClientRedirectionAction)? {
         get {
             if let redirectionHandler = self.redirectionHandler {
                 // Crash if it's not our built-in handler

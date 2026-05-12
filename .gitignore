@@ -5,7 +5,6 @@ DerivedData/
 .build
 .swiftpm
 target/
-Package.resolved
 /.vscode/
 /.vstags
 Package.resolved

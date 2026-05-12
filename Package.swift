@@ -17,6 +17,13 @@ let extraSettings: [SwiftSetting] = [
 
 let package = Package(
     name: "HTTPAPIProposal",
+    platforms: [  // TODO: Needed until https://github.com/swiftlang/swift/issues/89028 is fixed
+        .macOS(.v15),
+        .iOS(.v18),
+        .watchOS(.v11),
+        .tvOS(.v18),
+        .visionOS(.v2),
+    ],
     products: [
         .library(name: "HTTPAPIs", targets: ["HTTPAPIs"]),
         .library(name: "HTTPClient", targets: ["HTTPClient"]),
@@ -24,6 +31,7 @@ let package = Package(
         .library(name: "AHCHTTPClient", targets: ["AHCHTTPClient"]),
         .library(name: "AsyncStreaming", targets: ["AsyncStreaming"]),
         .library(name: "NetworkTypes", targets: ["NetworkTypes"]),
+        .library(name: "Middleware", targets: ["Middleware"]),
         .library(name: "HTTPClientConformance", targets: ["HTTPClientConformance"]),
     ],
     traits: [
@@ -37,7 +45,7 @@ let package = Package(
         ),
         .package(
             url: "https://github.com/apple/swift-async-algorithms.git",
-            from: "1.1.0"
+            from: "1.1.2"
         ),
         .package(url: "https://github.com/apple/swift-http-types.git", from: "1.5.1"),
         .package(url: "https://github.com/apple/swift-certificates.git", from: "1.16.0"),
@@ -47,7 +55,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.30.0"),
         .package(url: "https://github.com/apple/swift-nio-http2.git", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-configuration", from: "1.0.0"),
-        .package(url: "https://github.com/swift-server/async-http-client.git", branch: "ff-spi-for-httpapis"),
+        .package(url: "https://github.com/swift-server/async-http-client.git", revision: "393104434ea57710f2469036e816672fe15e8212"),
     ],
     targets: [
         // MARK: Libraries
@@ -119,8 +127,6 @@ let package = Package(
             name: "HTTPClientConformance",
             dependencies: [
                 "HTTPClient",
-                .product(name: "HTTPTypes", package: "swift-http-types"),
-
                 // These dependencies are needed by the `swift-http-server` that
                 // we borrowed.
                 "AsyncStreaming",
@@ -199,7 +205,8 @@ let package = Package(
         .executableTarget(
             name: "EchoServer",
             dependencies: [
-                "HTTPAPIs"
+                "HTTPAPIs",
+                "HTTPClient",
             ],
             path: "Examples/EchoServer",
             swiftSettings: extraSettings
@@ -207,9 +214,41 @@ let package = Package(
         .executableTarget(
             name: "ProxyServer",
             dependencies: [
-                "HTTPAPIs"
+                "HTTPAPIs",
+                "HTTPClient",
             ],
             path: "Examples/ProxyServer",
+            swiftSettings: extraSettings
+        ),
+        .executableTarget(
+            name: "MiddlewareClient",
+            dependencies: [
+                "HTTPAPIs",
+                "HTTPClient",
+                "Middleware",
+                "ExampleMiddleware",
+            ],
+            path: "Examples/MiddlewareClient",
+            swiftSettings: extraSettings
+        ),
+        .executableTarget(
+            name: "MiddlewareServer",
+            dependencies: [
+                "HTTPAPIs",
+                "Middleware",
+                "ExampleMiddleware",
+            ],
+            path: "Examples/MiddlewareServer",
+            swiftSettings: extraSettings
+        ),
+        .target(
+            name: "ExampleMiddleware",
+            dependencies: [
+                "HTTPAPIs",
+                "Middleware",
+                .product(name: "Logging", package: "swift-log"),
+            ],
+            path: "Examples/ExampleMiddleware",
             swiftSettings: extraSettings
         ),
     ]
