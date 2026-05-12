@@ -17,7 +17,7 @@ let extraSettings: [SwiftSetting] = [
 
 let package = Package(
     name: "HTTPAPIProposal",
-    platforms: [ // TODO: Needed until https://github.com/swiftlang/swift/issues/89028 is fixed
+    platforms: [  // TODO: Needed until https://github.com/swiftlang/swift/issues/89028 is fixed
         .macOS(.v15),
         .iOS(.v18),
         .watchOS(.v11),
@@ -31,6 +31,7 @@ let package = Package(
         .library(name: "AHCHTTPClient", targets: ["AHCHTTPClient"]),
         .library(name: "AsyncStreaming", targets: ["AsyncStreaming"]),
         .library(name: "NetworkTypes", targets: ["NetworkTypes"]),
+        .library(name: "Middleware", targets: ["Middleware"]),
         .library(name: "HTTPClientConformance", targets: ["HTTPClientConformance"]),
     ],
     traits: [

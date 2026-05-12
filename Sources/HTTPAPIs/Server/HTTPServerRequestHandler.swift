@@ -89,4 +89,3 @@ public protocol HTTPServerRequestHandler<RequestReader, ResponseWriter>: Sendabl
         responseSender: consuming sending HTTPResponseSender<ResponseWriter>
     ) async throws
 }
-}
