@@ -330,7 +330,7 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
         var result: Result<Return, any Error>? = nil
         try await withTaskCancellationHandler {
             do {
-                let response = try await delegateBridge.processDelegateCallbacksBeforeResponse(options)
+                let response = try await delegateBridge.processDelegateCallbacksBeforeResponse(options, responseHandler)
                 guard let response = (response as? HTTPURLResponse)?.httpResponse else {
                     throw HTTPTypeConversionError.failedToConvertURLTypeToHTTPTypes
                 }
