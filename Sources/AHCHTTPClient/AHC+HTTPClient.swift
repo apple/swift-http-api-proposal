@@ -188,12 +188,17 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
         RequestOptions()
     }
 
-    public func perform<Return: ~Copyable>(
+    public func perform<ResponseHandler: HTTPClientResponseHandler & ~Copyable, Return: ~Copyable>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<RequestBodyWriter>?,
+        body: consuming HTTPClientRequestBody<RequestWriter>?,
         options: RequestOptions,
-        responseHandler: (HTTPResponse, consuming ResponseReader) async throws -> Return
-    ) async throws -> Return {
+        responseHandler: consuming ResponseHandler
+    ) async throws -> Return
+    where
+        ResponseHandler.ResponseConcludingReader: ~Copyable,
+        ResponseHandler.ResponseConcludingReader == ResponseConcludingReader,
+        ResponseHandler.Return == Return
+    {
         guard let url = request.url else {
             fatalError()
         }
@@ -253,7 +258,7 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
                     headerFields: responseFields
                 )
 
-                result = .success(try await responseHandler(response, .init(underlying: ahcResponse.body)))
+                result = .success(try await responseHandler.handle(response: response, responseBodyAndTrailers: .init(underlying: ahcResponse.body)))
             } catch {
                 result = .failure(error)
             }

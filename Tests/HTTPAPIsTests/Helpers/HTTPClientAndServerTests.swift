@@ -136,12 +136,17 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
         .init()
     }
 
-    func perform<Return: ~Copyable>(
+    func perform<ResponseHandler: HTTPClientResponseHandler & ~Copyable, Return: ~Copyable>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<AsyncChannelConcludingAsyncWriter.Underlying>?,
+        body: consuming HTTPClientRequestBody<RequestWriter>?,
         options: RequestOptions,
-        responseHandler: (HTTPResponse, consuming AsyncChannelConcludingAsyncReader) async throws -> Return
-    ) async throws -> Return {
+        responseHandler: consuming ResponseHandler
+    ) async throws -> Return
+    where
+        ResponseHandler.ResponseConcludingReader: ~Copyable,
+        ResponseHandler.ResponseConcludingReader == ResponseConcludingReader,
+        ResponseHandler.Return == Return
+    {
         let response = try await withCheckedThrowingContinuation { continuation in
             self.requests.withLock { requests in
                 requests.append(
@@ -156,10 +161,10 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
             self.continuation.yield()
         }
 
-        return try await responseHandler(
-            response.response,
+        return try await responseHandler.handle(
+            response: response.response,
             // Needed since we are lacking call-once closures
-            response.takeResponseReader()
+            responseBodyAndTrailers: response.takeResponseReader()
         )
     }
 

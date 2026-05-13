@@ -45,8 +45,7 @@ public protocol HTTPClient<RequestOptions>: Sendable, ~Copyable, ~Escapable {
     ///   - request: The HTTP request header to send.
     ///   - body: The optional request body to send. When `nil`, sends no body.
     ///   - options: The options for this request.
-    ///   - responseHandler: A closure that processes the response. The method invokes this
-    ///     closure when it receives the response header, providing access to the response body.
+    ///   - responseHandler: A handler that processes the response from the server.
     ///
     /// - Returns: The value returned by the response handler closure.
     ///
@@ -54,10 +53,14 @@ public protocol HTTPClient<RequestOptions>: Sendable, ~Copyable, ~Escapable {
     #if compiler(<6.3)
     @_lifetime(&self)
     #endif
-    mutating func perform<Return: ~Copyable>(
+    mutating func perform<ResponseHandler: HTTPClientResponseHandler & ~Copyable, Return: ~Copyable>(
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<RequestWriter>?,
         options: RequestOptions,
-        responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return
+        responseHandler: consuming ResponseHandler
     ) async throws -> Return
+    where
+        ResponseHandler.ResponseConcludingReader: ~Copyable,
+        ResponseHandler.ResponseConcludingReader == ResponseConcludingReader,
+        ResponseHandler.Return == Return
 }

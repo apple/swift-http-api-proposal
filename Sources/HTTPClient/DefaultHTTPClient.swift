@@ -131,20 +131,26 @@ public final class DefaultHTTPClient: HTTPAPIs.HTTPClient {
         .init()
     }
 
-    public func perform<Return: ~Copyable>(
+    public func perform<ResponseHandler: HTTPClientResponseHandler & ~Copyable, Return: ~Copyable>(
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<RequestWriter>?,
         options: HTTPRequestOptions,
-        responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return
-    ) async throws -> Return {
+        responseHandler: consuming ResponseHandler
+    ) async throws -> Return
+    where
+        ResponseHandler.ResponseConcludingReader: ~Copyable,
+        ResponseHandler.ResponseConcludingReader == ResponseConcludingReader,
+        ResponseHandler.Return == Return
+    {
         // TODO: translate request options
         let options = self.client.defaultRequestOptions
         let body = body.map {
             HTTPClientRequestBody<ActualHTTPClient.RequestWriter>(other: $0) { RequestWriter(actual: $0) }
         }
-        return try await self.client.perform(request: request, body: body, options: options) { response, body in
-            try await responseHandler(response, ResponseConcludingReader(actual: body))
+        let responseHandler = HTTPClientTransformedResponseHandler(other: responseHandler) {
+            ResponseConcludingReader(actual: $0)
         }
+        return try await self.client.perform(request: request, body: body, options: options, responseHandler: responseHandler)
     }
 }
 
