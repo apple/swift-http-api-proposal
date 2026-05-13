@@ -22,7 +22,6 @@ import JavaScriptKit
 typealias DefaultExecutorFactory = JavaScriptEventLoop
 JavaScriptEventLoop.installGlobalExecutor()
 
-let client = FetchHTTPClient()
 let status = Status()
 
 // Ask the user for the URL string.
@@ -52,9 +51,10 @@ if method == .post || method == .put {
     }
 }
 
-status.set("⏳ Making \(method) request to \(url)")
+func makeRequest(url: URL, method: HTTPRequest.Method, body: HTTPClientRequestBody<FetchHTTPClient.RequestBodyWriter>?) async throws {
+    let client = FetchHTTPClient()
+    status.set("⏳ Making \(method) request to \(url)")
 
-do {
     try await client.perform(
         request: .init(
             method: method,
@@ -117,6 +117,21 @@ do {
             div("<binary>")
         }
     }
+}
+
+let requestTask = Task {
+    try await makeRequest(url: url, method: method, body: body)
+}
+
+let sleepTask = Task {
+    status.set("💤 Waiting for 10 seconds")
+    try await Task.sleep(for: .seconds(10))
+    status.set("🚫 Cancelling task")
+    requestTask.cancel()
+}
+
+do {
+    try await requestTask.value
 } catch {
     status.set("❌ Fetch failed: \(error)")
 }
