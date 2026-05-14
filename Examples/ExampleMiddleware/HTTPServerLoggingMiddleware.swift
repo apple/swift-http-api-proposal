@@ -151,6 +151,7 @@ where
     public struct RequestBodyAsyncReader: AsyncReader, ~Copyable {
         public typealias ReadElement = UInt8
         public typealias ReadFailure = Base.Underlying.ReadFailure
+        public typealias Buffer = Base.Underlying.Buffer
 
         private var underlying: Base.Underlying
         private let logger: Logger
@@ -160,16 +161,13 @@ where
             self.logger = logger
         }
 
-        public mutating func read<Return, Failure>(
-            maximumCount: Int?,
-            body: (consuming Span<UInt8>) async throws(Failure) -> Return
+        public mutating func read<Return: ~Copyable, Failure>(
+            body: (inout Buffer) async throws(Failure) -> Return
         ) async throws(EitherError<Base.Underlying.ReadFailure, Failure>) -> Return {
             let logger = self.logger
-            return try await self.underlying.read(
-                maximumCount: maximumCount
-            ) { (span: Span<UInt8>) async throws(Failure) -> Return in
-                logger.info("Received next chunk \(span.count)")
-                return try await body(span)
+            return try await self.underlying.read { (buffer: inout Buffer) async throws(Failure) -> Return in
+                logger.info("Received next chunk \(buffer.count)")
+                return try await body(&buffer)
             }
         }
     }
@@ -219,6 +217,7 @@ where
     public struct ResponseBodyAsyncWriter: AsyncWriter, ~Copyable {
         public typealias WriteElement = UInt8
         public typealias WriteFailure = Base.Underlying.WriteFailure
+        public typealias Buffer = Base.Underlying.Buffer
 
         private var underlying: Base.Underlying
         private let logger: Logger
@@ -228,14 +227,13 @@ where
             self.logger = logger
         }
 
-        public mutating func write<Result, Failure>(
-            _ body: (inout OutputSpan<UInt8>) async throws(Failure) -> Result
+        public mutating func write<Result: ~Copyable, Failure>(
+            _ body: (inout Buffer) async throws(Failure) -> Result
         ) async throws(EitherError<Base.Underlying.WriteFailure, Failure>) -> Result {
-            return try await self.underlying.write { (outputSpan: inout OutputSpan<UInt8>) async throws(Failure) -> Result in
-                defer {
-                    self.logger.info("Wrote response bytes \(outputSpan.count)")
-                }
-                return try await body(&outputSpan)
+            return try await self.underlying.write { (buffer: inout Buffer) async throws(Failure) -> Result in
+                let result = try await body(&buffer)
+                self.logger.info("Wrote response bytes \(buffer.count)")
+                return result
             }
         }
     }
