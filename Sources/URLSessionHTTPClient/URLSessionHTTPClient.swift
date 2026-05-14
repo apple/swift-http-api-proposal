@@ -279,7 +279,7 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
         }
         request.allowsExpensiveNetworkAccess = options.allowsExpensiveNetworkAccess
         request.allowsConstrainedNetworkAccess = options.allowsConstrainedNetworkAccess
-        request.assumesHTTP3Capable = options.serverSupportedHTTPVersions.contains(.http3)
+        request.assumesHTTP3Capable = options.serverSupportedTransports.contains(.quic)
         if let stallTimeout = options.stallTimeout {
             request.timeoutInterval = stallTimeout / .seconds(1)
         } else {
