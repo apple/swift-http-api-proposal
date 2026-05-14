@@ -16,6 +16,7 @@
 @_exported public import HTTPAPIs
 
 #if canImport(Darwin) || os(Linux)
+public import BasicContainers
 
 #if canImport(Darwin)
 import URLSessionHTTPClient
@@ -38,16 +39,14 @@ typealias ActualHTTPClient = AsyncHTTPClient.HTTPClient
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public final class DefaultHTTPClient: HTTPAPIs.HTTPClient {
     public struct RequestWriter: AsyncWriter, ~Copyable {
-        public mutating func write<Result, Failure>(
-            _ body: (inout OutputSpan<UInt8>) async throws(Failure) -> Result
-        ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Result where Failure: Error {
-            try await self.actual.write(body)
-        }
+        public typealias WriteElement = UInt8
+        public typealias WriteFailure = any Error
+        public typealias Buffer = UniqueArray<UInt8>
 
-        public mutating func write(
-            _ span: Span<UInt8>
-        ) async throws(EitherError<any Error, AsyncWriterWroteShortError>) {
-            try await self.actual.write(span)
+        public mutating func write<Return: ~Copyable, Failure>(
+            _ body: (inout UniqueArray<UInt8>) async throws(Failure) -> Return
+        ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Return where Failure: Error {
+            try await self.actual.write(body)
         }
 
         var actual: ActualHTTPClient.RequestWriter
@@ -55,11 +54,14 @@ public final class DefaultHTTPClient: HTTPAPIs.HTTPClient {
 
     public struct ResponseConcludingReader: ConcludingAsyncReader, ~Copyable {
         public struct Underlying: AsyncReader, ~Copyable {
-            public mutating func read<Return, Failure>(
-                maximumCount: Int?,
-                body: (consuming Span<UInt8>) async throws(Failure) -> Return
+            public typealias ReadElement = UInt8
+            public typealias ReadFailure = any Error
+            public typealias Buffer = UniqueArray<UInt8>
+
+            public mutating func read<Return: ~Copyable, Failure>(
+                body: (inout UniqueArray<UInt8>) async throws(Failure) -> Return
             ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Return where Failure: Error {
-                try await self.actual.read(maximumCount: maximumCount, body: body)
+                try await self.actual.read(body: body)
             }
 
             var actual: ActualHTTPClient.ResponseConcludingReader.Underlying
