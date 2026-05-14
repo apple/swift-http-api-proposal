@@ -13,16 +13,17 @@
 
 public import AsyncAlgorithms
 public import AsyncStreaming
-import BasicContainers
+public import BasicContainers
+public import ContainersPreview
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 extension MultiProducerSingleConsumerAsyncChannel: AsyncReader {
     public typealias ReadElement = Element
     public typealias ReadFailure = Failure
+    public typealias Buffer = UniqueArray<Element>
 
-    public mutating func read<Return, F: Error>(
-        maximumCount: Int?,
-        body: nonisolated(nonsending) (consuming Span<Element>) async throws(F) -> Return
+    public mutating func read<Return: ~Copyable, F: Error>(
+        body: nonisolated(nonsending) (inout UniqueArray<Element>) async throws(F) -> Return
     ) async throws(EitherError<Failure, F>) -> Return {
         let element: Element?
         do {
@@ -31,17 +32,13 @@ extension MultiProducerSingleConsumerAsyncChannel: AsyncReader {
             throw .first(error)
         }
 
-        do {
-            guard let element else {
-                return try await body(InlineArray<0, Element>.zero().span)
-            }
+        var buffer = UniqueArray<Element>()
+        if let element {
+            buffer.append(element)
+        }
 
-            return try await body(
-                InlineArray<
-                    1,
-                    Element
-                >.one(value: element).span
-            )
+        do {
+            return try await body(&buffer)
         } catch {
             throw .second(error)
         }
@@ -52,28 +49,27 @@ extension MultiProducerSingleConsumerAsyncChannel: AsyncReader {
 extension MultiProducerSingleConsumerAsyncChannel.Source: AsyncWriter where Element == UInt8 {
     public typealias WriteElement = Element
     public typealias WriteFailure = any Error
+    public typealias Buffer = UniqueArray<Element>
 
-    public mutating func write<Result, F: Error>(
-        _ body: nonisolated(nonsending) (inout OutputSpan<Element>) async throws(F) -> Result
-    ) async throws(EitherError<any Error, F>) -> Result {
-        var buffer = RigidArray<Element>(capacity: 1)
-        let result: Result
+    public mutating func write<Return: ~Copyable, F: Error>(
+        _ body: nonisolated(nonsending) (inout UniqueArray<Element>) async throws(F) -> Return
+    ) async throws(EitherError<any Error, F>) -> Return {
+        var buffer = UniqueArray<Element>()
+        let result: Return
         do {
-            result = try await buffer.append(count: 1) { outputSpan async throws(F) -> Result in
-                try await body(&outputSpan)
-            }
+            result = try await body(&buffer)
         } catch {
             throw .second(error)
         }
 
-        if buffer.count == 1 {
+        var consumer = buffer.consumeAll()
+        while let element = consumer.next() {
             do {
-                try await self.send(buffer.removeLast())
+                try await self.send(element)
             } catch {
                 throw .first(error)
             }
         }
         return result
     }
-
 }

@@ -11,7 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-public import AsyncStreaming
+public import HTTPAPIs
 public import HTTPTypes
 
 /// This type holds the values passed to the ``HTTPServerRequestHandler`` when handling a request.
