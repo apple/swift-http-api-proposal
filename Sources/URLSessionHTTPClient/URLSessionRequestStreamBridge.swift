@@ -72,7 +72,7 @@ final class URLSessionRequestStreamBridge: NSObject, StreamDelegate, Sendable {
             try Task.checkCancellation()
             try await self.waitForSpace()
             let written = try self.lockedState.withLock { state in
-                let written = unsafe remaining.withUnsafeBufferPointer { buffer in
+                let written = remaining.withUnsafeBufferPointer { buffer in
                     unsafe state.outputStream.write(buffer.baseAddress!, maxLength: buffer.count)
                 }
                 if written < 0 {
@@ -136,32 +136,6 @@ final class URLSessionRequestStreamBridge: NSObject, StreamDelegate, Sendable {
             }
             continuation?.resume(throwing: aStream.streamError ?? CancellationError())
         }
-    }
-}
-
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-extension URLSessionRequestStreamBridge: AsyncWriter {
-    typealias WriteElement = UInt8
-    typealias WriteFailure = any Error
-    typealias Buffer = UniqueArray<UInt8>
-
-    func write<Return: ~Copyable, Failure: Error>(
-        _ body: (inout UniqueArray<UInt8>) async throws(Failure) -> Return
-    ) async throws(EitherError<any Error, Failure>) -> Return {
-        var buffer = UniqueArray<UInt8>()
-        let result: Return
-        do {
-            result = try await body(&buffer)
-        } catch {
-            throw .second(error)
-        }
-
-        do {
-            try await self.internalWrite(buffer.span)
-        } catch {
-            throw .first(error)
-        }
-        return result
     }
 }
 #endif

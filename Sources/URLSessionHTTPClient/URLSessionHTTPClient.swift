@@ -372,7 +372,7 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
         let delegateBridge: URLSessionTaskDelegateBridge
         if let body {
             task = session.startTask().uploadTask(withStreamedRequest: request)
-            delegateBridge = URLSessionTaskDelegateBridge(task: task, body: .init(other: body, transform: RequestWriter.init))
+            delegateBridge = URLSessionTaskDelegateBridge(task: task, body: body)
         } else {
             task = session.startTask().dataTask(with: request)
             delegateBridge = URLSessionTaskDelegateBridge(task: task, body: nil)
