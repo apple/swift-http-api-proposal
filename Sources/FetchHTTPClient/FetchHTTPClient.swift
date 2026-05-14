@@ -125,19 +125,22 @@ public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
     }
 
     public struct RequestBodyWriter: AsyncWriter, ~Copyable {
+        public typealias WriteElement = UInt8
+        public typealias WriteFailure = any Error
+        public typealias Buffer = UniqueArray<UInt8>
+
         let buffer: RequestBodyBuffer
 
-        public mutating func write<Result, Failure>(
-            _ body: nonisolated(nonsending) (inout OutputSpan<UInt8>) async throws(Failure) -> Result
-        ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Result where Failure: Error {
+        public mutating func write<Return: ~Copyable, Failure>(
+            _ body: nonisolated(nonsending) (inout UniqueArray<UInt8>) async throws(Failure) -> Return
+        ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Return where Failure: Error {
+            let result: Return
             do {
-                // Each write attempt gets approximately a page of memory to populate with data.
-                return try await buffer.array.append(count: 4 * 1024) { span in
-                    return try await body(&span)
-                }
+                result = try await body(&self.buffer.array)
             } catch {
-                throw .first(error)
+                throw .second(error)
             }
+            return result
         }
     }
 
@@ -152,64 +155,38 @@ public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
     }
 
     public struct ResponseBodyReader: AsyncReader, ~Copyable {
-        let reader: ReadableStreamDefaultReader
-        var buffer = [UInt8]()
-        var curIndex = 0
+        public typealias ReadElement = UInt8
+        public typealias ReadFailure = any Error
+        public typealias Buffer = UniqueArray<UInt8>
 
-        public mutating func read<Return, Failure>(
-            maximumCount: Int?,
-            body: nonisolated(nonsending) (consuming Span<UInt8>) async throws(Failure) -> Return
+        let reader: ReadableStreamDefaultReader
+        var buffer = UniqueArray<UInt8>()
+
+        public mutating func read<Return: ~Copyable, Failure>(
+            body: nonisolated(nonsending) (inout UniqueArray<UInt8>) async throws(Failure) -> Return
         ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Return where Failure: Error {
-            if buffer.isEmpty {
-                // Read more data in from JS
-                let chunk: Chunk
-                do {
-                    chunk = try await reader.read()
-                } catch {
-                    throw .first(error)
-                }
-                if chunk.done {
-                    do {
-                        return try await body(Span())
-                    } catch {
-                        throw .second(error)
-                    }
-                }
+            let chunk: Chunk
+            do {
+                chunk = try await self.reader.read()
+            } catch {
+                throw .first(error)
+            }
+            if !chunk.done {
                 guard let bytes = chunk.value, !bytes.isEmpty else {
                     // If not done, there must be bytes that can be read
                     throw .first(FetchError.BadAssumptionJS)
                 }
-
-                buffer = bytes
+                buffer.reserveCapacity(bytes.count)
+                for b in bytes {
+                    self.buffer.append(b)
+                }
             }
 
-            let range: Range<Int>
-            let numRemainingElements = buffer.count - curIndex
-            if let maximumCount, numRemainingElements > maximumCount {
-                // There is more data in this buffer than the user wants.
-                // Give them a smaller span, update the index
-                let endIndex = curIndex + maximumCount
-                range = curIndex..<endIndex
-                curIndex = endIndex
-            } else {
-                // Return the rest of the buffer, reset the index
-                range = curIndex..<buffer.count
-                curIndex = 0
-            }
-
-            let result: Return
             do {
-                result = try await body(buffer[range].span)
+                return try await body(&self.buffer)
             } catch {
                 throw .second(error)
             }
-
-            if range.endIndex == buffer.count {
-                // We've read the entire buffer. Clear it out
-                buffer.removeAll()
-            }
-
-            return result
         }
     }
 }
