@@ -55,7 +55,7 @@ final class URLSessionRequestStreamBridge: NSObject, StreamDelegate, Sendable {
         self.lockedState.withLock(\.writeFailed)
     }
 
-    private func internalWrite(_ span: Span<UInt8>) async throws {
+    func internalWrite(_ span: Span<UInt8>) async throws {
         self.lockedState.withLock { state in
             if !state.outputStreamOpened {
                 state.outputStreamOpened = true
@@ -141,32 +141,27 @@ final class URLSessionRequestStreamBridge: NSObject, StreamDelegate, Sendable {
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 extension URLSessionRequestStreamBridge: AsyncWriter {
-    func write<Result, Failure: Error>(
-        _ body: (inout OutputSpan<UInt8>) async throws(Failure) -> Result
-    ) async throws(EitherError<any Error, Failure>) -> Result {
-        // TODO: Either this needs to be inline or configurable
-        var array = RigidArray<UInt8>(capacity: 1024)
-        do {
-            let result = try await array.append(count: 1024) { outputSpan in
-                try await body(&outputSpan)
-            }
-            try await self.internalWrite(array.span)
-            return result
-        } catch let error as Failure {
-            throw .second(error)
-        } catch {
-            throw .first(error)
-        }
-    }
+    typealias WriteElement = UInt8
+    typealias WriteFailure = any Error
+    typealias Buffer = UniqueArray<UInt8>
 
-    func write(
-        _ span: Span<UInt8>
-    ) async throws(EitherError<any Error, AsyncWriterWroteShortError>) {
+    func write<Return: ~Copyable, Failure: Error>(
+        _ body: (inout UniqueArray<UInt8>) async throws(Failure) -> Return
+    ) async throws(EitherError<any Error, Failure>) -> Return {
+        var buffer = UniqueArray<UInt8>()
+        let result: Return
         do {
-            try await self.internalWrite(span)
+            result = try await body(&buffer)
+        } catch {
+            throw .second(error)
+        }
+
+        do {
+            try await self.internalWrite(buffer.span)
         } catch {
             throw .first(error)
         }
+        return result
     }
 }
 #endif
