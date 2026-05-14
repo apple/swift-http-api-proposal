@@ -11,8 +11,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-public import NetworkTypes
-
 @_spi(ExperimentalHTTPAPIsSupport) public import AsyncHTTPClient
 import BasicContainers
 import Foundation
@@ -20,6 +18,7 @@ import Foundation
 import HTTPTypes
 import NIOCore
 import NIOHTTP1
+public import NetworkTypes
 import Synchronization
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, *)
