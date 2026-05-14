@@ -11,9 +11,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+public import BasicContainers
 public import HTTPAPIs
 public import HTTPTypes
-public import BasicContainers
 import NIOCore
 import NIOHTTPTypes
 import Synchronization

@@ -822,7 +822,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
                         try await reader.forEachBuffer { buffer in
                             #expect(buffer.count > 0)
                             var consumer = buffer.consumeAll()
-                            while let _ = consumer.next() {}
+                            while consumer.next() != nil {}
                         }
                     }
                 }

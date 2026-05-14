@@ -12,8 +12,8 @@
 //===----------------------------------------------------------------------===//
 
 public import AsyncStreaming
-public import ContainersPreview
 import BasicContainers
+public import ContainersPreview
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 extension ConcludingAsyncReader where Self: ~Copyable, Underlying: ~Copyable {
@@ -54,7 +54,7 @@ extension ConcludingAsyncReader where Self: ~Copyable, Underlying: ~Copyable {
                         let endIdx = buffer.index(buffer.startIndex, offsetBy: remainingCapacity)
                         accumulated.append(moving: buffer.startIndex..<endIdx, from: &buffer)
                         var consumer = buffer.consumeAll()
-                        while let _ = consumer.next() {}
+                        while consumer.next() != nil {}
                     }
                 }
             }

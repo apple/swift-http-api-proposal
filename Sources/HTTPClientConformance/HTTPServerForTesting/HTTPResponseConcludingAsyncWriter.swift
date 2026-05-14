@@ -11,8 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-public import HTTPAPIs
 public import BasicContainers
+public import HTTPAPIs
 public import HTTPTypes
 import NIOCore
 import NIOHTTPTypes

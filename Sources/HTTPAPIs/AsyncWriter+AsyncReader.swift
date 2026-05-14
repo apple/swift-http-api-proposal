@@ -41,8 +41,9 @@ extension AsyncWriter where Self: ~Copyable, Self: ~Escapable {
     public mutating func write<Reader>(
         _ reader: consuming Reader
     ) async throws
-    where Reader: AsyncReader & ~Copyable & ~Escapable,
-          Reader.ReadElement == WriteElement
+    where
+        Reader: AsyncReader & ~Copyable & ~Escapable,
+        Reader.ReadElement == WriteElement
     {
         try await reader.forEachBuffer { (readBuffer: inout Reader.Buffer) in
             try await self.write { (writeBuffer: inout Self.Buffer) in
