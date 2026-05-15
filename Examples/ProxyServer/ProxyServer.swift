@@ -27,10 +27,14 @@ struct ProxyServer {
     }
 
     static func proxy(server: some HTTPServer, client: some HTTPClient) async throws {
-        try await server.serve { request, requestContext, serverRequestBodyAndTrailers, responseSender in
+        try await server.serve {
+            request,
+            requestContext,
+            serverRequestBodyAndTrailers,
+            responseSender in
             // We need to use a mutex here to move the requestBodyAndTrailers into the
             // @Sendable restartable body
-            let serverRequestBodyAndTrailers = Mutex(Optional(serverRequestBodyAndTrailers))
+            let serverRequestBodyAndTrailers = Mutex(Disconnected(value: Optional(serverRequestBodyAndTrailers)))
             // Needed since we are lacking call-once closures
             var responseSender = Optional(responseSender)
 
@@ -41,7 +45,9 @@ struct ProxyServer {
                     var clientRequestBody = clientRequestBody
                     // This takes the request body out of the mutex. Any restarts would hit
                     // a force-unwrap.
-                    let serverRequestBodyAndTrailers = serverRequestBodyAndTrailers.withLock { $0.take()! }
+                    let serverRequestBodyAndTrailers = serverRequestBodyAndTrailers.withLock {
+                        $0.swap(newValue: nil)
+                    }!
 
                     return try await serverRequestBodyAndTrailers.consumeAndConclude { serverRequestBody in
                         try await clientRequestBody.write(serverRequestBody)
@@ -60,5 +66,30 @@ struct ProxyServer {
                 }
             }
         }
+    }
+}
+
+@usableFromInline
+struct Disconnected<Value: ~Copyable>: ~Copyable, Sendable {
+    // This is safe since we take the value as sending and take consumes it
+    // and returns it as sending.
+    private nonisolated(unsafe) var value: Value?
+
+    @usableFromInline
+    init(value: consuming sending Value) {
+        unsafe self.value = .some(value)
+    }
+
+    @usableFromInline
+    consuming func take() -> sending Value {
+        nonisolated(unsafe) let value = unsafe self.value.take()!
+        return unsafe value
+    }
+
+    @usableFromInline
+    mutating func swap(newValue: consuming sending Value) -> sending Value {
+        nonisolated(unsafe) let value = unsafe self.value.take()!
+        unsafe self.value = consume newValue
+        return unsafe value
     }
 }

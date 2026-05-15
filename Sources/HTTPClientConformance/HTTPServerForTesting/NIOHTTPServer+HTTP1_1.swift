@@ -11,6 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import HTTPAPIs
 import NIOCore
 import NIOEmbedded
 import NIOHTTP1
@@ -22,7 +23,7 @@ import NIOPosix
 extension NIOHTTPServer {
     func serveInsecureHTTP1_1(
         bindTarget: NIOHTTPServerConfiguration.BindTarget,
-        handler: some HTTPServerRequestHandler<RequestReader, ResponseWriter>,
+        handler: some HTTPServerRequestHandler<RequestConcludingReader, ResponseConcludingWriter>,
         asyncChannelConfiguration: NIOAsyncChannel<HTTPRequestPart, HTTPResponsePart>.Configuration
     ) async throws {
         let serverChannel = try await self.setupHTTP1_1ServerChannel(
@@ -70,7 +71,7 @@ extension NIOHTTPServer {
 
     func _serveInsecureHTTP1_1(
         serverChannel: NIOAsyncChannel<NIOAsyncChannel<HTTPRequestPart, HTTPResponsePart>, Never>,
-        handler: some HTTPServerRequestHandler<RequestReader, ResponseWriter>
+        handler: some HTTPServerRequestHandler<RequestConcludingReader, ResponseConcludingWriter>
     ) async throws {
         try await withThrowingDiscardingTaskGroup { group in
             try await serverChannel.executeThenClose { inbound in

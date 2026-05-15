@@ -14,6 +14,7 @@
 @_exported public import HTTPAPIs
 
 #if canImport(Darwin)
+public import BasicContainers
 import Foundation
 import HTTPTypesFoundation
 import NetworkTypes
@@ -23,39 +24,99 @@ import Synchronization
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
     public struct RequestWriter: AsyncWriter, ~Copyable {
-        public mutating func write<Result, Failure>(
-            _ body: (inout OutputSpan<UInt8>) async throws(Failure) -> Result
-        ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Result where Failure: Error {
-            try await self.actual.write(body)
-        }
-
-        public mutating func write(
-            _ span: Span<UInt8>
-        ) async throws(EitherError<any Error, AsyncWriterWroteShortError>) {
-            try await self.actual.write(span)
-        }
+        public typealias WriteElement = UInt8
+        public typealias WriteFailure = any Error
+        public typealias Buffer = UniqueArray<UInt8>
 
         var actual: URLSessionRequestStreamBridge
+        var buffer: UniqueArray<UInt8>?
+
+        init(actual: URLSessionRequestStreamBridge) {
+            self.actual = actual
+            self.buffer = UniqueArray(minimumCapacity: 1024)
+        }
+
+        public mutating func write<Return: ~Copyable, Failure>(
+            _ body: (inout UniqueArray<UInt8>) async throws(Failure) -> Return
+        ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Return where Failure: Error {
+            let result: Return
+            // This force-unwrap is safe since there can only be one concurrent write.
+            var buffer = self.buffer.take()!
+            do {
+                result = try await body(&buffer)
+            } catch {
+                buffer.removeAll()
+                self.buffer = consume buffer
+                throw .second(error)
+            }
+            if buffer.count == 0 {
+                self.buffer = consume buffer
+                return result
+            }
+
+            do {
+                try await self.actual.internalWrite(buffer.span)
+                buffer.removeAll()
+                self.buffer = consume buffer
+            } catch {
+                buffer.removeAll()
+                self.buffer = consume buffer
+                throw .first(error)
+            }
+            return result
+        }
     }
 
     public struct ResponseConcludingReader: ConcludingAsyncReader, ~Copyable {
         public struct Underlying: AsyncReader, ~Copyable {
-            public mutating func read<Return, Failure>(
-                maximumCount: Int?,
-                body: (consuming Span<UInt8>) async throws(Failure) -> Return
-            ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Return where Failure: Error {
-                try await self.actual.read(maximumCount: maximumCount, body: body)
-            }
+            public typealias ReadElement = UInt8
+            public typealias ReadFailure = any Error
+            public typealias Buffer = UniqueArray<UInt8>
 
             var actual: URLSessionTaskDelegateBridge
+            var buffer: UniqueArray<UInt8>?
+
+            init(actual: URLSessionTaskDelegateBridge) {
+                self.actual = actual
+                self.buffer = UniqueArray(minimumCapacity: 1024)
+            }
+
+            public mutating func read<Return: ~Copyable, Failure>(
+                body: (inout UniqueArray<UInt8>) async throws(Failure) -> Return
+            ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Return where Failure: Error {
+                let data: Data?
+                do {
+                    data = try await self.actual.data(maximumCount: nil)
+                } catch {
+                    throw .first(error)
+                }
+
+                // This force-unwrap is safe since there can only be one concurrent read.
+                var buffer = self.buffer.take()!
+                if let data, !data.isEmpty {
+                    buffer.reserveCapacity(data.count)
+                    buffer.append(copying: data.span)
+                }
+
+                let result: Return
+                do {
+                    result = try await body(&buffer)
+                } catch {
+                    buffer.removeAll()
+                    self.buffer = consume buffer
+                    throw .second(error)
+                }
+                buffer.removeAll()
+                self.buffer = consume buffer
+                return result
+            }
         }
 
         public func consumeAndConclude<Return, Failure>(
             body: (consuming sending Underlying) async throws(Failure) -> Return
         ) async throws(Failure) -> (Return, HTTPFields?) where Failure: Error {
-            try await self.actual.consumeAndConclude { actual throws(Failure) in
-                try await body(Underlying(actual: actual))
-            }
+            let result = try await body(Underlying(actual: self.actual))
+            return (result, self.actual.responseTrailerFields)
         }
 
         let actual: URLSessionTaskDelegateBridge
@@ -311,7 +372,7 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
         let delegateBridge: URLSessionTaskDelegateBridge
         if let body {
             task = session.startTask().uploadTask(withStreamedRequest: request)
-            delegateBridge = URLSessionTaskDelegateBridge(task: task, body: .init(other: body, transform: RequestWriter.init))
+            delegateBridge = URLSessionTaskDelegateBridge(task: task, body: body)
         } else {
             task = session.startTask().dataTask(with: request)
             delegateBridge = URLSessionTaskDelegateBridge(task: task, body: nil)

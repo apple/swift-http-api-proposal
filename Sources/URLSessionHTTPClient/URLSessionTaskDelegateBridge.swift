@@ -39,11 +39,11 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
     // limits.
     private let stream: AsyncStream<Callback>
     private let continuation: AsyncStream<Callback>.Continuation
-    private let requestBody: HTTPClientRequestBody<URLSessionRequestStreamBridge>?
+    private let requestBody: HTTPClientRequestBody<URLSessionHTTPClient.RequestWriter>?
     // TODO: Can we get rid of this task and instead use on task group per client?
     private let requestBodyTask: Mutex<Task<Void, Never>?> = .init(nil)
 
-    init(task: URLSessionTask, body: consuming HTTPClientRequestBody<URLSessionRequestStreamBridge>?) {
+    init(task: URLSessionTask, body: consuming HTTPClientRequestBody<URLSessionHTTPClient.RequestWriter>?) {
         self.task = task
         var continuation: AsyncStream<Callback>.Continuation?
         self.stream = AsyncStream { continuation = $0 }
@@ -260,7 +260,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                 let bridge = URLSessionRequestStreamBridge(task: task)
                 completionHandler(bridge.inputStream)
                 do {
-                    let trailerFields = try await requestBody.produce(into: bridge)
+                    let trailerFields = try await requestBody.produce(into: URLSessionHTTPClient.RequestWriter(actual: bridge))
                     bridge.close(trailerFields: trailerFields)
                 } catch {
                     if bridge.writeFailed {
@@ -291,7 +291,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                 let bridge = URLSessionRequestStreamBridge(task: task)
                 completionHandler(bridge.inputStream)
                 do {
-                    let trailerFields = try await requestBody.produce(offset: offset, into: bridge)
+                    let trailerFields = try await requestBody.produce(offset: offset, into: URLSessionHTTPClient.RequestWriter(actual: bridge))
                     bridge.close(trailerFields: trailerFields)
                 } catch {
                     if bridge.writeFailed {

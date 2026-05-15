@@ -64,7 +64,7 @@ struct HTTPClientAndServerTests {
                 let (response, trailers) = try await responseBodyAndTrailers.consumeAndConclude { responseBody in
                     var responseBody = responseBody
                     return try await responseBody.collect(upTo: 100) { span in
-                        String(bytes: Array(span), encoding: .utf8)
+                        String(copying: try UTF8Span(validating: span.span))
                     }
                 }
                 #expect(response == "Hello")

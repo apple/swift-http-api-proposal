@@ -11,7 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-public import AsyncStreaming
+public import BasicContainers
+public import HTTPAPIs
 public import HTTPTypes
 import NIOCore
 import NIOHTTPTypes
@@ -37,6 +38,9 @@ public struct HTTPRequestConcludingAsyncReader: ConcludingAsyncReader, ~Copyable
         /// The type of errors that can occur during reading operations.
         public typealias ReadFailure = any Error
 
+        /// The buffer type used to hand elements to the caller.
+        public typealias Buffer = UniqueArray<UInt8>
+
         /// The HTTP trailer fields captured at the end of the request.
         fileprivate var state: ReaderState
 
@@ -55,14 +59,8 @@ public struct HTTPRequestConcludingAsyncReader: ConcludingAsyncReader, ~Copyable
         }
 
         /// Reads a chunk of request body data.
-        ///
-        /// - Parameter body: A function that consumes the read element (or nil for end of stream)
-        ///                  and returns a value of type `Return`.
-        /// - Returns: The value returned by the body function after processing the read element.
-        /// - Throws: An error if the reading operation fails.
-        public mutating func read<Return, Failure: Error>(
-            maximumCount: Int?,
-            body: nonisolated(nonsending) (consuming Span<ReadElement>) async throws(Failure) -> Return
+        public mutating func read<Return: ~Copyable, Failure: Error>(
+            body: nonisolated(nonsending) (inout UniqueArray<UInt8>) async throws(Failure) -> Return
         ) async throws(EitherError<ReadFailure, Failure>) -> Return {
             let requestPart: HTTPRequestPart?
             do {
@@ -71,21 +69,27 @@ public struct HTTPRequestConcludingAsyncReader: ConcludingAsyncReader, ~Copyable
                 throw .first(error)
             }
 
-            do {
-                switch requestPart {
-                case .head:
-                    fatalError()
-                case .body(let element):
-                    return try await body(Array(buffer: element).span)
-                case .end(let trailers):
-                    self.state.wrapped.withLock { state in
-                        state.trailers = trailers
-                        state.finishedReading = true
-                    }
-                    return try await body(.init())
-                case .none:
-                    return try await body(.init())
+            var buffer = UniqueArray<UInt8>()
+            switch requestPart {
+            case .head:
+                fatalError()
+            case .body(let element):
+                buffer.reserveCapacity(element.readableBytes)
+                unsafe element.withUnsafeReadableBytes { rawBufferPtr in
+                    let usbptr = unsafe rawBufferPtr.assumingMemoryBound(to: UInt8.self)
+                    unsafe buffer.append(copying: usbptr)
                 }
+            case .end(let trailers):
+                self.state.wrapped.withLock { state in
+                    state.trailers = trailers
+                    state.finishedReading = true
+                }
+            case .none:
+                break
+            }
+
+            do {
+                return try await body(&buffer)
             } catch {
                 throw .second(error)
             }

@@ -234,7 +234,7 @@ where
             if $0.count > limit {
                 throw LengthLimitExceededError()
             }
-            return unsafe $0.withUnsafeBytes { unsafe Data($0) }
+            return $0.span.withUnsafeBytes { unsafe Data($0) }
         }.0
     }
 }

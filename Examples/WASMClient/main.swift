@@ -12,6 +12,8 @@
 //===----------------------------------------------------------------------===//
 
 import AsyncStreaming
+import BasicContainers
+import ContainersPreview
 import FetchHTTPClient
 import Foundation
 import HTTPAPIs
@@ -91,20 +93,12 @@ do {
 
             var reader = reader
             status.set("⏳ Read \(bytes.count) bytes")
-            while true {
-                let shouldContinue = try await reader.read(maximumCount: nil) { span in
-                    if span.isEmpty {
-                        return false
-                    }
-                    for i in span.indices {
-                        bytes.append(span[i])
-                    }
-                    status.set("⏳ Read \(bytes.count) bytes")
-                    return true
+            try await reader.forEachBuffer { buffer in
+                var consumer = buffer.consumeAll()
+                while let b = consumer.next() {
+                    bytes.append(b)
                 }
-                if !shouldContinue {
-                    break
-                }
+                status.set("⏳ Read \(bytes.count) bytes")
             }
             return bytes
         }

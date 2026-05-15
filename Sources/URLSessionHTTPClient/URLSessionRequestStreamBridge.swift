@@ -55,7 +55,7 @@ final class URLSessionRequestStreamBridge: NSObject, StreamDelegate, Sendable {
         self.lockedState.withLock(\.writeFailed)
     }
 
-    private func internalWrite(_ span: Span<UInt8>) async throws {
+    func internalWrite(_ span: Span<UInt8>) async throws {
         self.lockedState.withLock { state in
             if !state.outputStreamOpened {
                 state.outputStreamOpened = true
@@ -72,7 +72,7 @@ final class URLSessionRequestStreamBridge: NSObject, StreamDelegate, Sendable {
             try Task.checkCancellation()
             try await self.waitForSpace()
             let written = try self.lockedState.withLock { state in
-                let written = unsafe remaining.withUnsafeBufferPointer { buffer in
+                let written = remaining.withUnsafeBufferPointer { buffer in
                     unsafe state.outputStream.write(buffer.baseAddress!, maxLength: buffer.count)
                 }
                 if written < 0 {
@@ -135,37 +135,6 @@ final class URLSessionRequestStreamBridge: NSObject, StreamDelegate, Sendable {
                 return state.spaceContinuation
             }
             continuation?.resume(throwing: aStream.streamError ?? CancellationError())
-        }
-    }
-}
-
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-extension URLSessionRequestStreamBridge: AsyncWriter {
-    func write<Result, Failure: Error>(
-        _ body: (inout OutputSpan<UInt8>) async throws(Failure) -> Result
-    ) async throws(EitherError<any Error, Failure>) -> Result {
-        // TODO: Either this needs to be inline or configurable
-        var array = RigidArray<UInt8>(capacity: 1024)
-        do {
-            let result = try await array.append(count: 1024) { outputSpan in
-                try await body(&outputSpan)
-            }
-            try await self.internalWrite(array.span)
-            return result
-        } catch let error as Failure {
-            throw .second(error)
-        } catch {
-            throw .first(error)
-        }
-    }
-
-    func write(
-        _ span: Span<UInt8>
-    ) async throws(EitherError<any Error, AsyncWriterWroteShortError>) {
-        do {
-            try await self.internalWrite(span)
-        } catch {
-            throw .first(error)
         }
     }
 }

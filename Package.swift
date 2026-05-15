@@ -29,7 +29,6 @@ let package = Package(
         .library(name: "HTTPClient", targets: ["HTTPClient"]),
         .library(name: "URLSessionHTTPClient", targets: ["URLSessionHTTPClient"]),
         .library(name: "AHCHTTPClient", targets: ["AHCHTTPClient"]),
-        .library(name: "AsyncStreaming", targets: ["AsyncStreaming"]),
         .library(name: "NetworkTypes", targets: ["NetworkTypes"]),
         .library(name: "Middleware", targets: ["Middleware"]),
         .library(name: "HTTPClientConformance", targets: ["HTTPClientConformance"]),
@@ -40,12 +39,13 @@ let package = Package(
     ],
     dependencies: [
         .package(
-            url: "https://github.com/FranzBusch/swift-collections.git",
-            branch: "fb-async"
+            url: "https://github.com/apple/swift-collections.git",
+            from: "1.5.0"
         ),
         .package(
             url: "https://github.com/apple/swift-async-algorithms.git",
-            from: "1.1.2"
+            revision: "d0b4a06d0f173a2f3be27d3ea21b3c3aa18db440",
+            traits: ["UnstableAsyncStreaming"]
         ),
         .package(url: "https://github.com/apple/swift-http-types.git", from: "1.5.1"),
         .package(url: "https://github.com/apple/swift-certificates.git", from: "1.16.0"),
@@ -62,7 +62,7 @@ let package = Package(
         .target(
             name: "HTTPAPIs",
             dependencies: [
-                "AsyncStreaming",
+                .product(name: "AsyncStreaming", package: "swift-async-algorithms"),
                 "NetworkTypes",
                 .product(name: "HTTPTypes", package: "swift-http-types"),
             ],
@@ -82,16 +82,6 @@ let package = Package(
             swiftSettings: extraSettings
         ),
         .target(
-            name: "AsyncStreaming",
-            dependencies: [
-                .product(
-                    name: "BasicContainers",
-                    package: "swift-collections"
-                )
-            ],
-            swiftSettings: extraSettings
-        ),
-        .target(
             name: "Middleware",
             swiftSettings: extraSettings
         ),
@@ -99,7 +89,7 @@ let package = Package(
             name: "AHCHTTPClient",
             dependencies: [
                 "HTTPAPIs",
-                "AsyncStreaming",
+                .product(name: "AsyncStreaming", package: "swift-async-algorithms"),
                 "NetworkTypes",
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "HTTPTypesFoundation", package: "swift-http-types"),
@@ -113,7 +103,7 @@ let package = Package(
             name: "URLSessionHTTPClient",
             dependencies: [
                 "HTTPAPIs",
-                "AsyncStreaming",
+                .product(name: "AsyncStreaming", package: "swift-async-algorithms"),
                 "NetworkTypes",
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "HTTPTypesFoundation", package: "swift-http-types"),
@@ -129,7 +119,7 @@ let package = Package(
                 "HTTPClient",
                 // These dependencies are needed by the `swift-http-server` that
                 // we borrowed.
-                "AsyncStreaming",
+                .product(name: "AsyncStreaming", package: "swift-async-algorithms"),
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "BasicContainers", package: "swift-collections"),
                 .product(name: "X509", package: "swift-certificates"),
@@ -162,17 +152,10 @@ let package = Package(
             swiftSettings: extraSettings
         ),
         .testTarget(
-            name: "AsyncStreamingTests",
-            dependencies: [
-                "AsyncStreaming"
-            ],
-            swiftSettings: extraSettings
-        ),
-        .testTarget(
             name: "HTTPAPIsTests",
             dependencies: [
                 "HTTPAPIs",
-                "AsyncStreaming",
+                .product(name: "AsyncStreaming", package: "swift-async-algorithms"),
                 "NetworkTypes",
                 .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
             ],
@@ -287,7 +270,8 @@ if enableWASM {
             name: "FetchHTTPClient",
             dependencies: [
                 "HTTPAPIs",
-                "AsyncStreaming",
+                .product(name: "AsyncStreaming", package: "swift-async-algorithms"),
+                .product(name: "BasicContainers", package: "swift-collections"),
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(
                     name: "JavaScriptKit",
@@ -306,6 +290,8 @@ if enableWASM {
             name: "WASMClient",
             dependencies: [
                 "FetchHTTPClient",
+                .product(name: "BasicContainers", package: "swift-collections"),
+                .product(name: "ContainersPreview", package: "swift-collections"),
                 .product(
                     name: "JavaScriptKit",
                     package: "JavaScriptKit",

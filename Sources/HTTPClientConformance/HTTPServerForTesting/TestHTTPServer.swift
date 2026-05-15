@@ -12,7 +12,10 @@
 //===----------------------------------------------------------------------===//
 
 import AsyncStreaming
+import BasicContainers
+import ContainersPreview
 import Foundation
+import HTTPAPIs
 import HTTPTypes
 import Logging
 import Synchronization
@@ -119,7 +122,7 @@ func serve(server: NIOHTTPServer) async throws {
 
             // Parse the body as a UTF8 string and capture trailers
             let (body, requestTrailers) = try await requestBodyAndTrailers.collect(upTo: 1024) { span in
-                return String(copying: try UTF8Span(validating: span))
+                return String(copying: try UTF8Span(validating: span.span))
             }
 
             // Collect the trailers that were sent in with the request
@@ -334,10 +337,11 @@ func serve(server: NIOHTTPServer) async throws {
                         try await writer.write("A".utf8.span)
 
                         // Wait for the client to write the same chunk to the request body
-                        try await reader.read(maximumCount: 1) { span in
-                            if span.count != 1 || span[0] != UInt8(ascii: "A") {
+                        try await reader.read { buffer in
+                            if buffer.count != 1 || buffer[buffer.startIndex] != UInt8(ascii: "A") {
                                 assertionFailure("Received unexpected span")
                             }
+                            buffer.removeAll()
                         }
                     }
                 }

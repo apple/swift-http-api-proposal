@@ -11,19 +11,20 @@
 //
 //===----------------------------------------------------------------------===//
 
+public import AsyncStreaming
+
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 extension AsyncWriter where Self: ~Copyable, Self: ~Escapable {
     /// Writes all elements from an async reader to this writer.
     ///
     /// This method consumes an async reader and writes all its elements to the underlying
-    /// writer destination. It continuously reads spans of elements from the reader and writes
-    /// them until the reader stream ends.
+    /// writer destination. It continuously reads buffers of elements from the reader and
+    /// moves them into the writer until the reader stream ends.
     ///
     /// - Parameter reader: An ``AsyncReader`` providing elements to write. The reader is
     ///   consumed by this operation.
     ///
-    /// - Throws: An `EitherError` containing either a `ReadFailure` from the reader or a nested
-    ///   `EitherError<WriteFailure, AsyncWriterWroteShortError>` from the write operation.
+    /// - Throws: An error originating from the read or write operations.
     ///
     /// ## Example
     ///
@@ -34,18 +35,23 @@ extension AsyncWriter where Self: ~Copyable, Self: ~Escapable {
     /// // Copy all data from reader to writer
     /// try await fileWriter.write(dataReader)
     /// ```
-    ///
-    /// ## Discussion
-    ///
-    /// This method provides a convenient way to pipe data from one async stream to another,
-    /// automatically handling the iteration and transfer of elements. The operation continues
-    /// until the reader signals completion by producing an empty span.
+    #if compiler(<6.3)
     @_lifetime(self: copy self)
-    public mutating func write<ReadFailure: Error>(
-        _ reader: consuming some (AsyncReader<WriteElement, ReadFailure> & ~Copyable & ~Escapable)
-    ) async throws(EitherError<ReadFailure, EitherError<WriteFailure, AsyncWriterWroteShortError>>) where WriteElement: Copyable {
-        try await reader.forEach { (span) throws(EitherError<WriteFailure, AsyncWriterWroteShortError>) -> Void in
-            try await self.write(span)
+    #endif
+    public mutating func write<Reader>(
+        _ reader: consuming Reader
+    ) async throws
+    where
+        Reader: AsyncReader & ~Copyable & ~Escapable,
+        Reader.ReadElement == WriteElement
+    {
+        try await reader.forEachBuffer { (readBuffer: inout Reader.Buffer) in
+            try await self.write { (writeBuffer: inout Self.Buffer) in
+                writeBuffer.append(
+                    moving: readBuffer.startIndex..<readBuffer.endIndex,
+                    from: &readBuffer
+                )
+            }
         }
     }
 }

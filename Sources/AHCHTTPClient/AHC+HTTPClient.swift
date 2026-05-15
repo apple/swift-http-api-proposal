@@ -12,7 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 @_spi(ExperimentalHTTPAPIsSupport) public import AsyncHTTPClient
-import BasicContainers
+public import BasicContainers
 import Foundation
 @_exported public import HTTPAPIs
 import HTTPTypes
@@ -32,46 +32,42 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
     public struct RequestBodyWriter: AsyncWriter, ~Copyable {
         public typealias WriteElement = UInt8
         public typealias WriteFailure = any Error
+        public typealias Buffer = UniqueArray<UInt8>
 
         let requestWriter: HTTPClientRequest.Body.RequestWriter
         var byteBuffer: ByteBuffer
-        var rigidArray: RigidArray<UInt8>
+        var buffer: UniqueArray<UInt8>?
 
         init(_ requestWriter: HTTPClientRequest.Body.RequestWriter) {
             self.requestWriter = requestWriter
             self.byteBuffer = ByteBuffer()
             self.byteBuffer.reserveCapacity(2 ^ 16)
-            self.rigidArray = RigidArray(capacity: 2 ^ 16)  // ~ 65k bytes
+            self.buffer = UniqueArray(minimumCapacity: 2 ^ 16)
         }
 
-        public mutating func write<Result, Failure>(
-            _ body: (inout OutputSpan<UInt8>) async throws(Failure) -> Result
-        ) async throws(AsyncStreaming.EitherError<WriteFailure, Failure>) -> Result where Failure: Error {
-            let result: Result
+        public mutating func write<Return: ~Copyable, Failure>(
+            _ body: (inout UniqueArray<UInt8>) async throws(Failure) -> Return
+        ) async throws(AsyncStreaming.EitherError<WriteFailure, Failure>) -> Return where Failure: Error {
+            let result: Return
+            // This force-unwrap is safe since there can only be one concurrent write
+            var buffer = self.buffer.take()!
             do {
-                // TODO: rigidArray needs a clear all
-                self.rigidArray.removeAll()
-                self.rigidArray.reserveCapacity(1024)
-                result = try await self.rigidArray.append(count: 1024) { (span) async throws(Failure) -> Result in
-                    try await body(&span)
-                }
-
-                if self.rigidArray.isEmpty {
-                    return result
-                }
+                result = try await body(&buffer)
             } catch {
+                buffer.removeAll()
+                self.buffer = consume buffer
                 throw .second(error)
+            }
+            if buffer.count == 0 {
+                self.buffer = consume buffer
+                return result
             }
 
             do {
                 self.byteBuffer.clear()
-
-                // we need to use an uninitilized helper rigidarray here to make the compiler happy
-                // with regards overlapping memory access.
-                var localArray = RigidArray<UInt8>(capacity: 0)
-                swap(&localArray, &self.rigidArray)
-                unsafe self.byteBuffer.writeBytes(localArray.span.bytes)
-                swap(&localArray, &self.rigidArray)
+                self.byteBuffer.writeBytes(buffer.span.bytes)
+                buffer.removeAll()
+                self.buffer = consume buffer
                 try await self.requestWriter.writeRequestBodyPart(self.byteBuffer)
             } catch {
                 throw .first(error)
@@ -113,74 +109,34 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
     public struct ResponseBodyReader: AsyncReader, ~Copyable {
         public typealias ReadElement = UInt8
         public typealias ReadFailure = any Error
+        public typealias Buffer = UniqueArray<UInt8>
 
         var underlying: HTTPClientResponse.Body.AsyncIterator
-        var out = RigidArray<UInt8>()
-        var readerIndex = 0
+        var buffer = UniqueArray<UInt8>()
 
-        public mutating func read<Return, Failure>(
-            maximumCount: Int?,
-            body: (consuming Span<UInt8>) async throws(Failure) -> Return
+        public mutating func read<Return: ~Copyable, Failure>(
+            body: (inout UniqueArray<UInt8>) async throws(Failure) -> Return
         ) async throws(AsyncStreaming.EitherError<ReadFailure, Failure>) -> Return where Failure: Error {
+            let byteBuffer: ByteBuffer?
             do {
-                // if have enough data for the read request available, hand it to the user right away
-                if let maximumCount, maximumCount <= self.out.count - self.readerIndex {
-                    defer {
-                        self.readerIndex += maximumCount
-                        self.reallocateIfNeeded()
-                    }
-                    return try await body(self.out.span.extracting(self.readerIndex..<(self.readerIndex + maximumCount)))
-                }
-
-                // we have data remaining in the local buffer. hand that to the user next.
-                if self.readerIndex < self.out.count {
-                    defer {
-                        self.readerIndex = self.out.count
-                        self.reallocateIfNeeded()
-                    }
-                    return try await body(self.out.span.extracting(self.readerIndex..<self.out.count))
-                }
-
-                // we don't have enough data
-                let buffer = try await self.underlying.next(isolation: #isolation)
-                guard let buffer else {  // eof received
-                    let array = InlineArray<0, UInt8> { _ in }
-                    return try await body(array.span)
-                }
-
-                let readLength = maximumCount != nil ? min(maximumCount!, buffer.readableBytes) : buffer.readableBytes
-                self.out.reserveCapacity(self.out.count + buffer.readableBytes)
-                let alreadyRead = self.out.count
-                unsafe buffer.withUnsafeReadableBytes { rawBufferPtr in
-                    let usbptr = unsafe rawBufferPtr.assumingMemoryBound(to: UInt8.self)
-                    unsafe self.out.append(copying: usbptr)
-                }
-                defer {
-                    self.readerIndex = alreadyRead + readLength
-                    self.reallocateIfNeeded()
-                }
-                return try await body(self.out.span.extracting(alreadyRead..<(alreadyRead + readLength)))
-            } catch let error as Failure {
-                throw .second(error)
+                byteBuffer = try await self.underlying.next(isolation: #isolation)
             } catch {
                 throw .first(error)
             }
-        }
 
-        private mutating func reallocateIfNeeded() {
-            guard self.readerIndex > 2 ^ 16 else {
-                return
-            }
-
-            let newCapacity = max(self.out.count - self.readerIndex, 2 ^ 16)
-
-            self.out = RigidArray<UInt8>(capacity: newCapacity) {
-                // this is probably super slow.
-                for i in self.readerIndex..<self.out.count {
-                    $0.append(self.out[i])
+            if let byteBuffer, byteBuffer.readableBytes > 0 {
+                buffer.reserveCapacity(byteBuffer.readableBytes)
+                unsafe byteBuffer.withUnsafeReadableBytes { rawBufferPtr in
+                    let usbptr = unsafe rawBufferPtr.assumingMemoryBound(to: UInt8.self)
+                    unsafe self.buffer.append(copying: usbptr)
                 }
             }
-            self.readerIndex = 0
+
+            do {
+                return try await body(&self.buffer)
+            } catch {
+                throw .second(error)
+            }
         }
     }
 
