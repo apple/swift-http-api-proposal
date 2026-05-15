@@ -19,7 +19,7 @@ jobs:
     with:
       linux_nightly_next_enabled: false
       linux_nightly_main_arguments_override: "--explicit-target-dependency-import-check error -Xswiftc -require-explicit-sendable"
-      windows_nightly_6_1_enabled: false
+      windows_nightly_next_enabled: false
       windows_nightly_main_enabled: false
 
   macos-tests:
