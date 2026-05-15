@@ -19,7 +19,8 @@ public import NetworkTypes
 public struct URLSessionRequestOptions:
     HTTPClientCapability.RedirectionHandler,
     HTTPClientCapability.TLSSecurityHandler,
-    HTTPClientCapability.TLSVersionSelection
+    HTTPClientCapability.TLSVersionSelection,
+    HTTPClientCapability.Timeouts
 {
     public var redirectionHandler: (any HTTPClientRedirectionHandler)? = nil
 
