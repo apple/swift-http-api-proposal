@@ -30,39 +30,42 @@ struct ProxyServer {
         try await server.serve {
             request,
             requestContext,
-            serverRequestBodyAndTrailers,
+            serverRequestReceiver,
             responseSender in
-            // We need to use a mutex here to move the requestBodyAndTrailers into the
+            // We need to use a mutex here to move the requestReceiver into the
             // @Sendable restartable body
-            let serverRequestBodyAndTrailers = Mutex(Disconnected(value: Optional(serverRequestBodyAndTrailers)))
+            let serverRequestReceiver = Mutex(Disconnected(value: Optional(serverRequestReceiver)))
             // Needed since we are lacking call-once closures
             var responseSender = Optional(responseSender)
 
             var client = client
             try await client.perform(
                 request: request,
-                body: .restartable { clientRequestBody in
-                    var clientRequestBody = clientRequestBody
-                    // This takes the request body out of the mutex. Any restarts would hit
+                body: .restartable { clientRequestSender in
+                    // This takes the request receiver out of the mutex. Any restarts would hit
                     // a force-unwrap.
-                    let serverRequestBodyAndTrailers = serverRequestBodyAndTrailers.withLock {
+                    let serverRequestReceiver = serverRequestReceiver.withLock {
                         $0.swap(newValue: nil)
                     }!
 
-                    return try await serverRequestBodyAndTrailers.consumeAndConclude { serverRequestBody in
-                        try await clientRequestBody.write(serverRequestBody)
-                    }.1
+                    try await clientRequestSender.send { clientRequestBody in
+                        var clientRequestBody = clientRequestBody
+                        let (_, trailers) = try await serverRequestReceiver.receive { serverRequestBody in
+                            try await clientRequestBody.write(serverRequestBody)
+                        }
+                        return ((), trailers)
+                    }
                 }
-            ) { response, clientResponseBodyAndTrailers in
+            ) { response, clientResponseReceiver in
                 // Needed since we are lacking call-once closures
-                var clientResponseBodyAndTrailers = Optional(clientResponseBodyAndTrailers)
+                var clientResponseReceiver = Optional(clientResponseReceiver)
 
-                let serverResponseBodyAndTrailers = try await responseSender.take()!.send(response)
-                try await serverResponseBodyAndTrailers.produceAndConclude { serverResponseBody in
+                try await responseSender.take()!.send(response) { serverResponseBody in
                     var serverResponseBody = serverResponseBody
-                    return try await clientResponseBodyAndTrailers.take()!.consumeAndConclude { clientResponseBody in
+                    let (_, trailers) = try await clientResponseReceiver.take()!.receive { clientResponseBody in
                         try await serverResponseBody.write(clientResponseBody)
                     }
+                    return ((), trailers)
                 }
             }
         }

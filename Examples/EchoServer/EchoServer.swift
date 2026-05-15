@@ -23,17 +23,15 @@ struct EchoServer {
     }
 
     static func echo<Server: HTTPServer>(server: Server) async throws {
-        try await server.serve { request, requestContext, requestBodyAndTrailers, responseSender in
-            // Needed since we are lacking call-once closures
-            var requestBodyAndTrailers = Optional(requestBodyAndTrailers)
-            let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
-
-            try await responseBodyAndTrailers.produceAndConclude { responseBody in
-                // Needed since we are lacking call-once closures
-                var responseBody = responseBody
-                return try await requestBodyAndTrailers.take()!.consumeAndConclude { reader in
-                    try await responseBody.write(reader)
+        try await server.serve { request, requestContext, requestReceiver, responseSender in
+            // Move requestReceiver into Optional so it can be taken across the closure boundary.
+            var requestReceiver = Optional(requestReceiver)
+            try await responseSender.send(.init(status: .ok)) { writer in
+                var writer = writer
+                let (_, trailers) = try await requestReceiver.take()!.receive { reader in
+                    try await writer.write(reader)
                 }
+                return ((), trailers)
             }
         }
     }

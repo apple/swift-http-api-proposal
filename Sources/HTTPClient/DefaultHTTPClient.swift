@@ -49,11 +49,25 @@ public final class DefaultHTTPClient: HTTPAPIs.HTTPClient {
             try await self.actual.write(body)
         }
 
-        var actual: ActualHTTPClient.RequestWriter
+        var actual: ActualHTTPClient.RequestSender.Writer
     }
 
-    public struct ResponseConcludingReader: ConcludingAsyncReader, ~Copyable {
-        public struct Underlying: AsyncReader, ~Copyable {
+    public struct RequestSender: HTTPRequestSender, ~Copyable {
+        public typealias Writer = RequestWriter
+
+        var actual: ActualHTTPClient.RequestSender
+
+        public consuming func send<Return>(
+            body: (consuming sending RequestWriter) async throws -> (Return, HTTPFields?)
+        ) async throws -> Return {
+            try await self.actual.send { actual in
+                try await body(RequestWriter(actual: actual))
+            }
+        }
+    }
+
+    public struct ResponseReceiver: HTTPResponseReceiver, ~Copyable {
+        public struct Reader: AsyncReader, ~Copyable {
             public typealias ReadElement = UInt8
             public typealias ReadFailure = any Error
             public typealias Buffer = UniqueArray<UInt8>
@@ -64,18 +78,18 @@ public final class DefaultHTTPClient: HTTPAPIs.HTTPClient {
                 try await self.actual.read(body: body)
             }
 
-            var actual: ActualHTTPClient.ResponseConcludingReader.Underlying
+            var actual: ActualHTTPClient.ResponseReceiver.Reader
         }
 
-        public func consumeAndConclude<Return, Failure>(
-            body: (consuming sending Underlying) async throws(Failure) -> Return
+        public consuming func receive<Return, Failure>(
+            body: (consuming sending Reader) async throws(Failure) -> Return
         ) async throws(Failure) -> (Return, HTTPFields?) where Failure: Error {
-            try await self.actual.consumeAndConclude { actual throws(Failure) in
-                try await body(Underlying(actual: actual))
+            try await self.actual.receive { actual throws(Failure) in
+                try await body(Reader(actual: actual))
             }
         }
 
-        let actual: ActualHTTPClient.ResponseConcludingReader
+        let actual: ActualHTTPClient.ResponseReceiver
     }
 
     /// A shared connection pool instance with default configuration.
@@ -135,17 +149,17 @@ public final class DefaultHTTPClient: HTTPAPIs.HTTPClient {
 
     public func perform<Return: ~Copyable>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<RequestWriter>?,
+        body: consuming HTTPClientRequestBody<RequestSender>?,
         options: HTTPRequestOptions,
-        responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return
+        responseHandler: (HTTPResponse, consuming ResponseReceiver) async throws -> Return
     ) async throws -> Return {
         // TODO: translate request options
         let options = self.client.defaultRequestOptions
         let body = body.map {
-            HTTPClientRequestBody<ActualHTTPClient.RequestWriter>(other: $0) { RequestWriter(actual: $0) }
+            HTTPClientRequestBody<ActualHTTPClient.RequestSender>(other: $0) { RequestSender(actual: $0) }
         }
         return try await self.client.perform(request: request, body: body, options: options) { response, body in
-            try await responseHandler(response, ResponseConcludingReader(actual: body))
+            try await responseHandler(response, ResponseReceiver(actual: body))
         }
     }
 }

@@ -20,17 +20,14 @@ public protocol HTTPClient<RequestOptions>: Sendable, ~Copyable, ~Escapable {
     associatedtype RequestOptions: HTTPClientCapability.RequestOptions
 
     /// The type used to write request body data and trailers.
-    // TODO: Check if we should allow ~Escapable readers https://github.com/apple/swift-http-api-proposal/issues/13
-    associatedtype RequestWriter: AsyncWriter, ~Copyable, SendableMetatype
-    where RequestWriter.WriteElement == UInt8
+    // TODO: Check if we should allow ~Escapable senders https://github.com/apple/swift-http-api-proposal/issues/13
+    associatedtype RequestSender: HTTPRequestSender, ~Copyable, SendableMetatype
+    where RequestSender.Writer: ~Copyable
 
     /// The type used to read response body data and trailers.
-    // TODO: Check if we should allow ~Escapable writers https://github.com/apple/swift-http-api-proposal/issues/13
-    associatedtype ResponseConcludingReader: ConcludingAsyncReader, ~Copyable, SendableMetatype
-    where
-        ResponseConcludingReader.Underlying: ~Copyable,
-        ResponseConcludingReader.Underlying.ReadElement == UInt8,
-        ResponseConcludingReader.FinalElement == HTTPFields?
+    // TODO: Check if we should allow ~Escapable receivers https://github.com/apple/swift-http-api-proposal/issues/13
+    associatedtype ResponseReceiver: HTTPResponseReceiver, ~Copyable, SendableMetatype
+    where ResponseReceiver.Reader: ~Copyable
 
     /// The default request options for `perform`.
     var defaultRequestOptions: RequestOptions { get }
@@ -39,7 +36,7 @@ public protocol HTTPClient<RequestOptions>: Sendable, ~Copyable, ~Escapable {
     ///
     /// This method executes the HTTP request with the specified options, then invokes
     /// the response handler when it receives the response header. The client streams
-    /// request and response bodies using its writer and reader types.
+    /// request and response bodies using its sender and receiver types.
     ///
     /// - Parameters:
     ///   - request: The HTTP request header to send.
@@ -56,8 +53,8 @@ public protocol HTTPClient<RequestOptions>: Sendable, ~Copyable, ~Escapable {
     #endif
     mutating func perform<Return: ~Copyable>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<RequestWriter>?,
+        body: consuming HTTPClientRequestBody<RequestSender>?,
         options: RequestOptions,
-        responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return
+        responseHandler: (HTTPResponse, consuming ResponseReceiver) async throws -> Return
     ) async throws -> Return
 }

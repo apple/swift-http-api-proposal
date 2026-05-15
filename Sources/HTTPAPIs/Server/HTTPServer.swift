@@ -16,22 +16,16 @@
 ///
 /// ``HTTPServer`` provides the contract for server implementations that accept
 /// incoming HTTP connections and process requests using a ``HTTPServerRequestHandler``.
-public protocol HTTPServer<RequestConcludingReader, ResponseConcludingWriter>: Sendable, ~Copyable, ~Escapable {
+public protocol HTTPServer<RequestReceiver, ResponseSender>: Sendable, ~Copyable, ~Escapable {
     /// The type used to read request body data and trailers.
-    // TODO: Check if we should allow ~Escapable readers https://github.com/apple/swift-http-api-proposal/issues/13
-    associatedtype RequestConcludingReader: ConcludingAsyncReader, ~Copyable, SendableMetatype
-    where
-        RequestConcludingReader.Underlying: ~Copyable,
-        RequestConcludingReader.Underlying.ReadElement == UInt8,
-        RequestConcludingReader.FinalElement == HTTPFields?
+    // TODO: Check if we should allow ~Escapable receivers https://github.com/apple/swift-http-api-proposal/issues/13
+    associatedtype RequestReceiver: HTTPRequestReceiver, ~Copyable, SendableMetatype
+    where RequestReceiver.Reader: ~Copyable
 
     /// The type used to write response body data and trailers.
-    // TODO: Check if we should allow ~Escapable writers https://github.com/apple/swift-http-api-proposal/issues/13
-    associatedtype ResponseConcludingWriter: ConcludingAsyncWriter, ~Copyable, SendableMetatype
-    where
-        ResponseConcludingWriter.Underlying: ~Copyable,
-        ResponseConcludingWriter.Underlying.WriteElement == UInt8,
-        ResponseConcludingWriter.FinalElement == HTTPFields?
+    // TODO: Check if we should allow ~Escapable senders https://github.com/apple/swift-http-api-proposal/issues/13
+    associatedtype ResponseSender: HTTPResponseSender, ~Copyable, SendableMetatype
+    where ResponseSender.Writer: ~Copyable
 
     /// Starts an HTTP server with the specified request handler.
     ///
@@ -42,7 +36,7 @@ public protocol HTTPServer<RequestConcludingReader, ResponseConcludingWriter>: S
     ///
     /// - Parameters:
     ///   - handler: A ``HTTPServerRequestHandler`` implementation that processes incoming HTTP requests. The handler
-    ///     receives each request along with a body reader and ``HTTPResponseSender``.
+    ///     receives each request along with a request receiver and ``HTTPResponseSender``.
     ///
     /// ## Example
     ///
@@ -52,8 +46,8 @@ public protocol HTTPServer<RequestConcludingReader, ResponseConcludingWriter>: S
     /// ```
     func serve<Handler: HTTPServerRequestHandler>(handler: Handler) async throws
     where
-        Handler.RequestReader == RequestConcludingReader,
-        Handler.RequestReader: ~Copyable,
-        Handler.ResponseWriter == ResponseConcludingWriter,
-        Handler.ResponseWriter: ~Copyable
+        Handler.RequestReceiver == RequestReceiver,
+        Handler.RequestReceiver: ~Copyable,
+        Handler.ResponseSender == ResponseSender,
+        Handler.ResponseSender: ~Copyable
 }

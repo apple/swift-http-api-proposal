@@ -18,15 +18,17 @@ public import struct Foundation.Data
 #endif
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-extension HTTPClientRequestBody where Writer: ~Copyable {
+extension HTTPClientRequestBody where Sender: ~Copyable, Sender.Writer: ~Copyable {
     /// Creates a seekable request body from `Data`.
     ///
     /// - Parameter data: The data to send as the request body.
     public static func data(_ data: Data) -> Self {
-        .seekable(knownLength: Int64(data.count)) { offset, writer in
-            var writer = writer
-            try await writer.write(data.span.extracting(droppingFirst: Int(offset)))
-            return nil
+        .seekable(knownLength: Int64(data.count)) { offset, sender in
+            try await sender.send { writer in
+                var writer = writer
+                try await writer.write(data.span.extracting(droppingFirst: Int(offset)))
+                return ((), nil)
+            }
         }
     }
 }

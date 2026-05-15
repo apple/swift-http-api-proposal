@@ -15,7 +15,7 @@
 ///
 /// ``HTTPServerRequestHandler`` provides a structured way to process incoming HTTP requests
 /// and generate appropriate responses. Conforming types implement the
-/// ``handle(request:requestContext:requestBodyAndTrailers:responseSender:)`` method, which is
+/// ``handle(request:requestContext:requestReceiver:responseSender:)`` method, which is
 /// called by the HTTP server for each incoming request. The handler is responsible for reading
 /// the request body, processing the request, and sending a response.
 ///
@@ -26,66 +26,57 @@
 ///
 /// ```swift
 /// struct EchoHandler<
-///     ConcludingRequestReader: ConcludingAsyncReader<RequestReader, HTTPFields?> & ~Copyable,
-///     RequestReader: AsyncReader<UInt8, any Error> & ~Copyable,
-///     ConcludingResponseWriter: ConcludingAsyncWriter<ResponseWriter, HTTPFields?> & ~Copyable,
-///     ResponseWriter: AsyncWriter<UInt8, any Error> & ~Copyable
-/// >: HTTPServerRequestHandler {
+///     RequestReceiver: HTTPRequestReceiver & ~Copyable,
+///     ResponseSender: HTTPResponseSender & ~Copyable
+/// >: HTTPServerRequestHandler
+/// where RequestReceiver.Reader: ~Copyable, ResponseSender.Writer: ~Copyable {
 ///     func handle(
 ///         request: HTTPRequest,
 ///         requestContext: HTTPRequestContext,
-///         requestBodyAndTrailers: consuming sending ConcludingRequestReader,
-///         responseSender: consuming sending HTTPResponseSender<ConcludingResponseWriter>
+///         requestReceiver: consuming sending RequestReceiver,
+///         responseSender: consuming sending ResponseSender
 ///     ) async throws {
-///         var responseSender: HTTPResponseSender<ConcludingResponseWriter>? = responseSender
-///         _ = try await requestBodyAndTrailers.consumeAndConclude { reader in
-///             var reader: RequestReader? = reader
-///             let responseBodyAndTrailers = try await responseSender.take()!.send(
-///                 .init(status: .ok)
-///             )
-///             try await responseBodyAndTrailers.produceAndConclude { writer in
-///                 var writer = writer
-///                 try await reader.take()!.forEach { span in
-///                     try await writer.write(span)
-///                 }
-///                 return ((), nil)
+///         try await responseSender.send(.init(status: .ok)) { writer in
+///             var writer = writer
+///             let (_, trailers) = try await requestReceiver.receive { reader in
+///                 try await writer.write(reader)
 ///             }
+///             return ((), trailers)
 ///         }
 ///     }
 /// }
 /// ```
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-public protocol HTTPServerRequestHandler<RequestReader, ResponseWriter>: Sendable {
+public protocol HTTPServerRequestHandler<RequestReceiver, ResponseSender>: Sendable {
     /// The type used to read request body data and trailers.
-    associatedtype RequestReader: ConcludingAsyncReader, ~Copyable
-    where RequestReader.Underlying: ~Copyable, RequestReader.Underlying.ReadElement == UInt8, RequestReader.FinalElement == HTTPFields?
+    associatedtype RequestReceiver: HTTPRequestReceiver, ~Copyable
+    where RequestReceiver.Reader: ~Copyable
 
     /// The type used to write response body data and trailers.
-    associatedtype ResponseWriter: ConcludingAsyncWriter, ~Copyable
-    where ResponseWriter.Underlying: ~Copyable, ResponseWriter.Underlying.WriteElement == UInt8, ResponseWriter.FinalElement == HTTPFields?
+    associatedtype ResponseSender: HTTPResponseSender, ~Copyable
+    where ResponseSender.Writer: ~Copyable
 
     /// Handles an incoming HTTP request and generates a response.
     ///
     /// The HTTP server calls this method for each incoming client request. Implementations should:
     /// 1. Examine the request headers in the `request` parameter.
-    /// 2. Read the request body data from the `requestBodyAndTrailers` reader as needed.
+    /// 2. Read the request body data from `requestReceiver` as needed.
     /// 3. Process the request and prepare a response.
     /// 4. Optionally call ``HTTPResponseSender/sendInformational(_:)`` for informational responses.
-    /// 5. Call ``HTTPResponseSender/send(_:)`` with the final HTTP response.
-    /// 6. Write the response body data to the returned writer.
+    /// 5. Call ``HTTPResponseSender/send(_:body:)`` (or one of its convenience overloads) to
+    ///    send the response head, body, and trailing fields.
     ///
     /// - Parameters:
     ///   - request: The HTTP request headers and metadata.
     ///   - requestContext: A ``HTTPRequestContext`` carrying additional request information.
-    ///   - requestBodyAndTrailers: A reader for accessing the request body data and trailing headers.
-    ///   - responseSender: An ``HTTPResponseSender`` that accepts an HTTP response and returns a writer for the
-    ///     response body. The returned writer allows for incremental writing of the response body and supports trailers.
+    ///   - requestReceiver: A receiver for accessing the request body data and trailing fields.
+    ///   - responseSender: An ``HTTPResponseSender`` for sending the response head, body, and trailing fields.
     ///
     /// - Throws: Any error encountered during request processing or response generation.
     func handle(
         request: HTTPRequest,
         requestContext: HTTPRequestContext,
-        requestBodyAndTrailers: consuming sending RequestReader,
-        responseSender: consuming sending HTTPResponseSender<ResponseWriter>
+        requestReceiver: consuming sending RequestReceiver,
+        responseSender: consuming sending ResponseSender
     ) async throws
 }

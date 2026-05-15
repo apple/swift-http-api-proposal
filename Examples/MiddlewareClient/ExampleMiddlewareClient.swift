@@ -17,8 +17,8 @@ import Middleware
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 struct ExampleMiddlewareClient<Client: HTTPClient & ~Copyable, ClientMiddleware: Middleware<HTTPRequest, HTTPRequest>>: HTTPClient, ~Copyable {
     typealias RequestOptions = Client.RequestOptions
-    typealias RequestWriter = Client.RequestWriter
-    typealias ResponseConcludingReader = Client.ResponseConcludingReader
+    typealias RequestSender = Client.RequestSender
+    typealias ResponseReceiver = Client.ResponseReceiver
 
     var defaultRequestOptions: Client.RequestOptions {
         self.client.defaultRequestOptions
@@ -38,9 +38,9 @@ struct ExampleMiddlewareClient<Client: HTTPClient & ~Copyable, ClientMiddleware:
 
     mutating func perform<Return: ~Copyable>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<RequestWriter>?,
+        body: consuming HTTPClientRequestBody<RequestSender>?,
         options: RequestOptions,
-        responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return
+        responseHandler: (HTTPResponse, consuming ResponseReceiver) async throws -> Return
     ) async throws -> Return {
         var body = Optional(body)
         return try await self.middleware.intercept(

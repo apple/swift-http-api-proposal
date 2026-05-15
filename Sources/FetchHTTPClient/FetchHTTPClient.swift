@@ -22,6 +22,7 @@ import JavaScriptKit
 // between FetchHTTPClient and RequestBodyWriter.
 class RequestBodyBuffer {
     var array = UniqueArray<UInt8>()
+    var trailers: HTTPFields? = nil
 }
 
 enum FetchError: Error {
@@ -38,8 +39,8 @@ enum FetchError: Error {
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, *)
 public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
-    public typealias RequestWriter = RequestBodyWriter
-    public typealias ResponseConcludingReader = ResponseReader
+    public typealias RequestSender = RequestBodySender
+    public typealias ResponseReceiver = ResponseBodyReceiver
 
     public struct RequestOptions: HTTPClientCapability.RequestOptions, Sendable {
         public init() {}
@@ -51,9 +52,9 @@ public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
 
     public func perform<Return>(
         request: HTTPTypes.HTTPRequest,
-        body: consuming HTTPAPIs.HTTPClientRequestBody<RequestBodyWriter>?,
+        body: consuming HTTPAPIs.HTTPClientRequestBody<RequestBodySender>?,
         options: RequestOptions,
-        responseHandler: nonisolated(nonsending) (HTTPTypes.HTTPResponse, consuming ResponseReader) async throws -> Return
+        responseHandler: nonisolated(nonsending) (HTTPTypes.HTTPResponse, consuming ResponseBodyReceiver) async throws -> Return
     ) async throws -> Return where Return: ~Copyable {
         guard let url = request.url else {
             throw FetchError.BadURL
@@ -63,14 +64,11 @@ public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
 
         if let body = body {
             let buffer = RequestBodyBuffer()
-
-            let writer = RequestBodyWriter(buffer: buffer)
-            let trailers = try await body.produce(into: writer)
-
-            if let trailers {
+            let sender = RequestBodySender(buffer: buffer)
+            try await body.produce(into: sender)
+            if buffer.trailers != nil {
                 throw FetchError.TrailersUnsupported
             }
-
             jsBody = buffer.array.span.withUnsafeBufferPointer { bufferPtr in
                 JSTypedArray<UInt8>(buffer: bufferPtr).jsObject
             }
@@ -120,7 +118,7 @@ public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
 
         return try await responseHandler(
             HTTPResponse(status: .init(code: responseStatus, reasonPhrase: responseStatusText), headerFields: responseHeaders),
-            ResponseReader(reader: reader)
+            ResponseBodyReceiver(reader: reader)
         )
     }
 
@@ -144,10 +142,27 @@ public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
         }
     }
 
-    public struct ResponseReader: ConcludingAsyncReader, ~Copyable {
+    public struct RequestBodySender: HTTPRequestSender, ~Copyable {
+        public typealias Writer = RequestBodyWriter
+
+        let buffer: RequestBodyBuffer
+
+        public consuming func send<Return>(
+            body: nonisolated(nonsending) (consuming sending RequestBodyWriter) async throws -> (Return, HTTPFields?)
+        ) async throws -> Return {
+            let writer = RequestBodyWriter(buffer: self.buffer)
+            let (result, trailers) = try await body(writer)
+            self.buffer.trailers = trailers
+            return result
+        }
+    }
+
+    public struct ResponseBodyReceiver: HTTPResponseReceiver, ~Copyable {
+        public typealias Reader = ResponseBodyReader
+
         let reader: ReadableStreamDefaultReader
 
-        public consuming func consumeAndConclude<Return, Failure>(
+        public consuming func receive<Return, Failure>(
             body: nonisolated(nonsending) (consuming sending FetchHTTPClient.ResponseBodyReader) async throws(Failure) -> Return
         ) async throws(Failure) -> (Return, HTTPTypes.HTTPFields?) where Failure: Error {
             return (try await body(ResponseBodyReader(reader: reader)), nil)

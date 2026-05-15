@@ -39,10 +39,10 @@ extension HTTP {
     @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
     public static func perform<Return: ~Copyable>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<DefaultHTTPClient.RequestWriter>? = nil,
+        body: consuming HTTPClientRequestBody<DefaultHTTPClient.RequestSender>? = nil,
         options: HTTPRequestOptions = .init(),
         on client: DefaultHTTPClient = .shared,
-        responseHandler: (HTTPResponse, consuming DefaultHTTPClient.ResponseConcludingReader) async throws -> Return,
+        responseHandler: (HTTPResponse, consuming DefaultHTTPClient.ResponseReceiver) async throws -> Return,
     ) async throws -> Return {
         try await client.perform(request: request, body: body, options: options, responseHandler: responseHandler)
     }

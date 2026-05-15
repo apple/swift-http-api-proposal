@@ -22,8 +22,8 @@ import Synchronization
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, *)
 extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
-    public typealias RequestWriter = RequestBodyWriter
-    public typealias ResponseConcludingReader = ResponseReader
+    public typealias RequestSender = RequestBodySender
+    public typealias ResponseReceiver = ResponseBodyReceiver
 
     public struct RequestOptions: HTTPClientCapability.RequestOptions {
 
@@ -77,18 +77,41 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
         }
     }
 
-    public struct ResponseReader: ConcludingAsyncReader {
-        public typealias Underlying = ResponseBodyReader
+    public struct RequestBodySender: HTTPRequestSender, ~Copyable {
+        public typealias Writer = RequestBodyWriter
+
+        let ahcWriter: HTTPClientRequest.Body.RequestWriter
+
+        init(_ ahcWriter: HTTPClientRequest.Body.RequestWriter) {
+            self.ahcWriter = ahcWriter
+        }
+
+        public consuming func send<Return>(
+            body: (consuming sending RequestBodyWriter) async throws -> (Return, HTTPFields?)
+        ) async throws -> Return {
+            let writer = RequestBodyWriter(self.ahcWriter)
+            let (result, maybeTrailers) = try await body(writer)
+            let trailers: HTTPHeaders? =
+                if let trailers = maybeTrailers {
+                    HTTPHeaders(.init(trailers.lazy.map({ ($0.name.rawName, $0.value) })))
+                } else {
+                    nil
+                }
+            self.ahcWriter.requestBodyStreamFinished(trailers: trailers)
+            return result
+        }
+    }
+
+    public struct ResponseBodyReceiver: HTTPResponseReceiver {
+        public typealias Reader = ResponseBodyReader
 
         let underlying: HTTPClientResponse.Body
-
-        public typealias FinalElement = HTTPFields?
 
         init(underlying: HTTPClientResponse.Body) {
             self.underlying = underlying
         }
 
-        public consuming func consumeAndConclude<Return, Failure>(
+        public consuming func receive<Return, Failure>(
             body: (consuming sending ResponseBodyReader) async throws(Failure) -> Return
         ) async throws(Failure) -> (Return, HTTPFields?) where Failure: Error {
             let iterator = self.underlying.makeAsyncIterator()
@@ -146,9 +169,9 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
 
     public func perform<Return: ~Copyable>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<RequestBodyWriter>?,
+        body: consuming HTTPClientRequestBody<RequestBodySender>?,
         options: RequestOptions,
-        responseHandler: (HTTPResponse, consuming ResponseReader) async throws -> Return
+        responseHandler: (HTTPResponse, consuming ResponseBodyReceiver) async throws -> Return
     ) async throws -> Return {
         guard let url = request.url else {
             fatalError()
@@ -172,15 +195,9 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
 
                     for await ahcWriter in asyncStream {
                         do {
-                            let writer = RequestWriter(ahcWriter)
-                            let maybeTrailers = try await body.produce(into: writer)
-                            let trailers: HTTPHeaders? =
-                                if let trailers = maybeTrailers {
-                                    HTTPHeaders(.init(trailers.lazy.map({ ($0.name.rawName, $0.value) })))
-                                } else {
-                                    nil
-                                }
-                            ahcWriter.requestBodyStreamFinished(trailers: trailers)
+                            let sender = RequestBodySender(ahcWriter)
+                            try await body.produce(into: sender)
+                            // sender.send already calls requestBodyStreamFinished
                             break  // the loop
                         } catch let error {
                             // if we fail because the user throws in upload, we have to cancel the
