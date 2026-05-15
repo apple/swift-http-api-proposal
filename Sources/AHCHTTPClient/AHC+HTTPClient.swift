@@ -65,7 +65,7 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
 
             do {
                 self.byteBuffer.clear()
-                unsafe self.byteBuffer.writeBytes(buffer.span.bytes)
+                self.byteBuffer.writeBytes(buffer.span.bytes)
                 buffer.removeAll()
                 self.buffer = consume buffer
                 try await self.requestWriter.writeRequestBodyPart(self.byteBuffer)
