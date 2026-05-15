@@ -18,7 +18,7 @@ import HTTPTypesFoundation
 import Synchronization
 
 @available(anyAppleOS 26.0, *)
-final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDelegate {
+final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionTaskDelegate {
     private enum Callback: Sendable {
         case response(URLResponse)
         case redirection(
@@ -66,10 +66,10 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
             // The client is waiting on URLSession. The client is expecting response body data,
             // but URLSession has not received any that it can send out to the client. When
             // URLSession does receive an update, the provided continuation must be fired.
-            case awaitingData(CheckedContinuation<(Bool, Data?), any Error>)
+            case awaitingData(CheckedContinuation<(Bool, DispatchData?), any Error>)
             // URLSession is waiting for the client. URLSession has updated the response body
             // with more data/completion/error but the client has not consumed/processed this.
-            case awaitingConsumption(Data, complete: Bool, error: (any Error)?, suspendedTask: URLSessionTask?)
+            case awaitingConsumption(DispatchData, complete: Bool, error: (any Error)?, suspendedTask: URLSessionTask?)
         }
         var state: State = .awaitingResponse
         var completionContinuation: CheckedContinuation<Void, Never>? = nil
@@ -82,6 +82,8 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
         self.state.withLock { $0.responseTrailerFields }
     }
 
+    // Manually specifying the selector without conforming to `URLSessionDataDelegate` to avoid Data bridging
+    @objc(URLSession:dataTask:didReceiveResponse:completionHandler:)
     func urlSession(
         _ session: URLSession,
         dataTask: URLSessionDataTask,
@@ -92,7 +94,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
             defer {
                 switch state.state {
                 case .awaitingResponse:
-                    state.state = .awaitingConsumption(Data(), complete: false, error: nil, suspendedTask: nil)
+                    state.state = .awaitingConsumption(.empty, complete: false, error: nil, suspendedTask: nil)
                 case .awaitingData, .awaitingConsumption:
                     break
                 }
@@ -108,7 +110,11 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
         completionHandler(.allow)
     }
 
-    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: Data) {
+    // Manually specifying the selector without conforming to `URLSessionDataDelegate` to avoid Data bridging
+    @objc(URLSession:dataTask:didReceiveData:)
+    func urlSession(_ session: URLSession, dataTask: URLSessionDataTask, didReceive data: NSData) {
+        // URLSession usually vends dispatch_data_t as NSData
+        let data = DispatchData(data)
         let oldState = self.state.withLock { state in
             defer {
                 switch state.state {
@@ -116,15 +122,15 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                     state.state = .awaitingConsumption(data, complete: false, error: nil, suspendedTask: nil)
                 case .awaitingResponse:
                     // We don't support data before response
-                    state.state = .awaitingConsumption(Data(), complete: true, error: nil, suspendedTask: nil)
-                case .awaitingConsumption(let existingData, let complete, let error, var suspendedTask):
-                    let newData = existingData + data
-                    if newData.count > Self.highWatermark && suspendedTask == nil {
+                    state.state = .awaitingConsumption(.empty, complete: true, error: nil, suspendedTask: nil)
+                case .awaitingConsumption(var existingData, let complete, let error, var suspendedTask):
+                    existingData.append(data)
+                    if existingData.count > Self.highWatermark && suspendedTask == nil {
                         dataTask.suspend()
                         suspendedTask = dataTask
                     }
                     state.state = .awaitingConsumption(
-                        newData,
+                        existingData,
                         complete: complete,
                         error: error,
                         suspendedTask: suspendedTask
@@ -150,9 +156,9 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
             defer {
                 switch state.state {
                 case .awaitingData:
-                    state.state = .awaitingConsumption(Data(), complete: true, error: error, suspendedTask: nil)
+                    state.state = .awaitingConsumption(.empty, complete: true, error: error, suspendedTask: nil)
                 case .awaitingResponse:
-                    state.state = .awaitingConsumption(Data(), complete: true, error: nil, suspendedTask: nil)
+                    state.state = .awaitingConsumption(.empty, complete: true, error: nil, suspendedTask: nil)
                 case .awaitingConsumption(let existingData, _, _, _):
                     state.state = .awaitingConsumption(existingData, complete: true, error: error, suspendedTask: nil)
                 }
@@ -181,35 +187,26 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
         self.continuation.finish()
     }
 
-    func data(maximumCount: Int?) async throws -> Data? {
+    func data() async throws -> DispatchData? {
         try await withTaskCancellationHandler {
             // Keep waiting on continuations until:
             // a) data is returned
             // b) no more data can be returned (complete)
             // c) an error occurred
             while true {
-                let (shouldReturn, result): (Bool, Data?) = try await withCheckedThrowingContinuation { continuation in
+                let (shouldReturn, result): (Bool, DispatchData?) = try await withCheckedThrowingContinuation { continuation in
                     self.state.withLock { state in
                         switch state.state {
                         case .awaitingConsumption(let existingData, let complete, let error, let suspendedTask):
                             if !existingData.isEmpty {
-                                let (dataToReturn, remainingData) =
-                                    if let maximumCount, existingData.count > maximumCount {
-                                        (existingData.prefix(maximumCount), existingData.dropFirst(maximumCount))
-                                    } else {
-                                        (existingData, Data())
-                                    }
-                                let shouldResume = remainingData.count <= Self.highWatermark
                                 state.state = .awaitingConsumption(
-                                    remainingData,
+                                    .empty,
                                     complete: complete,
                                     error: existingData.isEmpty ? nil : error,
-                                    suspendedTask: shouldResume ? nil : suspendedTask
+                                    suspendedTask: nil
                                 )
-                                if shouldResume {
-                                    suspendedTask?.resume()
-                                }
-                                continuation.resume(returning: (true, dataToReturn))
+                                suspendedTask?.resume()
+                                continuation.resume(returning: (true, existingData))
                             } else if let error, complete {
                                 continuation.resume(throwing: error)
                             } else if complete {
@@ -459,6 +456,21 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                     state.completionContinuation = continuation
                 }
             }
+        }
+    }
+}
+
+extension DispatchData {
+    init(_ data: NSData) {
+        // If the NSData is already dispatch_data_t
+        if let dispatchData = data as AnyObject as? __DispatchData {
+            self = dispatchData as DispatchData
+        } else {
+            // This doesn't actually make a copy if the data is immutable
+            nonisolated(unsafe) let data = data.copy() as! NSData
+            self = unsafe DispatchData(bytesNoCopy: UnsafeRawBufferPointer(start: data.bytes, count: data.count), deallocator: .custom(nil) {
+                unsafe withExtendedLifetime(data) {}
+            })
         }
     }
 }
