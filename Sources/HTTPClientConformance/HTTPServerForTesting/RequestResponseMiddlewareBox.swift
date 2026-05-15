@@ -19,47 +19,42 @@ public import HTTPTypes
 /// It is necessary to box them together so that they can be used with `Middlewares`, as this will be the `Middleware.Input`.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public struct RequestResponseMiddlewareBox<
-    RequestReader: ConcludingAsyncReader & ~Copyable,
-    ResponseWriter: ConcludingAsyncWriter & ~Copyable
->: ~Copyable {
+    Reader: HTTPBodyReader & ~Copyable,
+    ResponseSender: HTTPResponseSender & ~Copyable
+>: ~Copyable
+where ResponseSender.Writer: ~Copyable {
     private let request: HTTPRequest
     private let requestContext: HTTPRequestContext
-    private let requestReader: RequestReader
-    private let responseSender: HTTPResponseSender<ResponseWriter>
+    private let reader: Reader
+    private let responseSender: ResponseSender
 
     /// Create a new ``RequestResponseMiddlewareBox``.
-    /// - Parameters:
-    ///   - request: The `HTTPRequest`.
-    ///   - requestReader: The `RequestReader`.
-    ///   - responseSender: The ``HTTPResponseSender``.
     public init(
         request: HTTPRequest,
         requestContext: HTTPRequestContext,
-        requestReader: consuming RequestReader,
-        responseSender: consuming HTTPResponseSender<ResponseWriter>
+        reader: consuming Reader,
+        responseSender: consuming ResponseSender
     ) {
         self.request = request
         self.requestContext = requestContext
-        self.requestReader = requestReader
+        self.reader = reader
         self.responseSender = responseSender
     }
 
-    /// Provides a closure exposing the request, request reader and response sender contained in this box.
-    /// - Parameter handler: The handler for this box's contents.
-    /// - Returns: The value returned from `handler`.
+    /// Provides a closure exposing the request, reader, and response sender contained in this box.
     public consuming func withContents<T>(
         _ handler:
             nonisolated(nonsending) (
                 HTTPRequest,
                 HTTPRequestContext,
-                consuming RequestReader,
-                consuming HTTPResponseSender<ResponseWriter>
+                consuming Reader,
+                consuming ResponseSender
             ) async throws -> T
     ) async throws -> T {
         try await handler(
             self.request,
             self.requestContext,
-            self.requestReader,
+            self.reader,
             self.responseSender
         )
     }

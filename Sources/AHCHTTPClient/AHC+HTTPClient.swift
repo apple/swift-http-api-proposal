@@ -22,16 +22,17 @@ import Synchronization
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, *)
 extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
-    public typealias RequestWriter = RequestBodyWriter
-    public typealias ResponseConcludingReader = ResponseReader
+    public typealias Writer = RequestBodyWriter
+    public typealias Reader = ResponseBodyReader
 
     public struct RequestOptions: HTTPClientCapability.RequestOptions {
 
     }
 
-    public struct RequestBodyWriter: AsyncWriter, ~Copyable {
+    public struct RequestBodyWriter: HTTPBodyWriter, ~Copyable {
         public typealias WriteElement = UInt8
         public typealias WriteFailure = any Error
+        // TODO: This should become InputSpan most likely once spans conform to the container protocols
         public typealias Buffer = UniqueArray<UInt8>
 
         let requestWriter: HTTPClientRequest.Body.RequestWriter
@@ -41,8 +42,8 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
         init(_ requestWriter: HTTPClientRequest.Body.RequestWriter) {
             self.requestWriter = requestWriter
             self.byteBuffer = ByteBuffer()
-            self.byteBuffer.reserveCapacity(2 ^ 16)
-            self.buffer = UniqueArray(minimumCapacity: 2 ^ 16)
+            self.byteBuffer.reserveCapacity(2 << 16)
+            self.buffer = UniqueArray(minimumCapacity: 2 << 16)
         }
 
         public mutating func write<Return: ~Copyable, Failure>(
@@ -65,7 +66,7 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
 
             do {
                 self.byteBuffer.clear()
-                self.byteBuffer.writeBytes(buffer.span.bytes)
+                unsafe self.byteBuffer.writeBytes(buffer.span.bytes)
                 buffer.removeAll()
                 self.buffer = consume buffer
                 try await self.requestWriter.writeRequestBodyPart(self.byteBuffer)
@@ -75,65 +76,87 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
 
             return result
         }
-    }
 
-    public struct ResponseReader: ConcludingAsyncReader {
-        public typealias Underlying = ResponseBodyReader
-
-        let underlying: HTTPClientResponse.Body
-
-        public typealias FinalElement = HTTPFields?
-
-        init(underlying: HTTPClientResponse.Body) {
-            self.underlying = underlying
-        }
-
-        public consuming func consumeAndConclude<Return, Failure>(
-            body: (consuming sending ResponseBodyReader) async throws(Failure) -> Return
-        ) async throws(Failure) -> (Return, HTTPFields?) where Failure: Error {
-            let iterator = self.underlying.makeAsyncIterator()
-            let reader = ResponseBodyReader(underlying: iterator)
-            let returnValue = try await body(reader)
-
-            let t = self.underlying.trailers?.compactMap {
-                if let name = HTTPField.Name($0.name) {
-                    HTTPField(name: name, value: $0.value)
+        public consuming func finish<Failure: Error>(
+            body: (inout UniqueArray<UInt8>) async throws(Failure) -> HTTPFields?
+        ) async throws(AsyncStreaming.EitherError<any Error, Failure>) {
+            var buffer = self.buffer.take()!
+            let trailers: HTTPFields?
+            do {
+                trailers = try await body(&buffer)
+            } catch {
+                throw .second(error)
+            }
+            if buffer.count > 0 {
+                do {
+                    self.byteBuffer.clear()
+                    unsafe self.byteBuffer.writeBytes(buffer.span.bytes)
+                    try await self.requestWriter.writeRequestBodyPart(self.byteBuffer)
+                } catch {
+                    throw .first(error)
+                }
+            }
+            let ahcTrailers: HTTPHeaders? =
+                if let trailers {
+                    HTTPHeaders(.init(trailers.lazy.map({ ($0.name.rawName, $0.value) })))
                 } else {
                     nil
                 }
-            }
-            return (returnValue, t.flatMap({ HTTPFields($0) }))
+            self.requestWriter.requestBodyStreamFinished(trailers: ahcTrailers)
         }
     }
 
-    public struct ResponseBodyReader: AsyncReader, ~Copyable {
+    public struct ResponseBodyReader: HTTPBodyReader, ~Copyable {
         public typealias ReadElement = UInt8
         public typealias ReadFailure = any Error
         public typealias Buffer = UniqueArray<UInt8>
 
         var underlying: HTTPClientResponse.Body.AsyncIterator
+        var body: HTTPClientResponse.Body
         var buffer = UniqueArray<UInt8>()
+        var trailersDelivered: Bool = false
+
+        init(body: HTTPClientResponse.Body) {
+            self.body = body
+            self.underlying = body.makeAsyncIterator()
+        }
 
         public mutating func read<Return: ~Copyable, Failure>(
-            body: (inout UniqueArray<UInt8>) async throws(Failure) -> Return
+            body: (inout UniqueArray<UInt8>, HTTPFields?) async throws(Failure) -> Return
         ) async throws(AsyncStreaming.EitherError<ReadFailure, Failure>) -> Return where Failure: Error {
-            let byteBuffer: ByteBuffer?
-            do {
-                byteBuffer = try await self.underlying.next(isolation: #isolation)
-            } catch {
-                throw .first(error)
-            }
+            var trailers: HTTPFields? = nil
 
-            if let byteBuffer, byteBuffer.readableBytes > 0 {
-                buffer.reserveCapacity(byteBuffer.readableBytes)
-                unsafe byteBuffer.withUnsafeReadableBytes { rawBufferPtr in
-                    let usbptr = unsafe rawBufferPtr.assumingMemoryBound(to: UInt8.self)
-                    unsafe self.buffer.append(copying: usbptr)
+            if !self.trailersDelivered {
+                let byteBuffer: ByteBuffer?
+                do {
+                    byteBuffer = try await self.underlying.next(isolation: #isolation)
+                } catch {
+                    throw .first(error)
+                }
+
+                if let byteBuffer, byteBuffer.readableBytes > 0 {
+                    self.buffer.reserveCapacity(byteBuffer.readableBytes)
+                    unsafe byteBuffer.withUnsafeReadableBytes { rawBufferPtr in
+                        let usbptr = unsafe rawBufferPtr.assumingMemoryBound(to: UInt8.self)
+                        unsafe self.buffer.append(copying: usbptr)
+                    }
+                }
+
+                if byteBuffer == nil {
+                    self.trailersDelivered = true
+                    let collected = self.body.trailers?.compactMap {
+                        if let name = HTTPField.Name($0.name) {
+                            HTTPField(name: name, value: $0.value)
+                        } else {
+                            nil
+                        }
+                    }
+                    trailers = collected.flatMap { HTTPFields($0) } ?? HTTPFields()
                 }
             }
 
             do {
-                return try await body(&self.buffer)
+                return try await body(&self.buffer, trailers)
             } catch {
                 throw .second(error)
             }
@@ -148,7 +171,7 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<RequestBodyWriter>?,
         options: RequestOptions,
-        responseHandler: (HTTPResponse, consuming ResponseReader) async throws -> Return
+        responseHandler: (HTTPResponse, consuming ResponseBodyReader) async throws -> Return
     ) async throws -> Return {
         guard let url = request.url else {
             fatalError()
@@ -172,15 +195,9 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
 
                     for await ahcWriter in asyncStream {
                         do {
-                            let writer = RequestWriter(ahcWriter)
-                            let maybeTrailers = try await body.produce(into: writer)
-                            let trailers: HTTPHeaders? =
-                                if let trailers = maybeTrailers {
-                                    HTTPHeaders(.init(trailers.lazy.map({ ($0.name.rawName, $0.value) })))
-                                } else {
-                                    nil
-                                }
-                            ahcWriter.requestBodyStreamFinished(trailers: trailers)
+                            let writer = RequestBodyWriter(ahcWriter)
+                            try await body.produce(into: writer)
+                            // writer.finish already calls requestBodyStreamFinished
                             break  // the loop
                         } catch let error {
                             // if we fail because the user throws in upload, we have to cancel the
@@ -209,7 +226,7 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
                     headerFields: responseFields
                 )
 
-                result = .success(try await responseHandler(response, .init(underlying: ahcResponse.body)))
+                result = .success(try await responseHandler(response, ResponseBodyReader(body: ahcResponse.body)))
             } catch {
                 result = .failure(error)
             }

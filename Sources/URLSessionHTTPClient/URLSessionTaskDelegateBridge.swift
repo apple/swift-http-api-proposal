@@ -260,8 +260,8 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                 let bridge = URLSessionRequestStreamBridge(task: task)
                 completionHandler(bridge.inputStream)
                 do {
-                    let trailerFields = try await requestBody.produce(into: URLSessionHTTPClient.RequestWriter(actual: bridge))
-                    bridge.close(trailerFields: trailerFields)
+                    try await requestBody.produce(into: URLSessionHTTPClient.RequestWriter(actual: bridge))
+                    // bridge is closed by writer.finish
                 } catch {
                     if bridge.writeFailed {
                         // Ignore error
@@ -291,8 +291,8 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
                 let bridge = URLSessionRequestStreamBridge(task: task)
                 completionHandler(bridge.inputStream)
                 do {
-                    let trailerFields = try await requestBody.produce(offset: offset, into: URLSessionHTTPClient.RequestWriter(actual: bridge))
-                    bridge.close(trailerFields: trailerFields)
+                    try await requestBody.produce(offset: offset, into: URLSessionHTTPClient.RequestWriter(actual: bridge))
+                    // bridge is closed by writer.finish
                 } catch {
                     if bridge.writeFailed {
                         // Ignore error

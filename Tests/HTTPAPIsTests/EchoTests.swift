@@ -19,18 +19,9 @@ import Testing
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 extension TestClientAndServer {
     func echo() async throws {
-        try await self.serve { request, requestContext, requestBodyAndTrailers, responseSender in
-            // Needed since we are lacking call-once closures
-            var requestBodyAndTrailers = Optional(requestBodyAndTrailers)
-            let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
-
-            try await responseBodyAndTrailers.produceAndConclude { responseBody in
-                // Needed since we are lacking call-once closures
-                var responseBody = responseBody
-                return try await requestBodyAndTrailers.take()!.consumeAndConclude { reader in
-                    try await responseBody.write(reader)
-                }
-            }
+        try await self.serve { request, requestContext, reader, responseSender in
+            let writer = try await responseSender.send(.init(status: .ok))
+            try await reader.pipe(into: writer)
         }
     }
 }
@@ -55,19 +46,19 @@ struct HTTPClientAndServerTests {
             var client = clientAndServer
             try await client.perform(
                 request: request,
-                body: .restartable { (requestBody: consuming TestClientAndServer.RequestWriter) async throws -> HTTPFields? in
-                    try await requestBody.write("Hello".utf8.span)
-                    return HTTPFields([.init(name: .date, value: "test")])
+                body: .restartable { writer in
+                    var body = UniqueArray<UInt8>.init(copying: "Hello".utf8)
+                    try await writer.finish(
+                        copying: &body,
+                        trailers: HTTPFields([.init(name: .date, value: "test")])
+                    )
                 }
-            ) { response, responseBodyAndTrailers in
+            ) { (response: HTTPResponse, reader: consuming TestClientAndServer.AsyncChannelBodyReader) in
                 #expect(response.status == .ok)
-                let (response, trailers) = try await responseBodyAndTrailers.consumeAndConclude { responseBody in
-                    var responseBody = responseBody
-                    return try await responseBody.collect(upTo: 100) { span in
-                        String(copying: try UTF8Span(validating: span.span))
-                    }
-                }
-                #expect(response == "Hello")
+                var responseBody = UniqueArray<UInt8>(minimumCapacity: 100)
+                let trailers = try await reader.collect(into: &responseBody)
+                let isEqual = responseBody == UniqueArray(copying: "Hello".utf8)
+                #expect(isEqual)
                 #expect(trailers == HTTPFields([.init(name: .date, value: "test")]))
             }
 

@@ -42,15 +42,13 @@ guard let method = HTTPRequest.Method(methodString) else {
 }
 
 // Optionally accept a body
-var body: HTTPClientRequestBody<FetchHTTPClient.RequestBodyWriter>? = nil
+var body: HTTPClientRequestBody<FetchHTTPClient.RequestBodySender>? = nil
 if method == .post || method == .put {
     let bodyString = try prompt("Body:", "Hello World!")
-    body = .restartable { writer in
-        var writer = writer
+    body = .restartable { sender in
         let span = bodyString.utf8Span.span
         status.set("⏳ Writing \(span.count) bytes")
-        try await writer.write(span)
-        return nil
+        try await sender.send(body: span)
     }
 }
 
@@ -84,23 +82,20 @@ do {
         status.set("⏳ Reading response body")
 
         // Read the body as it is streamed in
-        let (bytes, _) = try await reader.consumeAndConclude { reader in
-            var bytes = [UInt8]()
+        var reader = try await reader.receive()
+        var bytes = [UInt8]()
 
-            if let contentLength = contentLength {
-                bytes.reserveCapacity(contentLength)
+        if let contentLength = contentLength {
+            bytes.reserveCapacity(contentLength)
+        }
+
+        status.set("⏳ Read \(bytes.count) bytes")
+        try await reader.forEachBuffer { buffer in
+            var consumer = buffer.consumeAll()
+            while let b = consumer.next() {
+                bytes.append(b)
             }
-
-            var reader = reader
             status.set("⏳ Read \(bytes.count) bytes")
-            try await reader.forEachBuffer { buffer in
-                var consumer = buffer.consumeAll()
-                while let b = consumer.next() {
-                    bytes.append(b)
-                }
-                status.set("⏳ Read \(bytes.count) bytes")
-            }
-            return bytes
         }
         status.set("✅ Read \(bytes.count) bytes")
 

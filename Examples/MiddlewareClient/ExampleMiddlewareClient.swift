@@ -11,14 +11,26 @@
 //
 //===----------------------------------------------------------------------===//
 
+import ExampleMiddleware
 import HTTPAPIs
 import Middleware
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-struct ExampleMiddlewareClient<Client: HTTPClient & ~Copyable, ClientMiddleware: Middleware<HTTPRequest, HTTPRequest>>: HTTPClient, ~Copyable {
+struct ExampleMiddlewareClient<
+    Client: HTTPClient & ~Copyable,
+    OutWriter: HTTPBodyWriter & ~Copyable & SendableMetatype,
+    ClientMiddleware: Middleware & Sendable
+>: HTTPClient, ~Copyable
+where
+    Client.Writer: SendableMetatype,
+    ClientMiddleware.Input: ~Copyable,
+    ClientMiddleware.NextInput: ~Copyable,
+    ClientMiddleware.Input == HTTPClientMiddlewareInput<OutWriter>,
+    ClientMiddleware.NextInput == HTTPClientMiddlewareInput<Client.Writer>
+{
     typealias RequestOptions = Client.RequestOptions
-    typealias RequestWriter = Client.RequestWriter
-    typealias ResponseConcludingReader = Client.ResponseConcludingReader
+    typealias Writer = OutWriter
+    typealias Reader = Client.Reader
 
     var defaultRequestOptions: Client.RequestOptions {
         self.client.defaultRequestOptions
@@ -30,25 +42,24 @@ struct ExampleMiddlewareClient<Client: HTTPClient & ~Copyable, ClientMiddleware:
     init(
         client: consuming Client,
         @MiddlewareBuilder
-        middlewareBuilder: (RequestMiddleware<Client>) -> ClientMiddleware
+        middlewareBuilder: (BaseRequestMiddleware<Client>) -> ClientMiddleware
     ) {
         self.client = client
-        self.middleware = middlewareBuilder(RequestMiddleware<Client>())
+        self.middleware = middlewareBuilder(BaseRequestMiddleware<Client>())
     }
 
     mutating func perform<Return: ~Copyable>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<RequestWriter>?,
+        body: consuming HTTPClientRequestBody<OutWriter>?,
         options: RequestOptions,
-        responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return
+        responseHandler: (HTTPResponse, consuming Reader) async throws -> Return
     ) async throws -> Return {
-        var body = Optional(body)
         return try await self.middleware.intercept(
-            input: request
-        ) { request in
+            input: HTTPClientMiddlewareInput(request: request, body: body)
+        ) { middlewareOutput in
             try await self.client.perform(
-                request: request,
-                body: body.take()!,
+                request: middlewareOutput.request,
+                body: middlewareOutput.body,
                 options: options,
                 responseHandler: responseHandler
             )
@@ -56,10 +67,14 @@ struct ExampleMiddlewareClient<Client: HTTPClient & ~Copyable, ClientMiddleware:
     }
 }
 
+/// The starting middleware (seed) for the client-side chain. Pass-through; its
+/// purpose is to anchor the chain's Input type so the user-facing extensions
+/// like `.forwarding()` and `.checksumTrailer()` infer the right generics.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-struct RequestMiddleware<Client: HTTPClient & ~Copyable>: Middleware {
-    typealias Input = HTTPRequest
-    typealias NextInput = Input
+struct BaseRequestMiddleware<Client: HTTPClient & ~Copyable>: Middleware, Sendable
+where Client.Writer: SendableMetatype {
+    typealias Input = HTTPClientMiddlewareInput<Client.Writer>
+    typealias NextInput = HTTPClientMiddlewareInput<Client.Writer>
 
     func intercept<Return: ~Copyable>(
         input: consuming Input,

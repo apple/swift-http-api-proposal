@@ -49,37 +49,21 @@ import X509
 /// try await Server.serve(
 ///     logger: logger,
 ///     configuration: configuration
-/// ) { request, bodyReader, sendResponse in
+/// ) { request, _, requestReceiver, responseSender in
 ///     // Read the entire request body
-///     let (bodyData, trailers) = try await bodyReader.consumeAndConclude { reader in
-///         var data = [UInt8]()
-///         var shouldContinue = true
-///         while shouldContinue {
-///             try await reader.read { span in
-///                 guard let span else {
-///                     shouldContinue = false
-///                     return
-///                 }
-///                 data.append(contentsOf: span)
-///             }
-///         }
-///         return data
-///     }
+///     var bodyBuffer = UniqueArray<UInt8>(minimumCapacity: 1024)
+///     let trailers = try await requestReceiver.collect(into: &bodyBuffer)
 ///
 ///     // Create and send response
 ///     var response = HTTPResponse(status: .ok)
 ///     response.headerFields[.contentType] = "text/plain"
-///     let responseWriter = try await sendResponse(response)
-///     try await responseWriter.produceAndConclude { writer in
-///         try await writer.write("Hello, World!".utf8CString.dropLast().span)
-///         return ((), nil)
-///     }
+///     try await responseSender.send(response, body: "Hello, World!".utf8.span)
 /// }
 /// ```
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public struct NIOHTTPServer: HTTPServer {
-    public typealias RequestConcludingReader = HTTPRequestConcludingAsyncReader
-    public typealias ResponseConcludingWriter = HTTPResponseConcludingAsyncWriter
+    public typealias Reader = NIORequestBodyReader
+    public typealias ResponseSender = NIOHTTPResponseSender
 
     let logger: Logger
     private let configuration: NIOHTTPServerConfiguration
@@ -125,12 +109,18 @@ public struct NIOHTTPServer: HTTPServer {
     /// struct EchoHandler: HTTPServerRequestHandler {
     ///     func handle(
     ///         request: HTTPRequest,
-    ///         requestBodyAndTrailers: HTTPRequestConcludingAsyncReader,
-    ///         responseSender: @escaping (HTTPResponse) async throws -> HTTPResponseConcludingAsyncWriter
+    ///         requestContext: HTTPRequestContext,
+    ///         requestReceiver: consuming sending NIOHTTPRequestReceiver,
+    ///         responseSender: consuming sending NIOHTTPResponseSender
     ///     ) async throws {
-    ///         let response = HTTPResponse(status: .ok)
-    ///         let writer = try await sendResponse(response)
-    ///         // Handle request and write response...
+    ///         var requestReceiver = Optional(requestReceiver)
+    ///         try await responseSender.send(.init(status: .ok)) { writer in
+    ///             var writer = writer
+    ///             let (_, trailers) = try await requestReceiver.take()!.receive { reader in
+    ///                 try await writer.write(reader)
+    ///             }
+    ///             return ((), trailers)
+    ///         }
     ///     }
     /// }
     ///
@@ -145,7 +135,7 @@ public struct NIOHTTPServer: HTTPServer {
     ///     handler: EchoHandler()
     /// )
     /// ```
-    public func serve(handler: some HTTPServerRequestHandler<RequestConcludingReader, ResponseConcludingWriter>) async throws {
+    public func serve(handler: some HTTPServerRequestHandler<Reader, ResponseSender>) async throws {
         defer {
             switch self.listeningAddressState.withLockedValue({ $0.close() }) {
             case .failPromise(let promise, let error):
@@ -265,7 +255,7 @@ public struct NIOHTTPServer: HTTPServer {
 
     func handleRequestChannel(
         channel: NIOAsyncChannel<HTTPRequestPart, HTTPResponsePart>,
-        handler: some HTTPServerRequestHandler<RequestConcludingReader, ResponseConcludingWriter>
+        handler: some HTTPServerRequestHandler<Reader, ResponseSender>
     ) async throws {
         do {
             try await channel
@@ -289,32 +279,21 @@ public struct NIOHTTPServer: HTTPServer {
                         return
                     }
 
-                    let readerState = HTTPRequestConcludingAsyncReader.ReaderState()
-                    let writerState = HTTPResponseConcludingAsyncWriter.WriterState()
+                    let readerState = NIORequestBodyReader.ReaderState()
+                    let writerState = NIOHTTPResponseSender.WriterState()
 
                     do {
                         try await handler.handle(
                             request: httpRequest,
                             requestContext: HTTPRequestContext(),
-                            requestBodyAndTrailers: HTTPRequestConcludingAsyncReader(
+                            reader: NIORequestBodyReader(
                                 iterator: iterator,
                                 readerState: readerState
                             ),
-                            responseSender: HTTPResponseSender { response in
-                                // TODO: This is a temporary fix that informs clients
-                                // that this server does not support keep-alive. This
-                                // server should be updated to eventually support
-                                // keep-alive.
-                                var response = response
-                                response.headerFields[.connection] = "close"
-                                try await outbound.write(.head(response))
-                                return HTTPResponseConcludingAsyncWriter(
-                                    writer: outbound,
-                                    writerState: writerState
-                                )
-                            } sendInformational: { response in
-                                try await outbound.write(.head(response))
-                            }
+                            responseSender: NIOHTTPResponseSender(
+                                writer: outbound,
+                                writerState: writerState
+                            )
                         )
                     } catch {
                         logger.error("Error thrown while handling connection: \(error)")

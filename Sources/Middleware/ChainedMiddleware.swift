@@ -21,7 +21,12 @@
 /// middleware components in a type-safe way.
 // TODO: Revisit if this type should be public
 public struct ChainedMiddleware<First: Middleware, Second: Middleware>: Middleware
-where First.Input: ~Copyable, First.NextInput: ~Copyable, Second.NextInput: ~Copyable, First.NextInput == Second.Input {
+where
+    First.Input: ~Copyable & ~Escapable,
+    First.NextInput: ~Copyable & ~Escapable,
+    Second.NextInput: ~Copyable & ~Escapable,
+    First.NextInput == Second.Input
+{
     /// The first middleware in the chain.
     private let first: First
 

@@ -24,9 +24,9 @@ struct MiddlewareClient {
     static func main() async throws {
         var client = ExampleMiddlewareClient(
             client: DefaultHTTPClient.shared
-        ) { request in
-            request
-                .forwarding()
+        ) { base in
+            base.checksumTrailer()
+            base.forwarding()
         }
         let (_, responseBody) = try await client.get(url: URL(string: "https://httpbin.org/get")!, collectUpTo: 1024)
         print("Received \(String(data: responseBody, encoding: .utf8)!)")

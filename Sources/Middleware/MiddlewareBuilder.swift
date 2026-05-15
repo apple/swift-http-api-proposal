@@ -43,7 +43,7 @@ public struct MiddlewareBuilder {
     /// - Returns: A middleware chain containing the single component.
     public static func buildPartialBlock<M: Middleware>(
         first middleware: M
-    ) -> M where M.Input: ~Copyable, M.NextInput: ~Copyable {
+    ) -> M where M.Input: ~Copyable & ~Escapable, M.NextInput: ~Copyable & ~Escapable {
         middleware
     }
 
@@ -63,7 +63,13 @@ public struct MiddlewareBuilder {
         accumulated: First,
         next: Second
     ) -> ChainedMiddleware<First, Second>
-    where First.Input: ~Copyable, First.NextInput: ~Copyable, Second.Input: ~Copyable, Second.NextInput: ~Copyable, First.NextInput == Second.Input {
+    where
+        First.Input: ~Copyable & ~Escapable,
+        First.NextInput: ~Copyable & ~Escapable,
+        Second.Input: ~Copyable & ~Escapable,
+        Second.NextInput: ~Copyable,
+        First.NextInput == Second.Input
+    {
         return ChainedMiddleware(first: accumulated, second: next)
     }
 
@@ -75,7 +81,7 @@ public struct MiddlewareBuilder {
     /// - Returns: A middleware chain wrapping the input middleware.
     public static func buildExpression<M: Middleware>(
         _ middleware: M
-    ) -> M where M.Input: ~Copyable, M.NextInput: ~Copyable {
+    ) -> M where M.Input: ~Copyable & ~Escapable, M.NextInput: ~Copyable & ~Escapable {
         middleware
     }
 }

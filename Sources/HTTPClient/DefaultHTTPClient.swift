@@ -16,19 +16,19 @@
 @_exported public import HTTPAPIs
 
 #if canImport(Darwin) || os(Linux)
-public import BasicContainers
+import BasicContainers
 
 #if canImport(Darwin)
-import URLSessionHTTPClient
+public import URLSessionHTTPClient
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-typealias ActualHTTPClient = URLSessionHTTPClient
+public typealias ActualHTTPClient = URLSessionHTTPClient
 #else
-import AsyncHTTPClient
-import AHCHTTPClient
+public import AsyncHTTPClient
+public import AHCHTTPClient
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-typealias ActualHTTPClient = AsyncHTTPClient.HTTPClient
+public typealias ActualHTTPClient = AsyncHTTPClient.HTTPClient
 #endif
 
 /// The default HTTP client that manages persistent connections to HTTP servers.
@@ -38,45 +38,8 @@ typealias ActualHTTPClient = AsyncHTTPClient.HTTPClient
 /// automatically handling connection management, protocol negotiation, and resource cleanup.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public final class DefaultHTTPClient: HTTPAPIs.HTTPClient {
-    public struct RequestWriter: AsyncWriter, ~Copyable {
-        public typealias WriteElement = UInt8
-        public typealias WriteFailure = any Error
-        public typealias Buffer = UniqueArray<UInt8>
-
-        public mutating func write<Return: ~Copyable, Failure>(
-            _ body: (inout UniqueArray<UInt8>) async throws(Failure) -> Return
-        ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Return where Failure: Error {
-            try await self.actual.write(body)
-        }
-
-        var actual: ActualHTTPClient.RequestWriter
-    }
-
-    public struct ResponseConcludingReader: ConcludingAsyncReader, ~Copyable {
-        public struct Underlying: AsyncReader, ~Copyable {
-            public typealias ReadElement = UInt8
-            public typealias ReadFailure = any Error
-            public typealias Buffer = UniqueArray<UInt8>
-
-            public mutating func read<Return: ~Copyable, Failure>(
-                body: (inout UniqueArray<UInt8>) async throws(Failure) -> Return
-            ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Return where Failure: Error {
-                try await self.actual.read(body: body)
-            }
-
-            var actual: ActualHTTPClient.ResponseConcludingReader.Underlying
-        }
-
-        public func consumeAndConclude<Return, Failure>(
-            body: (consuming sending Underlying) async throws(Failure) -> Return
-        ) async throws(Failure) -> (Return, HTTPFields?) where Failure: Error {
-            try await self.actual.consumeAndConclude { actual throws(Failure) in
-                try await body(Underlying(actual: actual))
-            }
-        }
-
-        let actual: ActualHTTPClient.ResponseConcludingReader
-    }
+    public typealias Writer = ActualHTTPClient.Writer
+    public typealias Reader = ActualHTTPClient.Reader
 
     /// A shared connection pool instance with default configuration.
     public static var shared: DefaultHTTPClient {
@@ -84,16 +47,6 @@ public final class DefaultHTTPClient: HTTPAPIs.HTTPClient {
     }
 
     /// Creates a client with custom pool configuration and executes a closure with it.
-    ///
-    /// This method provides a scoped way to use a custom-configured connection pool.
-    /// The pool is automatically cleaned up after the closure completes.
-    ///
-    /// - Parameters:
-    ///   - poolConfiguration: The configuration to use for the connection pool.
-    ///   - body: A closure that receives the configured connection pool and performs
-    ///     HTTP operations with it.
-    /// - Returns: The value returned by the `body` closure.
-    /// - Throws: Any error thrown by the `body` closure.
     public static func withClient<Return: ~Copyable, Failure: Error>(
         poolConfiguration: HTTPConnectionPoolConfiguration,
         body: (borrowing DefaultHTTPClient) async throws(Failure) -> Return
@@ -135,18 +88,13 @@ public final class DefaultHTTPClient: HTTPAPIs.HTTPClient {
 
     public func perform<Return: ~Copyable>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<RequestWriter>?,
+        body: consuming HTTPClientRequestBody<Writer>?,
         options: HTTPRequestOptions,
-        responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return
+        responseHandler: (HTTPResponse, consuming Reader) async throws -> Return
     ) async throws -> Return {
         // TODO: translate request options
         let options = self.client.defaultRequestOptions
-        let body = body.map {
-            HTTPClientRequestBody<ActualHTTPClient.RequestWriter>(other: $0) { RequestWriter(actual: $0) }
-        }
-        return try await self.client.perform(request: request, body: body, options: options) { response, body in
-            try await responseHandler(response, ResponseConcludingReader(actual: body))
-        }
+        return try await self.client.perform(request: request, body: body, options: options, responseHandler: responseHandler)
     }
 }
 

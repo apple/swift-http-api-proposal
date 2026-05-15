@@ -11,49 +11,41 @@
 //
 //===----------------------------------------------------------------------===//
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 /// A protocol that defines the interface for an HTTP server.
 ///
 /// ``HTTPServer`` provides the contract for server implementations that accept
-/// incoming HTTP connections and process requests using a ``HTTPServerRequestHandler``.
-public protocol HTTPServer<RequestConcludingReader, ResponseConcludingWriter>: Sendable, ~Copyable, ~Escapable {
-    /// The type used to read request body data and trailers.
-    // TODO: Check if we should allow ~Escapable readers https://github.com/apple/swift-http-api-proposal/issues/13
-    associatedtype RequestConcludingReader: ConcludingAsyncReader, ~Copyable, SendableMetatype
-    where
-        RequestConcludingReader.Underlying: ~Copyable,
-        RequestConcludingReader.Underlying.ReadElement == UInt8,
-        RequestConcludingReader.FinalElement == HTTPFields?
+/// incoming HTTP connections and process requests using a
+/// ``HTTPServerRequestHandler``. The body reader and response sender types are
+/// surfaced directly; there are no separate "request receiver" wrapper types.
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+public protocol HTTPServer<Reader, ResponseSender>: Sendable, ~Copyable, ~Escapable {
+    /// The body reader type used to stream request body bytes and trailers.
+    associatedtype Reader: HTTPBodyReader, ~Copyable, SendableMetatype
 
-    /// The type used to write response body data and trailers.
-    // TODO: Check if we should allow ~Escapable writers https://github.com/apple/swift-http-api-proposal/issues/13
-    associatedtype ResponseConcludingWriter: ConcludingAsyncWriter, ~Copyable, SendableMetatype
-    where
-        ResponseConcludingWriter.Underlying: ~Copyable,
-        ResponseConcludingWriter.Underlying.WriteElement == UInt8,
-        ResponseConcludingWriter.FinalElement == HTTPFields?
+    /// The type used to write response head, body, and trailing fields.
+    associatedtype ResponseSender: HTTPResponseSender, ~Copyable, SendableMetatype
+    where ResponseSender.Writer: ~Copyable
 
     /// Starts an HTTP server with the specified request handler.
     ///
-    /// This method creates and runs an HTTP server that processes incoming requests using the provided
-    /// ``HTTPServerRequestHandler`` implementation.
-    ///
-    /// Implementations of this method should handle each connection concurrently using Swift's structured concurrency.
-    ///
     /// - Parameters:
-    ///   - handler: A ``HTTPServerRequestHandler`` implementation that processes incoming HTTP requests. The handler
-    ///     receives each request along with a body reader and ``HTTPResponseSender``.
+    ///   - handler: A ``HTTPServerRequestHandler`` implementation that
+    ///     processes incoming HTTP requests. The handler receives each
+    ///     request along with a request body reader and an
+    ///     ``HTTPResponseSender``.
     ///
     /// ## Example
     ///
     /// ```swift
-    /// let server = // create an instance of a type conforming to the `ServerProtocol`
-    /// try await server.serve(handler: YourRequestHandler())
+    /// try await server.serve { request, _, reader, responseSender in
+    ///     let writer = try await responseSender.send(.init(status: .ok))
+    ///     try await reader.pipe(to: writer)
+    /// }
     /// ```
     func serve<Handler: HTTPServerRequestHandler>(handler: Handler) async throws
     where
-        Handler.RequestReader == RequestConcludingReader,
-        Handler.RequestReader: ~Copyable,
-        Handler.ResponseWriter == ResponseConcludingWriter,
-        Handler.ResponseWriter: ~Copyable
+        Handler.Reader == Reader,
+        Handler.Reader: ~Copyable,
+        Handler.ResponseSender == ResponseSender,
+        Handler.ResponseSender: ~Copyable
 }

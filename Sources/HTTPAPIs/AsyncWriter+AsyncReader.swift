@@ -55,3 +55,32 @@ extension AsyncWriter where Self: ~Copyable, Self: ~Escapable {
         }
     }
 }
+
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+extension AsyncReader where Self: ~Copyable, Self: ~Escapable {
+    /// A `mutating` (rather than `consuming`) variant of `forEachBuffer`.
+    ///
+    /// Iterates over all chunks from the reader without consuming it. Useful when
+    /// the reader is held as `inout` and ownership cannot be transferred — for
+    /// example, inside the body closure of an HTTP receiver's `receive` call,
+    /// where the reader is `inout sending`.
+    ///
+    /// - Parameter body: An asynchronous closure that processes each buffer of
+    ///   elements read from the stream.
+    /// - Throws: An `EitherError` containing either a `ReadFailure` from the
+    ///   read operation or a `Failure` from the body closure.
+    public mutating func forEachBufferMutating<Failure: Error>(
+        body: (inout Buffer) async throws(Failure) -> Void
+    ) async throws(EitherError<ReadFailure, Failure>) {
+        var shouldContinue = true
+        while shouldContinue {
+            try await self.read { (next) throws(Failure) -> Void in
+                guard next.count > 0 else {
+                    shouldContinue = false
+                    return
+                }
+                try await body(&next)
+            }
+        }
+    }
+}

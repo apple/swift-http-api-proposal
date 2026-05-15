@@ -25,16 +25,18 @@ struct MiddlewareServer {
 
     static func serve<Server: HTTPServer>(server: Server) async throws
     where
-        Server.RequestConcludingReader: ~Copyable,
-        Server.RequestConcludingReader.Underlying: ~Copyable & Escapable,
-        Server.ResponseConcludingWriter: ~Copyable,
-        Server.ResponseConcludingWriter.Underlying: ~Copyable & Escapable
+        Server.Reader: ~Copyable & Escapable,
+        Server.ResponseSender: ~Copyable,
+        Server.ResponseSender.Writer: ~Copyable & Escapable,
+        Server.Reader.Buffer == Server.ResponseSender.Writer.Buffer
     {
         try await ExampleMiddlewareServer(
             server: server
         ) { server in
             server
                 .logging(logger: Logger(label: "Logger"))
+                .checksumTrailer()
+                .prefixSuffix(prefix: Array("<<".utf8), suffix: Array(">>".utf8))
                 .requestHandler()
         }.serve()
     }

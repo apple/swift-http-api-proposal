@@ -22,6 +22,7 @@ import JavaScriptKit
 // between FetchHTTPClient and RequestBodyWriter.
 class RequestBodyBuffer {
     var array = UniqueArray<UInt8>()
+    var trailers: HTTPFields? = nil
 }
 
 enum FetchError: Error {
@@ -38,8 +39,8 @@ enum FetchError: Error {
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, *)
 public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
-    public typealias RequestWriter = RequestBodyWriter
-    public typealias ResponseConcludingReader = ResponseReader
+    public typealias Writer = RequestBodyWriter
+    public typealias Reader = ResponseBodyReader
 
     public struct RequestOptions: HTTPClientCapability.RequestOptions, Sendable {
         public init() {}
@@ -53,7 +54,7 @@ public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
         request: HTTPTypes.HTTPRequest,
         body: consuming HTTPAPIs.HTTPClientRequestBody<RequestBodyWriter>?,
         options: RequestOptions,
-        responseHandler: nonisolated(nonsending) (HTTPTypes.HTTPResponse, consuming ResponseReader) async throws -> Return
+        responseHandler: nonisolated(nonsending) (HTTPTypes.HTTPResponse, consuming ResponseBodyReader) async throws -> Return
     ) async throws -> Return where Return: ~Copyable {
         guard let url = request.url else {
             throw FetchError.BadURL
@@ -63,14 +64,11 @@ public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
 
         if let body = body {
             let buffer = RequestBodyBuffer()
-
             let writer = RequestBodyWriter(buffer: buffer)
-            let trailers = try await body.produce(into: writer)
-
-            if let trailers {
+            try await body.produce(into: writer)
+            if buffer.trailers != nil {
                 throw FetchError.TrailersUnsupported
             }
-
             jsBody = buffer.array.span.withUnsafeBufferPointer { bufferPtr in
                 JSTypedArray<UInt8>(buffer: bufferPtr).jsObject
             }
@@ -120,11 +118,11 @@ public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
 
         return try await responseHandler(
             HTTPResponse(status: .init(code: responseStatus, reasonPhrase: responseStatusText), headerFields: responseHeaders),
-            ResponseReader(reader: reader)
+            ResponseBodyReader(reader: reader)
         )
     }
 
-    public struct RequestBodyWriter: AsyncWriter, ~Copyable {
+    public struct RequestBodyWriter: HTTPBodyWriter, ~Copyable {
         public typealias WriteElement = UInt8
         public typealias WriteFailure = any Error
         public typealias Buffer = UniqueArray<UInt8>
@@ -142,48 +140,59 @@ public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
             }
             return result
         }
-    }
 
-    public struct ResponseReader: ConcludingAsyncReader, ~Copyable {
-        let reader: ReadableStreamDefaultReader
-
-        public consuming func consumeAndConclude<Return, Failure>(
-            body: nonisolated(nonsending) (consuming sending FetchHTTPClient.ResponseBodyReader) async throws(Failure) -> Return
-        ) async throws(Failure) -> (Return, HTTPTypes.HTTPFields?) where Failure: Error {
-            return (try await body(ResponseBodyReader(reader: reader)), nil)
+        public consuming func finish<Failure: Error>(
+            body: nonisolated(nonsending) (inout UniqueArray<UInt8>) async throws(Failure) -> HTTPFields?
+        ) async throws(AsyncStreaming.EitherError<any Error, Failure>) {
+            let trailer: HTTPFields?
+            do {
+                trailers = try await body(&self.buffer.array)
+            } catch {
+                throw .second(error)
+            }
+            self.buffer.trailers = trailers
         }
     }
 
-    public struct ResponseBodyReader: AsyncReader, ~Copyable {
+    public struct ResponseBodyReader: HTTPBodyReader, ~Copyable {
         public typealias ReadElement = UInt8
         public typealias ReadFailure = any Error
         public typealias Buffer = UniqueArray<UInt8>
 
         let reader: ReadableStreamDefaultReader
         var buffer = UniqueArray<UInt8>()
+        var trailersDelivered: Bool = false
 
         public mutating func read<Return: ~Copyable, Failure>(
-            body: nonisolated(nonsending) (inout UniqueArray<UInt8>) async throws(Failure) -> Return
+            body: nonisolated(nonsending) (inout UniqueArray<UInt8>, HTTPFields?) async throws(Failure) -> Return
         ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Return where Failure: Error {
-            let chunk: Chunk
-            do {
-                chunk = try await self.reader.read()
-            } catch {
-                throw .first(error)
-            }
-            if !chunk.done {
-                guard let bytes = chunk.value, !bytes.isEmpty else {
-                    // If not done, there must be bytes that can be read
-                    throw .first(FetchError.BadAssumptionJS)
+            var trailers: HTTPFields? = nil
+
+            if !self.trailersDelivered {
+                let chunk: Chunk
+                do {
+                    chunk = try await self.reader.read()
+                } catch {
+                    throw .first(error)
                 }
-                buffer.reserveCapacity(bytes.count)
-                for b in bytes {
-                    self.buffer.append(b)
+                if !chunk.done {
+                    guard let bytes = chunk.value, !bytes.isEmpty else {
+                        throw .first(FetchError.BadAssumptionJS)
+                    }
+                    self.buffer.reserveCapacity(bytes.count)
+                    for b in bytes {
+                        self.buffer.append(b)
+                    }
+                } else {
+                    // The fetch API does not surface trailers, so signal end of body
+                    // with empty trailers.
+                    self.trailersDelivered = true
+                    trailers = HTTPFields()
                 }
             }
 
             do {
-                return try await body(&self.buffer)
+                return try await body(&self.buffer, trailers)
             } catch {
                 throw .second(error)
             }

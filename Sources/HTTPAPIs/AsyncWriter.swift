@@ -55,28 +55,4 @@ extension AsyncWriter where Self: ~Copyable, Self: ~Escapable {
             }
         }
     }
-
-    /// Writes the provided span of elements to the underlying destination.
-    ///
-    /// - Parameter span: The elements to write.
-    ///
-    /// - Throws: An error of type `WriteFailure` if the write operation cannot be completed successfully.
-    #if compiler(<6.3)
-    @_lifetime(self: copy self)
-    #endif
-    public mutating func write(_ span: Span<WriteElement>) async throws(WriteFailure)
-    where WriteElement: Copyable {
-        do {
-            try await self.write { (buffer: inout Self.Buffer) in
-                buffer.append(copying: span)
-            }
-        } catch {
-            switch error {
-            case .first(let error):
-                throw error
-            case .second:
-                fatalError()
-            }
-        }
-    }
 }
