@@ -22,87 +22,62 @@ import Synchronization
 
 @available(anyAppleOS 26.0, *)
 extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
-    public typealias RequestWriter = RequestBodyWriter
-    public typealias ResponseConcludingReader = ResponseReader
+    public typealias Writer = RequestBodyWriter
+    public typealias Reader = ResponseBodyReader
 
     public struct RequestOptions: HTTPClientCapability.RequestOptions {
 
     }
 
-    public struct RequestBodyWriter: AsyncWriter, ~Copyable {
+    public struct RequestBodyWriter: CallerAsyncWriter, ~Copyable {
         public typealias WriteElement = UInt8
         public typealias WriteFailure = any Error
-        public typealias Buffer = UniqueArray<UInt8>
+        public typealias FinalElement = HTTPFields?
 
         let requestWriter: HTTPClientRequest.Body.RequestWriter
         var byteBuffer: ByteBuffer
-        var buffer: UniqueArray<UInt8>?
 
         init(_ requestWriter: HTTPClientRequest.Body.RequestWriter) {
             self.requestWriter = requestWriter
             self.byteBuffer = ByteBuffer()
-            self.byteBuffer.reserveCapacity(2 ^ 16)
-            self.buffer = UniqueArray(minimumCapacity: 2 ^ 16)
+            self.byteBuffer.reserveCapacity(1 << 16)
         }
 
-        public mutating func write<Return: ~Copyable, Failure>(
-            _ body: (inout UniqueArray<UInt8>) async throws(Failure) -> Return
-        ) async throws(AsyncStreaming.EitherError<WriteFailure, Failure>) -> Return where Failure: Error {
-            let result: Return
-            // This force-unwrap is safe since there can only be one concurrent write
-            var buffer = self.buffer.take()!
-            do {
-                result = try await body(&buffer)
-            } catch {
-                buffer.removeAll()
-                self.buffer = consume buffer
-                throw .second(error)
+        public mutating func write<Buffer: RangeReplaceableContainer<UInt8> & ~Copyable>(
+            buffer: inout Buffer
+        ) async throws(WriteFailure) where Buffer.Element: ~Copyable {
+            guard buffer.count > 0 else { return }
+            self.byteBuffer.clear()
+            var consumer = buffer.consumeAll()
+            while true {
+                let span = consumer.drainNext()
+                if span.isEmpty { break }
+                unsafe self.byteBuffer.writeBytes(span.span.bytes)
             }
-            if buffer.count == 0 {
-                self.buffer = consume buffer
-                return result
-            }
+            try await self.requestWriter.writeRequestBodyPart(self.byteBuffer)
+        }
 
-            do {
+        public consuming func finish<Buffer: RangeReplaceableContainer<UInt8> & ~Copyable>(
+            buffer: inout Buffer,
+            finalElement: consuming HTTPFields?
+        ) async throws(WriteFailure) where Buffer.Element: ~Copyable {
+            if buffer.count > 0 {
                 self.byteBuffer.clear()
-                self.byteBuffer.writeBytes(buffer.span.bytes)
-                buffer.removeAll()
-                self.buffer = consume buffer
+                var consumer = buffer.consumeAll()
+                while true {
+                    let span = consumer.drainNext()
+                    if span.isEmpty { break }
+                    unsafe self.byteBuffer.writeBytes(span.span.bytes)
+                }
                 try await self.requestWriter.writeRequestBodyPart(self.byteBuffer)
-            } catch {
-                throw .first(error)
             }
-
-            return result
-        }
-    }
-
-    public struct ResponseReader: ConcludingAsyncReader {
-        public typealias Underlying = ResponseBodyReader
-
-        let underlying: HTTPClientResponse.Body
-
-        public typealias FinalElement = HTTPFields?
-
-        init(underlying: HTTPClientResponse.Body) {
-            self.underlying = underlying
-        }
-
-        public consuming func consumeAndConclude<Return, Failure>(
-            body: (consuming sending ResponseBodyReader) async throws(Failure) -> Return
-        ) async throws(Failure) -> (Return, HTTPFields?) where Failure: Error {
-            let iterator = self.underlying.makeAsyncIterator()
-            let reader = ResponseBodyReader(underlying: iterator)
-            let returnValue = try await body(reader)
-
-            let t = self.underlying.trailers?.compactMap {
-                if let name = HTTPField.Name($0.name) {
-                    HTTPField(name: name, value: $0.value)
+            let ahcTrailers: HTTPHeaders? =
+                if let finalElement {
+                    HTTPHeaders(.init(finalElement.lazy.map({ ($0.name.rawName, $0.value) })))
                 } else {
                     nil
                 }
-            }
-            return (returnValue, t.flatMap({ HTTPFields($0) }))
+            self.requestWriter.requestBodyStreamFinished(trailers: ahcTrailers)
         }
     }
 
@@ -110,30 +85,54 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
         public typealias ReadElement = UInt8
         public typealias ReadFailure = any Error
         public typealias Buffer = UniqueArray<UInt8>
+        public typealias FinalElement = HTTPFields?
 
         var underlying: HTTPClientResponse.Body.AsyncIterator
+        var body: HTTPClientResponse.Body
         var buffer = UniqueArray<UInt8>()
+        var trailersDelivered: Bool = false
+
+        init(body: HTTPClientResponse.Body) {
+            self.body = body
+            self.underlying = body.makeAsyncIterator()
+        }
 
         public mutating func read<Return: ~Copyable, Failure>(
-            body: (inout UniqueArray<UInt8>) async throws(Failure) -> Return
+            body: (inout UniqueArray<UInt8>, consuming HTTPFields??) async throws(Failure) -> Return
         ) async throws(AsyncStreaming.EitherError<ReadFailure, Failure>) -> Return where Failure: Error {
-            let byteBuffer: ByteBuffer?
-            do {
-                byteBuffer = try await self.underlying.next(isolation: #isolation)
-            } catch {
-                throw .first(error)
-            }
+            var finalElement: HTTPFields?? = nil
 
-            if let byteBuffer, byteBuffer.readableBytes > 0 {
-                buffer.reserveCapacity(byteBuffer.readableBytes)
-                unsafe byteBuffer.withUnsafeReadableBytes { rawBufferPtr in
-                    let usbptr = unsafe rawBufferPtr.assumingMemoryBound(to: UInt8.self)
-                    unsafe self.buffer.append(copying: usbptr)
+            if !self.trailersDelivered {
+                let byteBuffer: ByteBuffer?
+                do {
+                    byteBuffer = try await self.underlying.next(isolation: #isolation)
+                } catch {
+                    throw .first(error)
+                }
+
+                if let byteBuffer, byteBuffer.readableBytes > 0 {
+                    self.buffer.reserveCapacity(byteBuffer.readableBytes)
+                    unsafe byteBuffer.withUnsafeReadableBytes { rawBufferPtr in
+                        let usbptr = unsafe rawBufferPtr.assumingMemoryBound(to: UInt8.self)
+                        unsafe self.buffer.append(copying: usbptr)
+                    }
+                }
+
+                if byteBuffer == nil {
+                    self.trailersDelivered = true
+                    let collected = self.body.trailers?.compactMap {
+                        if let name = HTTPField.Name($0.name) {
+                            HTTPField(name: name, value: $0.value)
+                        } else {
+                            nil
+                        }
+                    }
+                    finalElement = .some(collected.flatMap { HTTPFields($0) })
                 }
             }
 
             do {
-                return try await body(&self.buffer)
+                return try await body(&self.buffer, finalElement)
             } catch {
                 throw .second(error)
             }
@@ -148,7 +147,7 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<RequestBodyWriter>?,
         options: RequestOptions,
-        responseHandler: (HTTPResponse, consuming ResponseReader) async throws -> Return
+        responseHandler: (HTTPResponse, consuming ResponseBodyReader) async throws -> Return
     ) async throws -> Return {
         guard let url = request.url else {
             fatalError()
@@ -172,15 +171,9 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
 
                     for await ahcWriter in asyncStream {
                         do {
-                            let writer = RequestWriter(ahcWriter)
-                            let maybeTrailers = try await body.produce(into: writer)
-                            let trailers: HTTPHeaders? =
-                                if let trailers = maybeTrailers {
-                                    HTTPHeaders(.init(trailers.lazy.map({ ($0.name.rawName, $0.value) })))
-                                } else {
-                                    nil
-                                }
-                            ahcWriter.requestBodyStreamFinished(trailers: trailers)
+                            let writer = RequestBodyWriter(ahcWriter)
+                            try await body.produce(into: writer)
+                            // writer.finish already calls requestBodyStreamFinished
                             break  // the loop
                         } catch let error {
                             // if we fail because the user throws in upload, we have to cancel the
@@ -209,7 +202,7 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
                     headerFields: responseFields
                 )
 
-                result = .success(try await responseHandler(response, .init(underlying: ahcResponse.body)))
+                result = .success(try await responseHandler(response, ResponseBodyReader(body: ahcResponse.body)))
             } catch {
                 result = .failure(error)
             }

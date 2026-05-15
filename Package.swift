@@ -41,8 +41,8 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.5.0"),
         .package(
-            url: "https://github.com/apple/swift-async-algorithms.git",
-            from: "1.1.4",
+            url: "https://github.com/FranzBusch/swift-async-algorithms.git",
+            revision: "e1a6dff375ca9fc079d02276f489663ad9204e01",
             traits: ["UnstableAsyncStreaming"]
         ),
         .package(url: "https://github.com/apple/swift-http-types.git", from: "1.5.1"),

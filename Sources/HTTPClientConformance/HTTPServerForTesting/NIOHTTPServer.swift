@@ -49,38 +49,17 @@ import X509
 /// try await Server.serve(
 ///     logger: logger,
 ///     configuration: configuration
-/// ) { request, bodyReader, sendResponse in
-///     // Read the entire request body
-///     let (bodyData, trailers) = try await bodyReader.consumeAndConclude { reader in
-///         var data = [UInt8]()
-///         var shouldContinue = true
-///         while shouldContinue {
-///             try await reader.read { span in
-///                 guard let span else {
-///                     shouldContinue = false
-///                     return
-///                 }
-///                 data.append(contentsOf: span)
-///             }
-///         }
-///         return data
-///     }
-///
-///     // Create and send response
-///     var response = HTTPResponse(status: .ok)
-///     response.headerFields[.contentType] = "text/plain"
-///     let responseWriter = try await sendResponse(response)
-///     try await responseWriter.produceAndConclude { writer in
-///         try await writer.write("Hello, World!".utf8CString.dropLast().span)
-///         return ((), nil)
-///     }
+/// ) { request, _, reader, responseSender in
+///     // Echo the request body back as the response body
+///     let writer = try await responseSender.send(.init(status: .ok))
+///     try await reader.pipe(into: writer)
 /// }
 /// ```
 @available(anyAppleOS 26.0, *)
 public struct NIOHTTPServer: HTTPServer {
     public typealias RequestContext = HTTPRequestContext
-    public typealias RequestConcludingReader = HTTPRequestConcludingAsyncReader
-    public typealias ResponseConcludingWriter = HTTPResponseConcludingAsyncWriter
+    public typealias Reader = NIORequestBodyReader
+    public typealias ResponseSender = NIOHTTPResponseSender
 
     let logger: Logger
     private let configuration: NIOHTTPServerConfiguration
@@ -126,12 +105,12 @@ public struct NIOHTTPServer: HTTPServer {
     /// struct EchoHandler: HTTPServerRequestHandler {
     ///     func handle(
     ///         request: HTTPRequest,
-    ///         requestBodyAndTrailers: HTTPRequestConcludingAsyncReader,
-    ///         responseSender: @escaping (HTTPResponse) async throws -> HTTPResponseConcludingAsyncWriter
+    ///         requestContext: consuming HTTPRequestContext,
+    ///         reader: consuming sending NIORequestBodyReader,
+    ///         responseSender: consuming sending NIOHTTPResponseSender
     ///     ) async throws {
-    ///         let response = HTTPResponse(status: .ok)
-    ///         let writer = try await sendResponse(response)
-    ///         // Handle request and write response...
+    ///         let writer = try await responseSender.send(.init(status: .ok))
+    ///         try await reader.pipe(into: writer)
     ///     }
     /// }
     ///
@@ -146,7 +125,7 @@ public struct NIOHTTPServer: HTTPServer {
     ///     handler: EchoHandler()
     /// )
     /// ```
-    public func serve(handler: some HTTPServerRequestHandler<HTTPRequestContext, RequestConcludingReader, ResponseConcludingWriter>) async throws {
+    public func serve(handler: some HTTPServerRequestHandler<HTTPRequestContext, Reader, ResponseSender>) async throws {
         defer {
             switch self.listeningAddressState.withLockedValue({ $0.close() }) {
             case .failPromise(let promise, let error):
@@ -266,7 +245,7 @@ public struct NIOHTTPServer: HTTPServer {
 
     func handleRequestChannel(
         channel: NIOAsyncChannel<HTTPRequestPart, HTTPResponsePart>,
-        handler: some HTTPServerRequestHandler<HTTPRequestContext, RequestConcludingReader, ResponseConcludingWriter>
+        handler: some HTTPServerRequestHandler<HTTPRequestContext, Reader, ResponseSender>
     ) async throws {
         do {
             try await channel
@@ -290,32 +269,21 @@ public struct NIOHTTPServer: HTTPServer {
                         return
                     }
 
-                    let readerState = HTTPRequestConcludingAsyncReader.ReaderState()
-                    let writerState = HTTPResponseConcludingAsyncWriter.WriterState()
+                    let readerState = NIORequestBodyReader.ReaderState()
+                    let writerState = NIOHTTPResponseSender.WriterState()
 
                     do {
                         try await handler.handle(
                             request: httpRequest,
                             requestContext: HTTPRequestContext(),
-                            requestBodyAndTrailers: HTTPRequestConcludingAsyncReader(
+                            reader: NIORequestBodyReader(
                                 iterator: iterator,
                                 readerState: readerState
                             ),
-                            responseSender: HTTPResponseSender { response in
-                                // TODO: This is a temporary fix that informs clients
-                                // that this server does not support keep-alive. This
-                                // server should be updated to eventually support
-                                // keep-alive.
-                                var response = response
-                                response.headerFields[.connection] = "close"
-                                try await outbound.write(.head(response))
-                                return HTTPResponseConcludingAsyncWriter(
-                                    writer: outbound,
-                                    writerState: writerState
-                                )
-                            } sendInformational: { response in
-                                try await outbound.write(.head(response))
-                            }
+                            responseSender: NIOHTTPResponseSender(
+                                writer: outbound,
+                                writerState: writerState
+                            )
                         )
                     } catch {
                         logger.error("Error thrown while handling connection: \(error)")

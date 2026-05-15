@@ -11,48 +11,52 @@
 //
 //===----------------------------------------------------------------------===//
 
-import AsyncStreaming
+public import AsyncStreaming
 
 /// A type that represents the body of an HTTP client request.
 ///
-/// ``HTTPClientRequestBody`` wraps a closure that encapsulates the logic
-/// to write a request body. It also contains extra hints and inputs to inform
-/// the custom request body writing.
+/// ``HTTPClientRequestBody`` wraps a closure that writes a request body using
+/// a ``CallerAsyncWriter`` provided by the client. It also carries hints such
+/// as the known body length so the client can set `Content-Length` correctly.
 ///
 /// ## Usage
 ///
 /// ### Seekable bodies
 ///
-/// If the source of the request body bytes can be not only restarted from the beginning,
-/// but even restarted from an arbitrary offset, prefer to create a seekable body.
-///
-/// A seekable body allows the HTTP client to support resumable uploads.
+/// If the source of the request body bytes can be restarted from an arbitrary
+/// offset, prefer to create a seekable body. This allows the HTTP client to
+/// support resumable uploads.
 ///
 /// ```swift
-/// try await HTTP.perform(request: request, body: .seekable { byteOffset, writer in
-///     // Inspect byteOffset and start writing contents into writer
-/// }) { response, body in
+/// try await client.perform(request: request, body: .seekable { offset, writer in
+///     var writer = writer
+///     var buffer = UniqueArray<UInt8>()
+///     // ... fill buffer with bytes from `offset` ...
+///     try await writer.finish(buffer: &buffer, finalElement: nil)
+/// }) { response, reader in
 ///     // Handle the response
 /// }
 /// ```
 ///
 /// ### Restartable bodies
 ///
-/// If the source of the request body bytes cannot be restarted from an arbitrary offset, but
-/// can be restarted from the beginning, use a restartable body.
-///
-/// A restartable body allows the HTTP client to handle redirects and retries.
+/// If the source of the request body bytes can only be restarted from the
+/// beginning, use a restartable body. This allows the client to handle
+/// redirects and retries.
 ///
 /// ```swift
-/// try await HTTP.perform(request: request, body: .restartable { writer in
-///     // Start writing contents into writer from the beginning
-/// }) { response, body in
+/// try await client.perform(request: request, body: .restartable { writer in
+///     var writer = writer
+///     var buffer = UniqueArray<UInt8>()
+///     // ... fill buffer with the body ...
+///     try await writer.finish(buffer: &buffer, finalElement: nil)
+/// }) { response, reader in
 ///     // Handle the response
 /// }
 /// ```
 @available(anyAppleOS 26.0, *)
-public struct HTTPClientRequestBody<Writer: AsyncWriter & ~Copyable>: Sendable
-where Writer.WriteElement == UInt8, Writer: SendableMetatype {
+public struct HTTPClientRequestBody<Writer: CallerAsyncWriter & ~Copyable>: Sendable
+where Writer.WriteElement == UInt8, Writer.FinalElement == HTTPFields? {
     /// The body can be asked to restart writing from an arbitrary offset.
     public var isSeekable: Bool {
         switch self.writeBody {
@@ -68,8 +72,8 @@ where Writer.WriteElement == UInt8, Writer: SendableMetatype {
     public let knownLength: Int64?
 
     private enum WriteBody {
-        case restartable(@Sendable (consuming Writer) async throws -> HTTPFields?)
-        case seekable(@Sendable (Int64, consuming Writer) async throws -> HTTPFields?)
+        case restartable(@Sendable (consuming Writer) async throws -> Void)
+        case seekable(@Sendable (Int64, consuming Writer) async throws -> Void)
     }
     private let writeBody: WriteBody
 
@@ -77,7 +81,7 @@ where Writer.WriteElement == UInt8, Writer: SendableMetatype {
     /// - Parameters:
     ///   - writer: The destination into which to write the body.
     /// - Throws: An error thrown from the body closure.
-    public func produce(into writer: consuming Writer) async throws -> HTTPFields? {
+    public func produce(into writer: consuming Writer) async throws {
         switch self.writeBody {
         case .restartable(let writeBody):
             try await writeBody(writer)
@@ -92,7 +96,7 @@ where Writer.WriteElement == UInt8, Writer: SendableMetatype {
     ///   - offset: The offset from which to start writing the body.
     ///   - writer: The destination into which to write the body.
     /// - Throws: An error thrown from the body closure.
-    public func produce(offset: Int64, into writer: consuming Writer) async throws -> HTTPFields? {
+    public func produce(offset: Int64, into writer: consuming Writer) async throws {
         switch self.writeBody {
         case .restartable:
             fatalError("Request body is not seekable")
@@ -103,20 +107,19 @@ where Writer.WriteElement == UInt8, Writer: SendableMetatype {
 
     /// A restartable request body that can be replayed from the beginning.
     ///
-    /// Use this case when the client may need to retry or follow redirects with
-    /// the same request body. The closure receives a writer and streams the entire
-    /// body content. The closure may be called multiple times if the request needs
-    /// to be retried.
+    /// The closure receives a body writer and streams the entire body. The
+    /// closure may be called multiple times if the request needs to be
+    /// retried.
     ///
     /// - Parameters:
-    ///   - knownLength: The length of the body is known upfront and can be specified in
-    ///     the `content-length` header field.
-    ///   - body: The closure that writes the request body using the provided writer and
-    ///     returns an optional trailer.
-    ///     - writer: The writer that receives the request body bytes.
+    ///   - knownLength: The length of the body is known upfront and can be
+    ///     specified in the `content-length` header field.
+    ///   - body: The closure that writes the request body using the provided
+    ///     writer. The closure must call
+    ///     ``CallerAsyncWriter/finish(buffer:finalElement:)`` to terminate the body.
     public static func restartable(
         knownLength: Int64? = nil,
-        _ body: @escaping @Sendable (consuming Writer) async throws -> HTTPFields?
+        _ body: @escaping @Sendable (consuming Writer) async throws -> Void
     ) -> Self {
         Self.init(
             knownLength: knownLength,
@@ -131,15 +134,14 @@ where Writer.WriteElement == UInt8, Writer: SendableMetatype {
     /// where to begin writing and a writer for streaming the body content.
     ///
     /// - Parameters:
-    ///   - knownLength: The length of the body is known upfront and can be specified in
-    ///     the `content-length` header field.
-    ///   - body: The closure that writes the request body using the provided writer and
-    ///     returns an optional trailer.
-    ///     - offset: The byte offset from which to start writing the body.
-    ///     - writer: The writer that receives the request body bytes.
+    ///   - knownLength: The length of the body is known upfront and can be
+    ///     specified in the `content-length` header field.
+    ///   - body: The closure that writes the request body using the provided
+    ///     writer. The closure must call
+    ///     ``CallerAsyncWriter/finish(buffer:finalElement:)`` to terminate the body.
     public static func seekable(
         knownLength: Int64? = nil,
-        _ body: @escaping @Sendable (Int64, consuming Writer) async throws -> HTTPFields?
+        _ body: @escaping @Sendable (Int64, consuming Writer) async throws -> Void
     ) -> Self {
         Self.init(
             knownLength: knownLength,
@@ -150,23 +152,5 @@ where Writer.WriteElement == UInt8, Writer: SendableMetatype {
     private init(knownLength: Int64?, writeBody: WriteBody) {
         self.knownLength = knownLength
         self.writeBody = writeBody
-    }
-
-    package init<OtherWriter: ~Copyable>(
-        other: HTTPClientRequestBody<OtherWriter>,
-        transform: @escaping @Sendable (consuming Writer) -> OtherWriter
-    ) {
-        self.knownLength = other.knownLength
-        self.writeBody =
-            switch other.writeBody {
-            case .restartable(let writeBody):
-                .restartable { writer in
-                    try await writeBody(transform(writer))
-                }
-            case .seekable(let writeBody):
-                .seekable { offset, writer in
-                    try await writeBody(offset, transform(writer))
-                }
-            }
     }
 }

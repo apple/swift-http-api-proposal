@@ -38,44 +38,50 @@ typealias ActualHTTPClient = AsyncHTTPClient.HTTPClient
 /// automatically handling connection management, protocol negotiation, and resource cleanup.
 @available(anyAppleOS 26.0, *)
 public final class DefaultHTTPClient: HTTPAPIs.HTTPClient {
-    public struct RequestWriter: AsyncWriter, ~Copyable {
+    /// The request body writer surfaced by ``DefaultHTTPClient``.
+    public struct Writer: CallerAsyncWriter, ~Copyable, SendableMetatype {
         public typealias WriteElement = UInt8
         public typealias WriteFailure = any Error
-        public typealias Buffer = UniqueArray<UInt8>
+        public typealias FinalElement = HTTPFields?
 
-        public mutating func write<Return: ~Copyable, Failure>(
-            _ body: (inout UniqueArray<UInt8>) async throws(Failure) -> Return
-        ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Return where Failure: Error {
-            try await self.actual.write(body)
+        private var actual: ActualHTTPClient.Writer
+
+        init(actual: consuming ActualHTTPClient.Writer) {
+            self.actual = actual
         }
 
-        var actual: ActualHTTPClient.RequestWriter
+        public mutating func write<Buffer: RangeReplaceableContainer<UInt8> & ~Copyable>(
+            buffer: inout Buffer
+        ) async throws(WriteFailure) where Buffer.Element: ~Copyable {
+            try await self.actual.write(buffer: &buffer)
+        }
+
+        public consuming func finish<Buffer: RangeReplaceableContainer<UInt8> & ~Copyable>(
+            buffer: inout Buffer,
+            finalElement: consuming HTTPFields?
+        ) async throws(WriteFailure) where Buffer.Element: ~Copyable {
+            try await self.actual.finish(buffer: &buffer, finalElement: finalElement)
+        }
     }
 
-    public struct ResponseConcludingReader: ConcludingAsyncReader, ~Copyable {
-        public struct Underlying: AsyncReader, ~Copyable {
-            public typealias ReadElement = UInt8
-            public typealias ReadFailure = any Error
-            public typealias Buffer = UniqueArray<UInt8>
+    /// The response body reader surfaced by ``DefaultHTTPClient``.
+    public struct Reader: AsyncReader, ~Copyable, SendableMetatype {
+        public typealias ReadElement = UInt8
+        public typealias ReadFailure = any Error
+        public typealias Buffer = UniqueArray<UInt8>
+        public typealias FinalElement = HTTPFields?
 
-            public mutating func read<Return: ~Copyable, Failure>(
-                body: (inout UniqueArray<UInt8>) async throws(Failure) -> Return
-            ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Return where Failure: Error {
-                try await self.actual.read(body: body)
-            }
+        private var actual: ActualHTTPClient.Reader
 
-            var actual: ActualHTTPClient.ResponseConcludingReader.Underlying
+        init(actual: consuming ActualHTTPClient.Reader) {
+            self.actual = actual
         }
 
-        public func consumeAndConclude<Return, Failure>(
-            body: (consuming sending Underlying) async throws(Failure) -> Return
-        ) async throws(Failure) -> (Return, HTTPFields?) where Failure: Error {
-            try await self.actual.consumeAndConclude { actual throws(Failure) in
-                try await body(Underlying(actual: actual))
-            }
+        public mutating func read<Return: ~Copyable, Failure: Error>(
+            body: (inout UniqueArray<UInt8>, consuming HTTPFields??) async throws(Failure) -> Return
+        ) async throws(EitherError<any Error, Failure>) -> Return {
+            try await self.actual.read(body: body)
         }
-
-        let actual: ActualHTTPClient.ResponseConcludingReader
     }
 
     /// A shared connection pool instance with default configuration.
@@ -135,17 +141,24 @@ public final class DefaultHTTPClient: HTTPAPIs.HTTPClient {
 
     public func perform<Return: ~Copyable>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<RequestWriter>?,
+        body: consuming HTTPClientRequestBody<Writer>?,
         options: HTTPRequestOptions,
-        responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return
+        responseHandler: (HTTPResponse, consuming Reader) async throws -> Return
     ) async throws -> Return {
         // TODO: translate request options
         let options = self.client.defaultRequestOptions
-        let body = body.map {
-            HTTPClientRequestBody<ActualHTTPClient.RequestWriter>(other: $0) { RequestWriter(actual: $0) }
+        let translatedBody: HTTPClientRequestBody<ActualHTTPClient.Writer>? = body.map { userBody in
+            guard userBody.isSeekable else {
+                return HTTPClientRequestBody<ActualHTTPClient.Writer>.restartable(knownLength: userBody.knownLength) { actualWriter in
+                    try await userBody.produce(into: Writer(actual: actualWriter))
+                }
+            }
+            return HTTPClientRequestBody<ActualHTTPClient.Writer>.seekable(knownLength: userBody.knownLength) { offset, actualWriter in
+                try await userBody.produce(offset: offset, into: Writer(actual: actualWriter))
+            }
         }
-        return try await self.client.perform(request: request, body: body, options: options) { response, body in
-            try await responseHandler(response, ResponseConcludingReader(actual: body))
+        return try await self.client.perform(request: request, body: translatedBody, options: options) { response, actualReader in
+            try await responseHandler(response, Reader(actual: actualReader))
         }
     }
 }

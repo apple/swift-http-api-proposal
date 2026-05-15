@@ -25,10 +25,9 @@ struct MiddlewareServer {
 
     static func serve<Server: HTTPServer>(server: Server) async throws
     where
-        Server.RequestConcludingReader: ~Copyable,
-        Server.RequestConcludingReader.Underlying: ~Copyable & Escapable,
-        Server.ResponseConcludingWriter: ~Copyable,
-        Server.ResponseConcludingWriter.Underlying: ~Copyable & Escapable
+        Server.Reader: ~Copyable,
+        Server.ResponseSender: ~Copyable,
+        Server.ResponseSender.Writer: ~Copyable
     {
         try await ExampleMiddlewareServer(
             server: server

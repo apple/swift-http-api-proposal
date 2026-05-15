@@ -11,6 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+public import AsyncStreaming
 public import HTTPAPIs
 public import HTTPTypes
 
@@ -20,48 +21,46 @@ public import HTTPTypes
 @available(anyAppleOS 26.0, *)
 public struct RequestResponseMiddlewareBox<
     RequestContext: HTTPServerCapability.RequestContext & ~Copyable,
-    RequestReader: ConcludingAsyncReader & ~Copyable,
-    ResponseWriter: ConcludingAsyncWriter & ~Copyable
->: ~Copyable {
+    Reader: AsyncReader & ~Copyable,
+    ResponseSender: HTTPResponseSender & ~Copyable
+>: ~Copyable
+where
+    Reader.ReadElement == UInt8,
+    Reader.FinalElement == HTTPFields?,
+    ResponseSender.Writer: ~Copyable
+{
     private let request: HTTPRequest
     private let requestContext: RequestContext
-    private let requestReader: RequestReader
-    private let responseSender: HTTPResponseSender<ResponseWriter>
+    private let reader: Reader
+    private let responseSender: ResponseSender
 
     /// Create a new ``RequestResponseMiddlewareBox``.
-    /// - Parameters:
-    ///   - request: The `HTTPRequest`.
-    ///   - requestContext: The request context.
-    ///   - requestReader: The `RequestReader`.
-    ///   - responseSender: The ``HTTPResponseSender``.
     public init(
         request: HTTPRequest,
         requestContext: consuming RequestContext,
-        requestReader: consuming RequestReader,
-        responseSender: consuming HTTPResponseSender<ResponseWriter>
+        reader: consuming Reader,
+        responseSender: consuming ResponseSender
     ) {
         self.request = request
         self.requestContext = requestContext
-        self.requestReader = requestReader
+        self.reader = reader
         self.responseSender = responseSender
     }
 
-    /// Provides a closure exposing the request, request reader and response sender contained in this box.
-    /// - Parameter handler: The handler for this box's contents.
-    /// - Returns: The value returned from `handler`.
+    /// Provides a closure exposing the request, reader, and response sender contained in this box.
     public consuming func withContents<T>(
         _ handler:
             nonisolated(nonsending) (
                 HTTPRequest,
                 consuming RequestContext,
-                consuming RequestReader,
-                consuming HTTPResponseSender<ResponseWriter>
+                consuming Reader,
+                consuming ResponseSender
             ) async throws -> T
     ) async throws -> T {
         try await handler(
             self.request,
             self.requestContext,
-            self.requestReader,
+            self.reader,
             self.responseSender
         )
     }

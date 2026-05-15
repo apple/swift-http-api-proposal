@@ -26,7 +26,7 @@ public struct ForwardingMiddleware<Input: ~Copyable & ~Escapable>: Middleware {
 }
 
 @available(anyAppleOS 26.0, *)
-extension Middleware {
+extension Middleware where Input: ~Copyable & ~Escapable, NextInput: ~Copyable & ~Escapable {
     public func forwarding() -> ForwardingMiddleware<Input> {
         ForwardingMiddleware()
     }
