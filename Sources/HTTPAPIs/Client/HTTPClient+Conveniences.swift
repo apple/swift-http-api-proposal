@@ -49,10 +49,15 @@ where
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<RequestWriter>? = nil,
         options: RequestOptions? = nil,
-        responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return,
+        responseHandler: @escaping (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return,
     ) async throws -> Return {
         let options = options ?? self.defaultRequestOptions
-        return try await self.perform(request: request, body: body, options: options, responseHandler: responseHandler)
+        return try await self.perform(
+            request: request,
+            body: body,
+            options: options,
+            responseHandler: HTTPClientClosureResponseHandler(handler: responseHandler)
+        )
     }
 
     /// Performs an HTTP GET request and collects the response body.

@@ -49,12 +49,17 @@ public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
 
     public init() {}
 
-    public func perform<Return>(
-        request: HTTPTypes.HTTPRequest,
-        body: consuming HTTPAPIs.HTTPClientRequestBody<RequestBodyWriter>?,
+    public func perform<ResponseHandler: HTTPClientResponseHandler & ~Copyable, Return: ~Copyable>(
+        request: HTTPRequest,
+        body: consuming HTTPClientRequestBody<RequestWriter>?,
         options: RequestOptions,
-        responseHandler: nonisolated(nonsending) (HTTPTypes.HTTPResponse, consuming ResponseReader) async throws -> Return
-    ) async throws -> Return where Return: ~Copyable {
+        responseHandler: consuming ResponseHandler
+    ) async throws -> Return
+    where
+        ResponseHandler.ResponseConcludingReader: ~Copyable,
+        ResponseHandler.ResponseConcludingReader == ResponseConcludingReader,
+        ResponseHandler.Return == Return
+    {
         guard let url = request.url else {
             throw FetchError.BadURL
         }
@@ -118,9 +123,9 @@ public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
             responseHeaders.append(.init(name: name, isoLatin1Value: entry[1]))
         }
 
-        return try await responseHandler(
-            HTTPResponse(status: .init(code: responseStatus, reasonPhrase: responseStatusText), headerFields: responseHeaders),
-            ResponseReader(reader: reader)
+        return try await responseHandler.handle(
+            response: HTTPResponse(status: .init(code: responseStatus, reasonPhrase: responseStatusText), headerFields: responseHeaders),
+            responseBodyAndTrailers: ResponseReader(reader: reader)
         )
     }
 

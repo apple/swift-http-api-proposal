@@ -20,6 +20,7 @@ import Synchronization
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDelegate {
     private enum Callback: Sendable {
+        case informationalResponse(HTTPURLResponse)
         case response(URLResponse)
         case redirection(
             response: HTTPURLResponse,
@@ -307,6 +308,10 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
 
     // MARK: - Events
 
+    func urlSession(_ session: URLSession, task: URLSessionTask, didReceiveInformationalResponse response: HTTPURLResponse) {
+        self.continuation.yield(.informationalResponse(response))
+    }
+
     func urlSession(
         _ session: URLSession,
         task: URLSessionTask,
@@ -346,9 +351,14 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
         self.continuation.yield(.error(error))
     }
 
-    func processDelegateCallbacksBeforeResponse(_ options: URLSessionRequestOptions) async throws -> URLResponse {
+    func processDelegateCallbacksBeforeResponse(_ options: URLSessionRequestOptions, _ responseHandler: borrowing some HTTPClientResponseHandler & ~Copyable) async throws -> URLResponse {
         for await callback in self.stream {
             switch callback {
+            case .informationalResponse(let response):
+                guard let httpResponse = response.httpResponse else {
+                    throw HTTPTypeConversionError.failedToConvertURLTypeToHTTPTypes
+                }
+                try await responseHandler.handleInformational(response: httpResponse)
             case .response(let response):
                 return response
             case .redirection(let response, let request, let completionHandler):
@@ -439,7 +449,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionDataDele
 
         for await callback in self.stream {
             switch callback {
-            case .response:
+            case .informationalResponse, .response:
                 break
             case .redirection(_, _, let completionHandler):
                 completionHandler(nil)

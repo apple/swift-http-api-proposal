@@ -36,13 +36,19 @@ struct ExampleMiddlewareClient<Client: HTTPClient & ~Copyable, ClientMiddleware:
         self.middleware = middlewareBuilder(RequestMiddleware<Client>())
     }
 
-    mutating func perform<Return: ~Copyable>(
+    mutating func perform<ResponseHandler: HTTPClientResponseHandler & ~Copyable, Return: ~Copyable>(
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<RequestWriter>?,
         options: RequestOptions,
-        responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return
-    ) async throws -> Return {
+        responseHandler: consuming ResponseHandler
+    ) async throws -> Return
+    where
+        ResponseHandler.ResponseConcludingReader: ~Copyable,
+        ResponseHandler.ResponseConcludingReader == ResponseConcludingReader,
+        ResponseHandler.Return == Return
+    {
         var body = Optional(body)
+        var responseHandler = Optional(responseHandler)
         return try await self.middleware.intercept(
             input: request
         ) { request in
@@ -50,7 +56,7 @@ struct ExampleMiddlewareClient<Client: HTTPClient & ~Copyable, ClientMiddleware:
                 request: request,
                 body: body.take()!,
                 options: options,
-                responseHandler: responseHandler
+                responseHandler: responseHandler.take()!
             )
         }
     }

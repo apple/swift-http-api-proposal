@@ -42,9 +42,14 @@ extension HTTP {
         body: consuming HTTPClientRequestBody<DefaultHTTPClient.RequestWriter>? = nil,
         options: HTTPRequestOptions = .init(),
         on client: DefaultHTTPClient = .shared,
-        responseHandler: (HTTPResponse, consuming DefaultHTTPClient.ResponseConcludingReader) async throws -> Return,
+        responseHandler: @escaping (HTTPResponse, consuming DefaultHTTPClient.ResponseConcludingReader) async throws -> Return,
     ) async throws -> Return {
-        try await client.perform(request: request, body: body, options: options, responseHandler: responseHandler)
+        try await client.perform(
+            request: request,
+            body: body,
+            options: options,
+            responseHandler: HTTPClientClosureResponseHandler(handler: responseHandler)
+        )
     }
 
     /// Performs an HTTP GET request and collects the response body.
