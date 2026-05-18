@@ -138,7 +138,7 @@ public final class DefaultHTTPClient: HTTPAPIs.HTTPClient {
         responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return
     ) async throws -> Return {
         var translatedOptions = self.client.defaultRequestOptions
-        translatedOptions.serverSupportedTransports = options.serverSupportedTransports
+        translatedOptions.serverSupportedTransportsHint = options.serverSupportedTransportsHint
         let body = body.map {
             HTTPClientRequestBody<ActualHTTPClient.RequestWriter>(other: $0) { RequestWriter(actual: $0) }
         }

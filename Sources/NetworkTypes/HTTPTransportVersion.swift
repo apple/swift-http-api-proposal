@@ -14,17 +14,17 @@
 /// An enumeration that represents a transport protocol used to carry HTTP
 /// traffic.
 ///
-/// ``TransportVersion`` provides type-safe access to supported transport
+/// ``HTTPTransportVersion`` provides type-safe access to supported transport
 /// protocols, allowing clients and servers to communicate transport
 /// capabilities. New transports may be added in future releases, so client
 /// code must handle unknown cases.
 @nonexhaustive
-public enum TransportVersion: Sendable, Hashable {
-    /// Plaintext TCP transport.
+public enum HTTPTransportVersion: Sendable, Hashable {
+    /// TCP transport.
+    ///
+    /// Whether TLS is layered on top is determined by the request's URL
+    /// scheme (`http` vs. `https`).
     case tcp
-
-    /// TCP with TLS transport.
-    case tcpWithTLS
 
     /// QUIC transport.
     ///

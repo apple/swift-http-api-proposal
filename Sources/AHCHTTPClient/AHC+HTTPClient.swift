@@ -26,8 +26,8 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
     public typealias RequestWriter = RequestBodyWriter
     public typealias ResponseConcludingReader = ResponseReader
 
-    public struct RequestOptions: HTTPClientCapability.ServerTransportCapabilityHint {
-        public var serverSupportedTransports: Set<NetworkTypes.TransportVersion> = []
+    public struct RequestOptions: HTTPClientCapability.ServerTransportHint {
+        public var serverSupportedTransportsHint: Set<NetworkTypes.HTTPTransportVersion> = []
     }
 
     public struct RequestBodyWriter: AsyncWriter, ~Copyable {

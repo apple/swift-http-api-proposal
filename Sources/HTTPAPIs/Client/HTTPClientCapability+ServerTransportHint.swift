@@ -22,11 +22,11 @@ extension HTTPClientCapability {
     /// connection establishment. For example, if a server is known to support
     /// QUIC, the client can attempt an HTTP/3 connection directly instead of
     /// falling back to TCP-based negotiation.
-    public protocol ServerTransportCapabilityHint: RequestOptions {
+    public protocol ServerTransportHint: RequestOptions {
         /// The transports that the target server is known to support.
         ///
         /// An empty set indicates no prior knowledge of server capabilities,
         /// and the client uses its default protocol negotiation behavior.
-        var serverSupportedTransports: Set<TransportVersion> { get set }
+        var serverSupportedTransportsHint: Set<HTTPTransportVersion> { get set }
     }
 }
