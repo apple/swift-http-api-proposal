@@ -337,10 +337,8 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         )
         try await client.perform(
             request: request,
-            body: .restartable(knownLength: 0) { writer in
-                var writer = writer
-                try await writer.write(Span())
-                return nil
+            body: .restartable(knownLength: 0) { sender in
+                try await sender.send(body: Span<UInt8>())
             }
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
@@ -363,11 +361,9 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         )
         try await client.perform(
             request: request,
-            body: .restartable { writer in
-                var writer = writer
+            body: .restartable { sender in
                 let body = "Hello World"
-                try await writer.write(body.utf8Span.span)
-                return nil
+                try await sender.send(body: body.utf8Span.span)
             }
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
@@ -501,10 +497,8 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
 
         try await client.perform(
             request: request,
-            body: .restartable { writer in
-                var writer = writer
-                try await writer.write("Hello World".utf8.span)
-                return nil
+            body: .restartable { sender in
+                try await sender.send(body: "Hello World".utf8.span)
             }
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
@@ -649,21 +643,24 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
 
         try await client.perform(
             request: request,
-            body: .restartable { writer in
-                var writer = writer
+            body: .restartable { sender in
+                try await sender.send { writer in
+                    var writer = writer
 
-                for _ in 0..<1000 {
-                    // Write a 1-byte chunk
-                    try await writer.write("A".utf8.span)
+                    for _ in 0..<1000 {
+                        // Write a 1-byte chunk
+                        try await writer.write("A".utf8.span)
 
-                    // Only proceed once the client receives the echo.
-                    await writerWaiting.first(where: { true })
+                        // Only proceed once the client receives the echo.
+                        await writerWaiting.first(where: { true })
+                    }
+                    return ((), nil)
                 }
-                return nil
             }
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            let _ = try await responseBodyAndTrailers.consumeAndConclude { reader in
+            let _ = try await responseBodyAndTrailers.receive { reader in
+                var reader = reader
                 var numberOfChunks = 0
                 try await reader.forEachBuffer { buffer in
                     numberOfChunks += 1
@@ -720,20 +717,23 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
 
         try await client.perform(
             request: request,
-            body: .restartable { writer in
-                var writer = writer
-                var iterator = stream.makeAsyncIterator()
+            body: .restartable { sender in
+                try await sender.send { writer in
+                    var writer = writer
+                    var iterator = stream.makeAsyncIterator()
 
-                // Wait for a chunk from the server
-                while let chunk = await iterator.next() {
-                    // Write it back to the server
-                    try await writer.write(chunk.utf8.span)
+                    // Wait for a chunk from the server
+                    while let chunk = await iterator.next() {
+                        // Write it back to the server
+                        try await writer.write(chunk.utf8.span)
+                    }
+                    return ((), nil)
                 }
-                return nil
             }
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            let _ = try await responseBodyAndTrailers.consumeAndConclude { reader in
+            let _ = try await responseBodyAndTrailers.receive { reader in
+                var reader = reader
                 // Read all chunks from server
                 try await reader.forEachBuffer { buffer in
                     var bytes = [UInt8]()
@@ -810,7 +810,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
                     request: request,
                 ) { response, responseBodyAndTrailers in
                     #expect(response.status == .ok)
-                    let _ = try await responseBodyAndTrailers.consumeAndConclude { reader in
+                    let _ = try await responseBodyAndTrailers.receive { reader in
                         var reader = reader
 
                         // Now trigger the task group cancellation.
@@ -877,12 +877,10 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
 
         try await client.perform(
             request: request,
-            body: .restartable(knownLength: 1_000_000) { writer in
+            body: .restartable(knownLength: 1_000_000) { sender in
                 // Write out 1Mb of "A"
-                var writer = writer
                 let data = String(repeating: "A", count: 1_000_000).data(using: .ascii)!
-                try await writer.write(data.span)
-                return nil
+                try await sender.send(body: data.span)
             }
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
@@ -929,7 +927,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
 
-            let (result, _) = try await responseBodyAndTrailers.consumeAndConclude { reader in
+            let (result, _) = try await responseBodyAndTrailers.receive { reader in
                 var result = [UInt8]()
                 var reader = reader
                 try await reader.forEachBuffer { buffer in
@@ -1194,13 +1192,14 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         )
         try await client.perform(
             request: request,
-            body: .restartable { writer in
-                var writer = writer
-                try await writer.write("Hello World".utf8.span)
-                return [
-                    .init("X-Request-Trailer-One")!: "first-trailer-value",
-                    .init("X-Request-Trailer-Two")!: "second-trailer-value",
-                ]
+            body: .restartable { sender in
+                try await sender.send(
+                    body: "Hello World".utf8.span,
+                    trailers: [
+                        .init("X-Request-Trailer-One")!: "first-trailer-value",
+                        .init("X-Request-Trailer-Two")!: "second-trailer-value",
+                    ]
+                )
             }
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)

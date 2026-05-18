@@ -27,24 +27,27 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
     struct RequestOptions: HTTPClientCapability.RequestOptions {
         init() {}
     }
-    /// A concluding async reader backed by an underlying MPSCAsyncChannel.
-    struct AsyncChannelConcludingAsyncReader: ConcludingAsyncReader, ~Copyable, SendableMetatype {
-        typealias Underlying = MultiProducerSingleConsumerAsyncChannel<UInt8, any Error>
-        typealias FinalElement = HTTPFields?
 
-        var channel: Disconnected<MultiProducerSingleConsumerAsyncChannel<UInt8, any Error>?>
+    typealias UnderlyingChannel = MultiProducerSingleConsumerAsyncChannel<UInt8, any Error>
+    typealias UnderlyingSource = UnderlyingChannel.Source
+
+    /// A request receiver backed by an MPSCAsyncChannel — used as request receiver on the server side.
+    struct AsyncChannelRequestReceiver: HTTPRequestReceiver, ~Copyable, SendableMetatype {
+        typealias Reader = UnderlyingChannel
+
+        var channel: Disconnected<UnderlyingChannel?>
         var trailersChannel: AsyncChannel<HTTPFields?>
 
         init(
-            channel: consuming sending MultiProducerSingleConsumerAsyncChannel<UInt8, any Error>,
+            channel: consuming sending UnderlyingChannel,
             trailersChannel: AsyncChannel<HTTPFields?>
         ) {
             self.channel = Disconnected(value: channel)
             self.trailersChannel = trailersChannel
         }
 
-        consuming func consumeAndConclude<Return, Failure: Error>(
-            body: (consuming sending MultiProducerSingleConsumerAsyncChannel<UInt8, any Error>) async throws(Failure) -> Return
+        consuming func receive<Return, Failure: Error>(
+            body: (consuming sending UnderlyingChannel) async throws(Failure) -> Return
         ) async throws(Failure) -> (Return, HTTPFields?) {
             let channel = self.channel.swap(newValue: nil)!
             let result = try await body(channel)
@@ -53,25 +56,91 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
         }
     }
 
-    /// A concluding async writer backed by an underlying MPSCAsyncChannel.Source.
-    struct AsyncChannelConcludingAsyncWriter: ConcludingAsyncWriter, ~Copyable, SendableMetatype {
-        typealias Underlying = MultiProducerSingleConsumerAsyncChannel<UInt8, any Error>.Source
-        typealias FinalElement = HTTPFields?
+    /// A response receiver backed by an MPSCAsyncChannel — used as response receiver on the client side.
+    struct AsyncChannelResponseReceiver: HTTPResponseReceiver, ~Copyable, SendableMetatype {
+        typealias Reader = UnderlyingChannel
 
-        var source: Disconnected<MultiProducerSingleConsumerAsyncChannel<UInt8, any Error>.Source?>
+        var channel: Disconnected<UnderlyingChannel?>
         var trailersChannel: AsyncChannel<HTTPFields?>
 
         init(
-            source: consuming sending MultiProducerSingleConsumerAsyncChannel<UInt8, any Error>.Source,
+            channel: consuming sending UnderlyingChannel,
+            trailersChannel: AsyncChannel<HTTPFields?>
+        ) {
+            self.channel = Disconnected(value: channel)
+            self.trailersChannel = trailersChannel
+        }
+
+        consuming func receive<Return, Failure: Error>(
+            body: (consuming sending UnderlyingChannel) async throws(Failure) -> Return
+        ) async throws(Failure) -> (Return, HTTPFields?) {
+            let channel = self.channel.swap(newValue: nil)!
+            let result = try await body(channel)
+            let trailers = await self.trailersChannel.first { _ in true } ?? nil
+            return (result, trailers)
+        }
+    }
+
+    /// A request sender backed by an MPSCAsyncChannel.Source.
+    struct AsyncChannelRequestSender: HTTPRequestSender, ~Copyable, SendableMetatype {
+        typealias Writer = UnderlyingSource
+
+        var source: Disconnected<UnderlyingSource?>
+        var trailersChannel: AsyncChannel<HTTPFields?>
+
+        init(
+            source: consuming sending UnderlyingSource,
             trailersChannel: AsyncChannel<HTTPFields?>
         ) {
             self.source = Disconnected(value: consume source)
             self.trailersChannel = trailersChannel
         }
 
-        consuming func produceAndConclude<Return>(
-            body: (consuming sending MultiProducerSingleConsumerAsyncChannel<UInt8, any Error>.Source) async throws -> (Return, HTTPFields?)
+        consuming func send<Return>(
+            body: (consuming sending UnderlyingSource) async throws -> (Return, HTTPFields?)
         ) async throws -> Return {
+            do {
+                let source = self.source.swap(newValue: nil)!
+                let (result, trailers) = try await body(source)
+                await self.trailersChannel.send(trailers)
+                return result
+            } catch {
+                self.trailersChannel.finish()
+                throw error
+            }
+        }
+    }
+
+    /// A response sender backed by an MPSCAsyncChannel.Source.
+    struct AsyncChannelResponseSender: HTTPResponseSender, ~Copyable, SendableMetatype {
+        typealias Writer = UnderlyingSource
+
+        let resumeWith: @Sendable (HTTPResponse, consuming sending AsyncChannelResponseReceiver) -> Void
+        var source: Disconnected<UnderlyingSource?>
+        let responseReceiver: Disconnected<AsyncChannelResponseReceiver?>
+        var trailersChannel: AsyncChannel<HTTPFields?>
+
+        init(
+            resumeWith: @escaping @Sendable (HTTPResponse, consuming sending AsyncChannelResponseReceiver) -> Void,
+            source: consuming sending UnderlyingSource,
+            responseReceiver: consuming sending AsyncChannelResponseReceiver,
+            trailersChannel: AsyncChannel<HTTPFields?>
+        ) {
+            self.resumeWith = resumeWith
+            self.source = Disconnected(value: consume source)
+            self.responseReceiver = Disconnected(value: consume responseReceiver)
+            self.trailersChannel = trailersChannel
+        }
+
+        func sendInformational(_ response: HTTPResponse) async throws {
+            // No-op
+        }
+
+        consuming func send<Return>(
+            _ response: HTTPResponse,
+            body: (consuming sending UnderlyingSource) async throws -> (Return, HTTPFields?)
+        ) async throws -> Return {
+            self.resumeWith(response, self.responseReceiver.take()!)
             do {
                 let source = self.source.swap(newValue: nil)!
                 let (result, trailers) = try await body(source)
@@ -88,24 +157,24 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
     private struct BufferedRequest: ~Copyable {
         final class Response {
             var response: HTTPResponse
-            private var responseReader: AsyncChannelConcludingAsyncReader?
+            private var responseReceiver: AsyncChannelResponseReceiver?
 
-            init(response: HTTPResponse, responseReader: consuming AsyncChannelConcludingAsyncReader) {
+            init(response: HTTPResponse, responseReceiver: consuming AsyncChannelResponseReceiver) {
                 self.response = response
-                self.responseReader = consume responseReader
+                self.responseReceiver = consume responseReceiver
             }
 
-            func takeResponseReader() -> AsyncChannelConcludingAsyncReader {
-                self.responseReader.take()!
+            func takeResponseReceiver() -> AsyncChannelResponseReceiver {
+                self.responseReceiver.take()!
             }
         }
         var request: HTTPRequest
-        var body: Disconnected<HTTPClientRequestBody<AsyncChannelConcludingAsyncWriter.Underlying>??>
+        var body: Disconnected<HTTPClientRequestBody<AsyncChannelRequestSender>??>
         var responseContinuation: CheckedContinuation<Response, any Error>
 
         init(
             request: HTTPRequest,
-            body: consuming sending HTTPClientRequestBody<AsyncChannelConcludingAsyncWriter.Underlying>?,
+            body: consuming sending HTTPClientRequestBody<AsyncChannelRequestSender>?,
             responseContinuation: CheckedContinuation<Response, any Error>
         ) {
             self.request = request
@@ -113,15 +182,15 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
             self.responseContinuation = responseContinuation
         }
 
-        mutating func takeBody() -> sending HTTPClientRequestBody<AsyncChannelConcludingAsyncWriter.Underlying>? {
+        mutating func takeBody() -> sending HTTPClientRequestBody<AsyncChannelRequestSender>? {
             self.body.swap(newValue: nil)!
         }
     }
 
-    typealias RequestWriter = AsyncChannelConcludingAsyncWriter.Underlying
-    typealias ResponseConcludingReader = AsyncChannelConcludingAsyncReader
-    typealias RequestConcludingReader = AsyncChannelConcludingAsyncReader
-    typealias ResponseConcludingWriter = AsyncChannelConcludingAsyncWriter
+    typealias RequestSender = AsyncChannelRequestSender
+    typealias ResponseReceiver = AsyncChannelResponseReceiver
+    typealias RequestReceiver = AsyncChannelRequestReceiver
+    typealias ResponseSender = AsyncChannelResponseSender
 
     private let requests = Mutex<UniqueArray<BufferedRequest>>(.init())
     private let (stream, continuation): (AsyncStream<Void>, AsyncStream<Void>.Continuation)
@@ -138,9 +207,9 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
 
     func perform<Return: ~Copyable>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<AsyncChannelConcludingAsyncWriter.Underlying>?,
+        body: consuming HTTPClientRequestBody<AsyncChannelRequestSender>?,
         options: RequestOptions,
-        responseHandler: (HTTPResponse, consuming AsyncChannelConcludingAsyncReader) async throws -> Return
+        responseHandler: (HTTPResponse, consuming AsyncChannelResponseReceiver) async throws -> Return
     ) async throws -> Return {
         let response = try await withCheckedThrowingContinuation { continuation in
             self.requests.withLock { requests in
@@ -159,12 +228,12 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
         return try await responseHandler(
             response.response,
             // Needed since we are lacking call-once closures
-            response.takeResponseReader()
+            response.takeResponseReceiver()
         )
     }
 
     func serve(
-        handler: some HTTPServerRequestHandler<AsyncChannelConcludingAsyncReader, AsyncChannelConcludingAsyncWriter>
+        handler: some HTTPServerRequestHandler<AsyncChannelRequestReceiver, AsyncChannelResponseSender>
     ) async throws {
         try await withThrowingDiscardingTaskGroup { group in
             for await _ in self.stream {
@@ -184,38 +253,32 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
 
     private static func handleRequest(
         request: consuming BufferedRequest,
-        handler: some HTTPServerRequestHandler<AsyncChannelConcludingAsyncReader, AsyncChannelConcludingAsyncWriter>
+        handler: some HTTPServerRequestHandler<AsyncChannelRequestReceiver, AsyncChannelResponseSender>
     ) async throws {
         try await withThrowingTaskGroup { group in
             let trailersChannel = AsyncChannel<HTTPFields?>()
-            var requestChannelAndSource = MultiProducerSingleConsumerAsyncChannel<UInt8, any Error>.makeChannel(
+            var requestChannelAndSource = UnderlyingChannel.makeChannel(
                 throwing: (any Error).self,
                 backpressureStrategy: .watermark(low: 10, high: 20)
             )
             let requestChannel = requestChannelAndSource.takeChannel()
             let requestSource = requestChannelAndSource.source
             // Needed since we are lacking call-once closures
-            var requestWriter: AsyncChannelConcludingAsyncWriter? = AsyncChannelConcludingAsyncWriter(
+            var requestSender: AsyncChannelRequestSender? = AsyncChannelRequestSender(
                 source: requestSource,
                 trailersChannel: trailersChannel
             )
-            let requestReader = AsyncChannelConcludingAsyncReader(
+            let requestReceiver = AsyncChannelRequestReceiver(
                 channel: requestChannel,
                 trailersChannel: trailersChannel
             )
-            var responseChannelAndSource = MultiProducerSingleConsumerAsyncChannel<UInt8, any Error>.makeChannel(
+            var responseChannelAndSource = UnderlyingChannel.makeChannel(
                 throwing: (any Error).self,
                 backpressureStrategy: .watermark(low: 10, high: 20)
             )
             let responseChannel = responseChannelAndSource.takeChannel()
             let responseSource = responseChannelAndSource.source
-            // Needed since we are lacking call-once closures
-            var responseWriter: AsyncChannelConcludingAsyncWriter? = AsyncChannelConcludingAsyncWriter(
-                source: responseSource,
-                trailersChannel: trailersChannel
-            )
-            // Needed since we are lacking call-once closures
-            var responseReader: AsyncChannelConcludingAsyncReader? = AsyncChannelConcludingAsyncReader(
+            let responseReceiver: AsyncChannelResponseReceiver = AsyncChannelResponseReceiver(
                 channel: responseChannel,
                 trailersChannel: trailersChannel
             )
@@ -223,31 +286,31 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
             // Needed since we are lacking call-once closures
             let body = request.takeBody()
             group.addTask {
-                try await requestWriter.take()!.produceAndConclude { writer in
-                    try await body?.produce(into: writer)
+                if let body {
+                    try await body.produce(into: requestSender.take()!)
+                } else {
+                    // No body: just signal end-of-stream with no trailers.
+                    try await requestSender.take()!.send(trailers: nil)
                 }
             }
 
             let responseContinuation = request.responseContinuation
-            let responseSender = HTTPResponseSender { response in
-                responseContinuation
-                    .resume(
-                        returning: .init(
-                            response: response,
-                            // Needed since we are lacking call-once closures
-                            responseReader: responseReader.take()!
-                        )
+            let responseSender = AsyncChannelResponseSender(
+                resumeWith: { response, receiver in
+                    responseContinuation.resume(
+                        returning: .init(response: response, responseReceiver: receiver)
                     )
-                // Needed since we are lacking call-once closures
-                return responseWriter.take()!
-            } sendInformational: { _ in
-            }
+                },
+                source: responseSource,
+                responseReceiver: responseReceiver,
+                trailersChannel: trailersChannel
+            )
 
             try await handler
                 .handle(
                     request: request.request,
                     requestContext: .init(),
-                    requestBodyAndTrailers: requestReader,
+                    requestReceiver: requestReceiver,
                     responseSender: responseSender
                 )
         }

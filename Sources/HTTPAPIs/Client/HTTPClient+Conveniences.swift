@@ -11,6 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+public import BasicContainers
+
 #if canImport(FoundationEssentials)
 public import struct FoundationEssentials.URL
 public import struct FoundationEssentials.Data
@@ -23,9 +25,10 @@ public import struct Foundation.Data
 extension HTTPClient
 where
     Self: ~Copyable & ~Escapable,
-    ResponseConcludingReader: ~Copyable,
-    ResponseConcludingReader.Underlying: ~Copyable,
-    RequestWriter: ~Copyable
+    ResponseReceiver: ~Copyable,
+    ResponseReceiver.Reader: ~Copyable,
+    RequestSender: ~Copyable,
+    RequestSender.Writer: ~Copyable
 {
     /// Performs an HTTP request and processes the response.
     ///
@@ -47,9 +50,9 @@ where
     #endif
     public mutating func perform<Return: ~Copyable>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<RequestWriter>? = nil,
+        body: consuming HTTPClientRequestBody<RequestSender>? = nil,
         options: RequestOptions? = nil,
-        responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return,
+        responseHandler: (HTTPResponse, consuming ResponseReceiver) async throws -> Return,
     ) async throws -> Return {
         let options = options ?? self.defaultRequestOptions
         return try await self.perform(request: request, body: body, options: options, responseHandler: responseHandler)
@@ -89,20 +92,6 @@ where
     }
 
     /// Performs an HTTP POST request with a body and collects the response body.
-    ///
-    /// This convenience method executes a POST request to the specified URL with the provided
-    /// request body data and collects the response body data up to the specified limit.
-    ///
-    /// - Parameters:
-    ///   - url: The URL to send the POST request to.
-    ///   - headerFields: The HTTP header fields to include in the request. Defaults to an empty collection.
-    ///   - bodyData: The request body data to send.
-    ///   - options: The options for this request. Defaults to an empty initialized options.
-    ///   - limit: The maximum number of bytes to collect from the response body.
-    ///
-    /// - Returns: A tuple containing the HTTP response header and the collected response body data.
-    ///
-    /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
     #if compiler(<6.3)
     @_lifetime(&self)
     #endif
@@ -124,20 +113,6 @@ where
     }
 
     /// Performs an HTTP PUT request with a body and collects the response body.
-    ///
-    /// This convenience method executes a PUT request to the specified URL with the provided
-    /// request body data and collects the response body data up to the specified limit.
-    ///
-    /// - Parameters:
-    ///   - url: The URL to send the PUT request to.
-    ///   - headerFields: The HTTP header fields to include in the request. Defaults to an empty collection.
-    ///   - bodyData: The request body data to send.
-    ///   - options: The options for this request. Defaults to an empty initialized options.
-    ///   - limit: The maximum number of bytes to collect from the response body.
-    ///
-    /// - Returns: A tuple containing the HTTP response header and the collected response body data.
-    ///
-    /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
     #if compiler(<6.3)
     @_lifetime(&self)
     #endif
@@ -159,20 +134,6 @@ where
     }
 
     /// Performs an HTTP DELETE request and collects the response body.
-    ///
-    /// This convenience method executes a DELETE request to the specified URL with an optional
-    /// request body and collects the response body data up to the specified limit.
-    ///
-    /// - Parameters:
-    ///   - url: The URL to send the DELETE request to.
-    ///   - headerFields: The HTTP header fields to include in the request. Defaults to an empty collection.
-    ///   - bodyData: The optional request body data to send. Defaults to no body.
-    ///   - options: The options for this request. Defaults to an empty initialized options.
-    ///   - limit: The maximum number of bytes to collect from the response body.
-    ///
-    /// - Returns: A tuple containing the HTTP response header and the collected response body data.
-    ///
-    /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
     #if compiler(<6.3)
     @_lifetime(&self)
     #endif
@@ -194,20 +155,6 @@ where
     }
 
     /// Performs an HTTP PATCH request with a body and collects the response body.
-    ///
-    /// This convenience method executes a PATCH request to the specified URL with the provided
-    /// request body data and collects the response body data up to the specified limit.
-    ///
-    /// - Parameters:
-    ///   - url: The URL to send the PATCH request to.
-    ///   - headerFields: The HTTP header fields to include in the request. Defaults to an empty collection.
-    ///   - bodyData: The request body data to send.
-    ///   - options: The options for this request. Defaults to an empty initialized options.
-    ///   - limit: The maximum number of bytes to collect from the response body.
-    ///
-    /// - Returns: A tuple containing the HTTP response header and the collected response body data.
-    ///
-    /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
     #if compiler(<6.3)
     @_lifetime(&self)
     #endif
@@ -228,14 +175,21 @@ where
         }
     }
 
-    private static func collectBody<Reader: ConcludingAsyncReader>(_ body: consuming Reader, upTo limit: Int) async throws -> Data
-    where Reader: ~Copyable, Reader.Underlying: ~Copyable, Reader.Underlying.ReadElement == UInt8 {
-        try await body.collect(upTo: limit == .max ? .max : limit + 1) {
-            if $0.count > limit {
-                throw LengthLimitExceededError()
-            }
-            return $0.span.withUnsafeBytes { unsafe Data($0) }
-        }.0
+    private static func collectBody<Receiver: HTTPResponseReceiver>(
+        _ body: consuming Receiver,
+        upTo limit: Int
+    ) async throws -> Data
+    where Receiver: ~Copyable, Receiver.Reader: ~Copyable {
+        // Allocate a buffer with capacity = limit + 1 so we can detect overflow:
+        // if the stream still has bytes when our buffer fills, we throw.
+        let capacity = limit == .max ? limit : limit + 1
+        var buffer = UniqueArray<UInt8>(minimumCapacity: capacity)
+        let trailers = try await body.collect(into: &buffer)
+        _ = trailers
+        if buffer.count > limit {
+            throw LengthLimitExceededError()
+        }
+        return buffer.span.withUnsafeBytes { unsafe Data($0) }
     }
 }
 

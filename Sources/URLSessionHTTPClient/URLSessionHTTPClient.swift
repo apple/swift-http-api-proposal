@@ -67,8 +67,27 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
         }
     }
 
-    public struct ResponseConcludingReader: ConcludingAsyncReader, ~Copyable {
-        public struct Underlying: AsyncReader, ~Copyable {
+    public struct RequestSender: HTTPRequestSender, ~Copyable {
+        public typealias Writer = RequestWriter
+
+        let actual: URLSessionRequestStreamBridge
+
+        init(actual: URLSessionRequestStreamBridge) {
+            self.actual = actual
+        }
+
+        public consuming func send<Return>(
+            body: (consuming sending RequestWriter) async throws -> (Return, HTTPFields?)
+        ) async throws -> Return {
+            let writer = RequestWriter(actual: self.actual)
+            let (result, trailers) = try await body(writer)
+            self.actual.close(trailerFields: trailers)
+            return result
+        }
+    }
+
+    public struct ResponseReceiver: HTTPResponseReceiver, ~Copyable {
+        public struct Reader: AsyncReader, ~Copyable {
             public typealias ReadElement = UInt8
             public typealias ReadFailure = any Error
             public typealias Buffer = UniqueArray<UInt8>
@@ -112,10 +131,10 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
             }
         }
 
-        public func consumeAndConclude<Return, Failure>(
-            body: (consuming sending Underlying) async throws(Failure) -> Return
+        public consuming func receive<Return, Failure>(
+            body: (consuming sending Reader) async throws(Failure) -> Return
         ) async throws(Failure) -> (Return, HTTPFields?) where Failure: Error {
-            let result = try await body(Underlying(actual: self.actual))
+            let result = try await body(Reader(actual: self.actual))
             return (result, self.actual.responseTrailerFields)
         }
 
@@ -359,9 +378,9 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
 
     public func perform<Return: ~Copyable>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<RequestWriter>?,
+        body: consuming HTTPClientRequestBody<RequestSender>?,
         options: URLSessionRequestOptions,
-        responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return
+        responseHandler: (HTTPResponse, consuming ResponseReceiver) async throws -> Return
     ) async throws -> Return {
         guard request.schemeSupported else {
             throw HTTPTypeConversionError.unsupportedScheme

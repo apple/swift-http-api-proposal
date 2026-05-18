@@ -87,18 +87,22 @@ struct ETag: Sendable & ~Copyable {
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 func serve(server: NIOHTTPServer) async throws {
     let eTag = ETag()
-    try await server.serve { request, requestContext, requestBodyAndTrailers, responseSender in
+    try await server.serve { request, requestContext, requestReceiver, responseSender in
         // This server expects a path
         guard let path = request.path else {
-            let writer = try await responseSender.send(HTTPResponse(status: .internalServerError))
-            try await writer.writeAndConclude("No path specified".utf8.span, finalElement: nil)
+            try await responseSender.send(
+                HTTPResponse(status: .internalServerError),
+                body: "No path specified".utf8.span
+            )
             return
         }
 
         // This server expects a valid path
         guard let components = URLComponents(string: path) else {
-            let writer = try await responseSender.send(HTTPResponse(status: .internalServerError))
-            try await writer.writeAndConclude("Malformed path".utf8.span, finalElement: nil)
+            try await responseSender.send(
+                HTTPResponse(status: .internalServerError),
+                body: "Malformed path".utf8.span
+            )
             return
         }
 
@@ -121,9 +125,9 @@ func serve(server: NIOHTTPServer) async throws {
             }
 
             // Parse the body as a UTF8 string and capture trailers
-            let (body, requestTrailers) = try await requestBodyAndTrailers.collect(upTo: 1024) { span in
-                return String(copying: try UTF8Span(validating: span.span))
-            }
+            var bodyBuffer = UniqueArray<UInt8>(minimumCapacity: 1024)
+            let requestTrailers = try await requestReceiver.collect(into: &bodyBuffer)
+            let body = String(copying: try UTF8Span(validating: bodyBuffer.span))
 
             // Collect the trailers that were sent in with the request
             var trailers: [String: [String]] = [:]
@@ -139,9 +143,7 @@ func serve(server: NIOHTTPServer) async throws {
             let response = JSONHTTPRequest(params: params, headers: headers, body: body, method: method, trailers: trailers)
 
             let responseData = try JSONEncoder().encode(response)
-            let responseSpan = responseData.span
-            let writer = try await responseSender.send(HTTPResponse(status: .ok))
-            try await writer.writeAndConclude(responseSpan, finalElement: nil)
+            try await responseSender.send(HTTPResponse(status: .ok), body: responseData.span)
         case "/head_with_cl":
             if request.method != .head {
                 try await responseSender.send(HTTPResponse(status: .methodNotAllowed))
@@ -158,13 +160,12 @@ func serve(server: NIOHTTPServer) async throws {
                 )
             )
         case "/200":
-            // OK
-            let writer = try await responseSender.send(HTTPResponse(status: .ok))
-
             // Do not write a response body for a HEAD request
-            if request.method == .head { break }
-
-            try await writer.writeAndConclude("".utf8.span, finalElement: nil)
+            if request.method == .head {
+                try await responseSender.send(HTTPResponse(status: .ok))
+            } else {
+                try await responseSender.send(HTTPResponse(status: .ok), body: "".utf8.span)
+            }
         case "/gzip":
             // If the client didn't say that they supported this encoding,
             // then fallback to no encoding.
@@ -186,8 +187,7 @@ func serve(server: NIOHTTPServer) async throws {
                 headers = [:]
             }
 
-            let writer = try await responseSender.send(HTTPResponse(status: .ok, headerFields: headers))
-            try await writer.writeAndConclude(bytes.span, finalElement: nil)
+            try await responseSender.send(HTTPResponse(status: .ok, headerFields: headers), body: bytes.span)
         case "/deflate":
             // If the client didn't say that they supported this encoding,
             // then fallback to no encoding.
@@ -206,8 +206,7 @@ func serve(server: NIOHTTPServer) async throws {
                 headers = [:]
             }
 
-            let writer = try await responseSender.send(HTTPResponse(status: .ok, headerFields: headers))
-            try await writer.writeAndConclude(bytes.span, finalElement: nil)
+            try await responseSender.send(HTTPResponse(status: .ok, headerFields: headers), body: bytes.span)
         case "/brotli":
             // If the client didn't say that they supported this encoding,
             // then fallback to no encoding.
@@ -226,8 +225,7 @@ func serve(server: NIOHTTPServer) async throws {
                 headers = [:]
             }
 
-            let writer = try await responseSender.send(HTTPResponse(status: .ok, headerFields: headers))
-            try await writer.writeAndConclude(bytes.span, finalElement: nil)
+            try await responseSender.send(HTTPResponse(status: .ok, headerFields: headers), body: bytes.span)
         case "/header_multivalue":
             try await responseSender.send(
                 HTTPResponse(
@@ -241,98 +239,69 @@ func serve(server: NIOHTTPServer) async throws {
         case "/identity":
             // This will always write out the body with no encoding.
             // Used to check that a client can handle fallback to no encoding.
-            let writer = try await responseSender.send(HTTPResponse(status: .ok))
-            try await writer.writeAndConclude("TEST\n".utf8.span, finalElement: nil)
+            try await responseSender.send(HTTPResponse(status: .ok), body: "TEST\n".utf8.span)
         case "/redirect_ping":
             // Infinite redirection as a result of arriving here
-            let writer = try await responseSender.send(
-                HTTPResponse(status: .movedPermanently, headerFields: HTTPFields([HTTPField(name: .location, value: "/redirect_pong")]))
+            try await responseSender.send(
+                HTTPResponse(status: .movedPermanently, headerFields: HTTPFields([HTTPField(name: .location, value: "/redirect_pong")])),
+                body: "".utf8.span
             )
-            try await writer
-                .writeAndConclude("".utf8.span, finalElement: nil)
         case "/redirect_pong":
             // Infinite redirection as a result of arriving here
-            let writer = try await responseSender.send(
-                HTTPResponse(status: .movedPermanently, headerFields: HTTPFields([HTTPField(name: .location, value: "/redirect_ping")]))
+            try await responseSender.send(
+                HTTPResponse(status: .movedPermanently, headerFields: HTTPFields([HTTPField(name: .location, value: "/redirect_ping")])),
+                body: "".utf8.span
             )
-            try await writer
-                .writeAndConclude("".utf8.span, finalElement: nil)
         case "/301":
             // Redirect to /request
-            let writer = try await responseSender.send(
-                HTTPResponse(status: .movedPermanently, headerFields: HTTPFields([HTTPField(name: .location, value: "/request")]))
+            try await responseSender.send(
+                HTTPResponse(status: .movedPermanently, headerFields: HTTPFields([HTTPField(name: .location, value: "/request")])),
+                body: "".utf8.span
             )
-            try await writer
-                .writeAndConclude("".utf8.span, finalElement: nil)
         case "/308":
             // Redirect to /request
-            let writer = try await responseSender.send(
+            try await responseSender.send(
                 HTTPResponse(
                     status: .permanentRedirect,
                     headerFields: HTTPFields(
                         [HTTPField(name: .location, value: "/request")]
                     )
-                )
+                ),
+                body: "".utf8.span
             )
-            try await writer
-                .writeAndConclude("".utf8.span, finalElement: nil)
         case "/404":
-            let writer = try await responseSender.send(
-                HTTPResponse(status: .notFound)
-            )
-            try await writer
-                .writeAndConclude("".utf8.span, finalElement: nil)
+            try await responseSender.send(HTTPResponse(status: .notFound), body: "".utf8.span)
         case "/999":
-            let writer = try await responseSender.send(
-                HTTPResponse(status: 999)
-            )
-            try await writer
-                .writeAndConclude("".utf8.span, finalElement: nil)
+            try await responseSender.send(HTTPResponse(status: 999), body: "".utf8.span)
         case "/echo":
             // Bad method
             if request.method != .post {
-                let writer = try await responseSender.send(
-                    HTTPResponse(status: .methodNotAllowed)
+                try await responseSender.send(
+                    HTTPResponse(status: .methodNotAllowed),
+                    body: "Incorrect method".utf8.span
                 )
-                try await writer
-                    .writeAndConclude(
-                        "Incorrect method".utf8.span,
-                        finalElement: nil
-                    )
                 return
             }
 
-            // Needed since we are lacking call-once closures
-            var responseSender = Optional(responseSender)
-
-            _ =
-                try await requestBodyAndTrailers
-                .consumeAndConclude { reader in
-                    // Needed since we are lacking call-once closures
-                    var reader = Optional(reader)
-                    let responseBodyAndTrailers = try await responseSender.take()!.send(.init(status: .ok))
-                    try await responseBodyAndTrailers.produceAndConclude { responseBody in
-                        var responseBody = responseBody
-                        try await responseBody.write(reader.take()!)
-                        return nil
-                    }
+            // Move requestReceiver into Optional so it can be taken across the closure boundary.
+            var requestReceiver = Optional(requestReceiver)
+            try await responseSender.send(.init(status: .ok)) { writer in
+                var writer = writer
+                let (_, trailers) = try await requestReceiver.take()!.receive { reader in
+                    try await writer.write(reader)
                 }
+                return ((), trailers)
+            }
         case "/speak":
-            // Send the headers for the response
-            let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
-
-            // Needed since we are lacking call-once closures
-            var requestBodyAndTrailers = Optional(requestBodyAndTrailers)
-
-            try await responseBodyAndTrailers.produceAndConclude {
-                var writer = $0
-                let _ = try await requestBodyAndTrailers.take()!.consumeAndConclude {
-                    var reader = $0
-
-                    // Server writes 1000 1-byte chunks of "A" and expects each
-                    // chunk to be written back by the client before proceeding
-                    // with the next one.
-                    for i in 0..<1000 {
+            // Server writes 1000 1-byte chunks of "A" and expects each
+            // chunk to be written back by the client before proceeding
+            // with the next one.
+            var requestReceiver = Optional(requestReceiver)
+            try await responseSender.send(.init(status: .ok)) { writer in
+                var writer = writer
+                let (_, _) = try await requestReceiver.take()!.receive { reader in
+                    var reader = reader
+                    for _ in 0..<1000 {
                         // Write a single-byte chunk
                         try await writer.write("A".utf8.span)
 
@@ -345,7 +314,7 @@ func serve(server: NIOHTTPServer) async throws {
                         }
                     }
                 }
-                return nil
+                return ((), nil)
             }
         case "/stall":
             do {
@@ -356,30 +325,25 @@ func serve(server: NIOHTTPServer) async throws {
                 // It is okay for the client to give up on the connection due to the stall.
             }
         case "/stall_body":
-            // Send headers and partial body
-            let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
-
             do {
-                try await responseBodyAndTrailers.produceAndConclude { responseBody in
-                    var responseBody = responseBody
-                    try await responseBody.write([UInt8](repeating: UInt8(ascii: "A"), count: 1000).span)
+                try await responseSender.send(.init(status: .ok)) { writer in
+                    var writer = writer
+                    try await writer.write([UInt8](repeating: UInt8(ascii: "A"), count: 1000).span)
 
                     // Wait for an hour (effectively never giving an answer)
                     try await Task.sleep(for: .seconds(60 * 60))
 
                     assertionFailure("Not expected to complete hour-long wait")
 
-                    return nil
+                    return ((), nil)
                 }
             } catch {
                 // It is okay for the client to give up on the connection due to the stall.
             }
         case "/1mb_body":
-            let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
             let data = String(repeating: "A", count: 1_000_000).data(using: .ascii)!
-
             do {
-                try await responseBodyAndTrailers.writeAndConclude(data.span, finalElement: nil)
+                try await responseSender.send(.init(status: .ok), body: data.span)
             } catch {
                 // It is okay for the client to give up while reading this response.
                 // Example: a client may only want the first byte from this response.
@@ -389,62 +353,66 @@ func serve(server: NIOHTTPServer) async throws {
             }
         case "/cookie":
             let cookie = UUID().uuidString
-            let responseBodyAndTrailers = try await responseSender.send(
+            try await responseSender.send(
                 .init(
                     status: .ok,
                     headerFields: [
                         .setCookie: "foo=\(cookie)"
                     ]
-                )
+                ),
+                body: Span<UInt8>()
             )
-            try await responseBodyAndTrailers.writeAndConclude(Span(), finalElement: nil)
         case "/etag":
             let clientETag = request.headerFields[.ifNoneMatch]
             let (serverETag, isNotModified) = eTag.next(clientETag: clientETag)
             if isNotModified {
                 // Nothing has changed, so 304 Not Modified.
-                let responseBodyAndTrailers = try await responseSender.send(
+                try await responseSender.send(
                     .init(
                         status: .notModified,
                         headerFields: [
                             .eTag: serverETag,
                             .cached: "true",
                         ]
-                    )
+                    ),
+                    body: Span<UInt8>()
                 )
-                try await responseBodyAndTrailers.writeAndConclude(Span(), finalElement: nil)
             } else {
                 // The server wants to give a new ETag to the client
-                let responseBodyAndTrailers = try await responseSender.send(
+                // Give the etag itself as the new body
+                let data = serverETag.data(using: .ascii)!
+                try await responseSender.send(
                     .init(
                         status: .ok,
                         headerFields: [
                             .eTag: serverETag,
                             .cached: "false",
                         ]
-                    )
+                    ),
+                    body: data.span
                 )
-                // Give the etag itself as the new body
-                let data = serverETag.data(using: .ascii)!
-                try await responseBodyAndTrailers.writeAndConclude(data.span, finalElement: nil)
             }
         case "/trailers":
             // Send a response with custom trailers
-            let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
-            try await responseBodyAndTrailers.produceAndConclude { responseBody in
-                var responseBody = responseBody
+            try await responseSender.send(.init(status: .ok)) { writer in
+                var writer = writer
                 // Write the body
-                try await responseBody.write("Response body".utf8.span)
+                try await writer.write("Response body".utf8.span)
                 // Return custom trailers
-                return [
-                    .init("X-Trailer-One")!: "first-value",
-                    .init("X-Trailer-Two")!: "second-value",
-                    .init("X-Checksum")!: "abc123",
-                ]
+                return (
+                    (),
+                    [
+                        .init("X-Trailer-One")!: "first-value",
+                        .init("X-Trailer-Two")!: "second-value",
+                        .init("X-Checksum")!: "abc123",
+                    ]
+                )
             }
         default:
-            let writer = try await responseSender.send(HTTPResponse(status: .internalServerError))
-            try await writer.writeAndConclude("Unknown path".utf8.span, finalElement: nil)
+            try await responseSender.send(
+                HTTPResponse(status: .internalServerError),
+                body: "Unknown path".utf8.span
+            )
         }
     }
 }
