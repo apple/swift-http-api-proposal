@@ -31,7 +31,7 @@ public struct URLSessionRequestOptions:
     public var maximumTLSVersion: TLSVersion = .v1_3
     public var allowsExpensiveNetworkAccess: Bool = true
     public var allowsConstrainedNetworkAccess: Bool = true
-    public var serverSupportedTransportsHint: Set<HTTPTransportVersion> = []
+    public var serverSupportedTransportsHint: Set<HTTPTransportVersion> = [.tcp]
     public var stallTimeout: Duration? = nil
 
     public init() {}
