@@ -18,6 +18,7 @@ import Foundation
 import HTTPTypes
 import NIOCore
 import NIOHTTP1
+public import NetworkTypes
 import Synchronization
 
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, *)
@@ -25,8 +26,8 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
     public typealias RequestWriter = RequestBodyWriter
     public typealias ResponseConcludingReader = ResponseReader
 
-    public struct RequestOptions: HTTPClientCapability.RequestOptions {
-
+    public struct RequestOptions: HTTPClientCapability.ServerTransportHint {
+        public var serverSupportedTransportsHint: Set<NetworkTypes.HTTPTransportVersion> = []
     }
 
     public struct RequestBodyWriter: AsyncWriter, ~Copyable {
