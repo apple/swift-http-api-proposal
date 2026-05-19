@@ -357,12 +357,17 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
         .init()
     }
 
-    public func perform<Return: ~Copyable>(
+    public func perform<ResponseHandler: HTTPClientResponseHandler & ~Copyable, Return: ~Copyable>(
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<RequestWriter>?,
-        options: URLSessionRequestOptions,
-        responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return
-    ) async throws -> Return {
+        options: RequestOptions,
+        responseHandler: consuming ResponseHandler
+    ) async throws -> Return
+    where
+        ResponseHandler.ResponseConcludingReader: ~Copyable,
+        ResponseHandler.ResponseConcludingReader == ResponseConcludingReader,
+        ResponseHandler.Return == Return
+    {
         guard request.schemeSupported else {
             throw HTTPTypeConversionError.unsupportedScheme
         }
@@ -386,11 +391,11 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
         var result: Result<Return, any Error>? = nil
         try await withTaskCancellationHandler {
             do {
-                let response = try await delegateBridge.processDelegateCallbacksBeforeResponse(options)
+                let response = try await delegateBridge.processDelegateCallbacksBeforeResponse(options, responseHandler)
                 guard let response = (response as? HTTPURLResponse)?.httpResponse else {
                     throw HTTPTypeConversionError.failedToConvertURLTypeToHTTPTypes
                 }
-                result = .success(try await responseHandler(response, .init(actual: delegateBridge)))
+                result = .success(try await responseHandler.handle(response: response, responseBodyAndTrailers: .init(actual: delegateBridge)))
             } catch {
                 result = .failure(error)
             }
