@@ -21,6 +21,7 @@ public import Middleware
 /// This middleware has `Never` as its `NextInput` type, indicating it's the end of the chain.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public struct HTTPServerRequestHandlerMiddleware<
+    RequestContext: HTTPServerCapability.RequestContext,
     RequestConcludingAsyncReader: ConcludingAsyncReader & ~Copyable,
     ResponseConcludingAsyncWriter: ConcludingAsyncWriter & ~Copyable,
 >: Middleware, Sendable
@@ -32,7 +33,7 @@ where
     ResponseConcludingAsyncWriter.Underlying.WriteElement == UInt8,
     ResponseConcludingAsyncWriter.FinalElement == HTTPFields?
 {
-    public typealias Input = HTTPServerMiddlewareInput<RequestConcludingAsyncReader, ResponseConcludingAsyncWriter>
+    public typealias Input = HTTPServerMiddlewareInput<RequestContext, RequestConcludingAsyncReader, ResponseConcludingAsyncWriter>
     public typealias NextInput = Void
 
     /// Creates a new request handler middleware.
@@ -82,9 +83,10 @@ extension Middleware where Input: ~Copyable, NextInput: ~Copyable {
     ///     .requestHandler()
     /// }
     /// ```
-    public func requestHandler<RequestReader, ResponseWriter>() -> HTTPServerRequestHandlerMiddleware<RequestReader, ResponseWriter>
+    public func requestHandler<RequestContext, RequestReader, ResponseWriter>() -> HTTPServerRequestHandlerMiddleware<RequestContext, RequestReader, ResponseWriter>
     where
-        Input == HTTPServerMiddlewareInput<RequestReader, ResponseWriter>,
+        Input == HTTPServerMiddlewareInput<RequestContext, RequestReader, ResponseWriter>,
+        RequestContext: HTTPServerCapability.RequestContext,
         RequestReader: ConcludingAsyncReader & ~Copyable,
         RequestReader.Underlying: ~Copyable,
         RequestReader.Underlying.ReadElement == UInt8,

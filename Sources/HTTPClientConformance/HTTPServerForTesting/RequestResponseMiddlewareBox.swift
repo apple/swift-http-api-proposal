@@ -19,22 +19,24 @@ public import HTTPTypes
 /// It is necessary to box them together so that they can be used with `Middlewares`, as this will be the `Middleware.Input`.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public struct RequestResponseMiddlewareBox<
+    RequestContext: HTTPServerCapability.RequestContext,
     RequestReader: ConcludingAsyncReader & ~Copyable,
     ResponseWriter: ConcludingAsyncWriter & ~Copyable
 >: ~Copyable {
     private let request: HTTPRequest
-    private let requestContext: HTTPRequestContext
+    private let requestContext: RequestContext
     private let requestReader: RequestReader
     private let responseSender: HTTPResponseSender<ResponseWriter>
 
     /// Create a new ``RequestResponseMiddlewareBox``.
     /// - Parameters:
     ///   - request: The `HTTPRequest`.
+    ///   - requestContext: The request context.
     ///   - requestReader: The `RequestReader`.
     ///   - responseSender: The ``HTTPResponseSender``.
     public init(
         request: HTTPRequest,
-        requestContext: HTTPRequestContext,
+        requestContext: RequestContext,
         requestReader: consuming RequestReader,
         responseSender: consuming HTTPResponseSender<ResponseWriter>
     ) {
@@ -51,7 +53,7 @@ public struct RequestResponseMiddlewareBox<
         _ handler:
             nonisolated(nonsending) (
                 HTTPRequest,
-                HTTPRequestContext,
+                RequestContext,
                 consuming RequestReader,
                 consuming HTTPResponseSender<ResponseWriter>
             ) async throws -> T

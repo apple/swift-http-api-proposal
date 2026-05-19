@@ -78,6 +78,7 @@ import X509
 /// ```
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public struct NIOHTTPServer: HTTPServer {
+    public typealias RequestContext = HTTPRequestContext
     public typealias RequestConcludingReader = HTTPRequestConcludingAsyncReader
     public typealias ResponseConcludingWriter = HTTPResponseConcludingAsyncWriter
 
@@ -145,7 +146,7 @@ public struct NIOHTTPServer: HTTPServer {
     ///     handler: EchoHandler()
     /// )
     /// ```
-    public func serve(handler: some HTTPServerRequestHandler<RequestConcludingReader, ResponseConcludingWriter>) async throws {
+    public func serve(handler: some HTTPServerRequestHandler<HTTPRequestContext, RequestConcludingReader, ResponseConcludingWriter>) async throws {
         defer {
             switch self.listeningAddressState.withLockedValue({ $0.close() }) {
             case .failPromise(let promise, let error):
@@ -265,7 +266,7 @@ public struct NIOHTTPServer: HTTPServer {
 
     func handleRequestChannel(
         channel: NIOAsyncChannel<HTTPRequestPart, HTTPResponsePart>,
-        handler: some HTTPServerRequestHandler<RequestConcludingReader, ResponseConcludingWriter>
+        handler: some HTTPServerRequestHandler<HTTPRequestContext, RequestConcludingReader, ResponseConcludingWriter>
     ) async throws {
         do {
             try await channel

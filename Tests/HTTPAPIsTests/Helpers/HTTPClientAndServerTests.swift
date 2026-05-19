@@ -120,6 +120,7 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
 
     typealias RequestWriter = AsyncChannelConcludingAsyncWriter.Underlying
     typealias ResponseConcludingReader = AsyncChannelConcludingAsyncReader
+    typealias RequestContext = HTTPRequestContext
     typealias RequestConcludingReader = AsyncChannelConcludingAsyncReader
     typealias ResponseConcludingWriter = AsyncChannelConcludingAsyncWriter
 
@@ -164,7 +165,7 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
     }
 
     func serve(
-        handler: some HTTPServerRequestHandler<AsyncChannelConcludingAsyncReader, AsyncChannelConcludingAsyncWriter>
+        handler: some HTTPServerRequestHandler<HTTPRequestContext, AsyncChannelConcludingAsyncReader, AsyncChannelConcludingAsyncWriter>
     ) async throws {
         try await withThrowingDiscardingTaskGroup { group in
             for await _ in self.stream {
@@ -184,7 +185,7 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
 
     private static func handleRequest(
         request: consuming BufferedRequest,
-        handler: some HTTPServerRequestHandler<AsyncChannelConcludingAsyncReader, AsyncChannelConcludingAsyncWriter>
+        handler: some HTTPServerRequestHandler<HTTPRequestContext, AsyncChannelConcludingAsyncReader, AsyncChannelConcludingAsyncWriter>
     ) async throws {
         try await withThrowingTaskGroup { group in
             let trailersChannel = AsyncChannel<HTTPFields?>()

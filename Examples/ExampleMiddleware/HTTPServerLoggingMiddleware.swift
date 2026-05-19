@@ -23,6 +23,7 @@ public import Middleware
 /// This middleware is useful for debugging and monitoring HTTP traffic.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public struct HTTPServerLoggingMiddleware<
+    RequestContext: HTTPServerCapability.RequestContext,
     RequestConcludingAsyncReader: ConcludingAsyncReader & ~Copyable,
     ResponseConcludingAsyncWriter: ConcludingAsyncWriter & ~Copyable
 >: Middleware
@@ -36,8 +37,9 @@ where
     ResponseConcludingAsyncWriter.Underlying.WriteElement == UInt8,
     ResponseConcludingAsyncWriter.FinalElement == HTTPFields?
 {
-    public typealias Input = HTTPServerMiddlewareInput<RequestConcludingAsyncReader, ResponseConcludingAsyncWriter>
+    public typealias Input = HTTPServerMiddlewareInput<RequestContext, RequestConcludingAsyncReader, ResponseConcludingAsyncWriter>
     public typealias NextInput = HTTPServerMiddlewareInput<
+        RequestContext,
         HTTPRequestLoggingConcludingAsyncReader<RequestConcludingAsyncReader>,
         HTTPResponseLoggingConcludingAsyncWriter<ResponseConcludingAsyncWriter>
     >
@@ -117,11 +119,12 @@ extension Middleware where Input: ~Copyable, NextInput: ~Copyable {
     ///     .requestHandler()
     /// }
     /// ```
-    public func logging<RequestReader, ResponseWriter>(
+    public func logging<RequestContext, RequestReader, ResponseWriter>(
         logger: Logger
-    ) -> HTTPServerLoggingMiddleware<RequestReader, ResponseWriter>
+    ) -> HTTPServerLoggingMiddleware<RequestContext, RequestReader, ResponseWriter>
     where
-        Input == HTTPServerMiddlewareInput<RequestReader, ResponseWriter>,
+        Input == HTTPServerMiddlewareInput<RequestContext, RequestReader, ResponseWriter>,
+        RequestContext: HTTPServerCapability.RequestContext,
         RequestReader: ConcludingAsyncReader & ~Copyable & Escapable,
         RequestReader.Underlying: ~Copyable & Escapable,
         RequestReader.Underlying.ReadElement == UInt8,

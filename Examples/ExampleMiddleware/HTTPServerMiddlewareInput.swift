@@ -21,11 +21,12 @@ public import HTTPAPIs
 /// convenient way to pass all request-handling components through the middleware chain.
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public struct HTTPServerMiddlewareInput<
+    RequestContext: HTTPServerCapability.RequestContext,
     RequestReader: ConcludingAsyncReader & ~Copyable,
     ResponseWriter: ConcludingAsyncWriter & ~Copyable
 >: ~Copyable where RequestReader.Underlying: ~Copyable, ResponseWriter.Underlying: ~Copyable {
     private let request: HTTPRequest
-    private let requestContext: HTTPRequestContext
+    private let requestContext: RequestContext
     private let requestReader: RequestReader
     private let responseSender: HTTPResponseSender<ResponseWriter>
 
@@ -38,7 +39,7 @@ public struct HTTPServerMiddlewareInput<
     ///   - responseSender: A sender for transmitting the HTTP response and response body.
     public init(
         request: HTTPRequest,
-        requestContext: HTTPRequestContext,
+        requestContext: RequestContext,
         requestReader: consuming RequestReader,
         responseSender: consuming HTTPResponseSender<ResponseWriter>
     ) {
@@ -63,7 +64,7 @@ public struct HTTPServerMiddlewareInput<
         _ handler:
             (
                 HTTPRequest,
-                HTTPRequestContext,
+                RequestContext,
                 consuming RequestReader,
                 consuming HTTPResponseSender<ResponseWriter>
             ) async throws -> Return
