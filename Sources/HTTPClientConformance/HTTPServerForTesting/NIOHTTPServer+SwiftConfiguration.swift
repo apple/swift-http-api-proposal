@@ -28,7 +28,7 @@ enum NIOHTTPServerConfigurationError: Error, CustomStringConvertible {
     }
 }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 extension NIOHTTPServerConfiguration {
     /// Initialize the server configuration from a config reader.
     ///
@@ -71,7 +71,7 @@ extension NIOHTTPServerConfiguration {
     }
 }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 extension NIOHTTPServerConfiguration.BindTarget {
     /// Initialize a bind target configuration from a config reader.
     ///
@@ -90,7 +90,7 @@ extension NIOHTTPServerConfiguration.BindTarget {
     }
 }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 extension NIOHTTPServerConfiguration.TransportSecurity {
     /// Initialize a transport security configuration from a config reader.
     ///
@@ -248,7 +248,7 @@ extension NIOHTTPServerConfiguration.TransportSecurity {
     }
 }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 extension NIOHTTPServerConfiguration.BackPressureStrategy {
     /// Initialize the backpressure strategy configuration from a config reader.
     ///
@@ -274,7 +274,7 @@ extension NIOHTTPServerConfiguration.BackPressureStrategy {
     }
 }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 extension NIOHTTPServerConfiguration.HTTP2 {
     /// Initialize a HTTP/2 configuration from a config reader.
     ///
@@ -304,7 +304,7 @@ extension NIOHTTPServerConfiguration.HTTP2 {
     }
 }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 extension NIOHTTPServerConfiguration.TransportSecurity {
     fileprivate enum TransportSecurityKind: String {
         case plaintext
@@ -331,7 +331,7 @@ extension NIOHTTPServerConfiguration.TransportSecurity {
     }
 }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 extension CertificateVerificationMode {
     fileprivate init(_ mode: NIOHTTPServerConfiguration.TransportSecurity.VerificationMode) {
         switch mode {

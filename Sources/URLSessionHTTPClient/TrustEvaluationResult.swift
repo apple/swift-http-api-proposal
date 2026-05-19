@@ -16,7 +16,7 @@
 ///
 /// ``TrustEvaluationResult`` specifies whether to use the system's default trust evaluation,
 /// explicitly allow the connection, or explicitly deny it.
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 public enum TrustEvaluationResult {
     /// Uses the system's default trust evaluation for the server certificate.
     ///

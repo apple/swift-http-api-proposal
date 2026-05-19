@@ -15,7 +15,7 @@
 ///
 /// ``HTTPClientRedirectionAction`` specifies whether to follow a redirect to a new location
 /// or deliver the original redirect response to the caller.
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 public enum HTTPClientRedirectionAction: Sendable {
     /// Follows the HTTP redirection by performing the new request.
     ///

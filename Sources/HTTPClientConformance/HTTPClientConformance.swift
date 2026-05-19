@@ -73,7 +73,7 @@ public enum ConformanceTestCase: Sendable, Hashable, CaseIterable {
 
 // Runs an HTTP client through all the conformance tests,
 // except the ones specified in `excluding`.
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 public func runConformanceTests<Client: HTTPClient & ~Copyable>(
     excluding: [ConformanceTestCase] = [],
     _ clientFactory: @escaping () async throws -> Client
@@ -104,7 +104,7 @@ public func runConformanceTests<Client: HTTPClient & ~Copyable>(
     }
 }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     let testServerPort: Int
     let rawServerPort: Int
