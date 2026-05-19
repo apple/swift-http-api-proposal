@@ -14,7 +14,7 @@
 import HTTPAPIs
 import Middleware
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 struct ExampleMiddlewareClient<Client: HTTPClient & ~Copyable, ClientMiddleware: Middleware<HTTPRequest, HTTPRequest>>: HTTPClient, ~Copyable {
     typealias RequestOptions = Client.RequestOptions
     typealias RequestWriter = Client.RequestWriter
@@ -56,7 +56,7 @@ struct ExampleMiddlewareClient<Client: HTTPClient & ~Copyable, ClientMiddleware:
     }
 }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 struct RequestMiddleware<Client: HTTPClient & ~Copyable>: Middleware {
     typealias Input = HTTPRequest
     typealias NextInput = Input

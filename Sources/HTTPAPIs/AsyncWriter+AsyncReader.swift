@@ -13,7 +13,7 @@
 
 public import AsyncStreaming
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 extension AsyncWriter where Self: ~Copyable, Self: ~Escapable {
     /// Writes all elements from an async reader to this writer.
     ///
@@ -35,9 +35,6 @@ extension AsyncWriter where Self: ~Copyable, Self: ~Escapable {
     /// // Copy all data from reader to writer
     /// try await fileWriter.write(dataReader)
     /// ```
-    #if compiler(<6.3)
-    @_lifetime(self: copy self)
-    #endif
     public mutating func write<Reader>(
         _ reader: consuming Reader
     ) async throws

@@ -15,7 +15,7 @@
 ///
 /// ``HTTPClient`` provides asynchronous request execution with streaming request
 /// and response bodies.
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 public protocol HTTPClient<RequestOptions>: Sendable, ~Copyable, ~Escapable {
     associatedtype RequestOptions: HTTPClientCapability.RequestOptions
 
@@ -51,9 +51,6 @@ public protocol HTTPClient<RequestOptions>: Sendable, ~Copyable, ~Escapable {
     /// - Returns: The value returned by the response handler closure.
     ///
     /// - Throws: An error if the request fails or if the response handler throws.
-    #if compiler(<6.3)
-    @_lifetime(&self)
-    #endif
     mutating func perform<Return: ~Copyable>(
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<RequestWriter>?,

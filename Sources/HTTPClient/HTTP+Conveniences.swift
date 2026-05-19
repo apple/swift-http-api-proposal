@@ -36,7 +36,7 @@ extension HTTP {
     /// - Returns: The value returned by the response handler closure.
     ///
     /// - Throws: An error if the request fails or if the response handler throws.
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+    @available(anyAppleOS 26.0, *)
     public static func perform<Return: ~Copyable>(
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<DefaultHTTPClient.RequestWriter>? = nil,
@@ -62,7 +62,7 @@ extension HTTP {
     /// - Returns: A tuple containing the HTTP response header and the collected response body data.
     ///
     /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+    @available(anyAppleOS 26.0, *)
     public static func get(
         url: URL,
         headerFields: HTTPFields = [:],
@@ -90,7 +90,7 @@ extension HTTP {
     /// - Returns: A tuple containing the HTTP response header and the collected response body data.
     ///
     /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+    @available(anyAppleOS 26.0, *)
     public static func post(
         url: URL,
         headerFields: HTTPFields = [:],
@@ -119,7 +119,7 @@ extension HTTP {
     /// - Returns: A tuple containing the HTTP response header and the collected response body data.
     ///
     /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+    @available(anyAppleOS 26.0, *)
     public static func put(
         url: URL,
         headerFields: HTTPFields = [:],
@@ -148,7 +148,7 @@ extension HTTP {
     /// - Returns: A tuple containing the HTTP response header and the collected response body data.
     ///
     /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+    @available(anyAppleOS 26.0, *)
     public static func delete(
         url: URL,
         headerFields: HTTPFields = [:],
@@ -177,7 +177,7 @@ extension HTTP {
     /// - Returns: A tuple containing the HTTP response header and the collected response body data.
     ///
     /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+    @available(anyAppleOS 26.0, *)
     public static func patch(
         url: URL,
         headerFields: HTTPFields = [:],

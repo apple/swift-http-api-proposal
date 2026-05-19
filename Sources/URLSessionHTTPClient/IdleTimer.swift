@@ -11,20 +11,20 @@
 //
 //===----------------------------------------------------------------------===//
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 protocol IdleTimerEntry: ~Copyable {
     var idleDuration: Duration? { get }
     func idleTimeoutFired()
 }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 protocol IdleTimerEntryProvider: ~Copyable {
     associatedtype Entry: IdleTimerEntry
     associatedtype Entries: Sequence<Entry>
     var idleTimerEntries: Entries { get }
 }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 enum IdleTimer {
     static func run(timeout: Duration, provider: some IdleTimerEntryProvider) async {
         do {
