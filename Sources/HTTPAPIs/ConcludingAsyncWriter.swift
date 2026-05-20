@@ -17,7 +17,7 @@
 /// provide a conclusive element after writing completes. This is particularly useful
 /// for streams that have meaningful completion states, such as HTTP responses that need
 /// to finalize with optional trailers.
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 public protocol ConcludingAsyncWriter<Underlying, FinalElement>: ~Copyable, ~Escapable {
     /// The underlying asynchronous writer type.
     associatedtype Underlying: AsyncWriter, ~Copyable, ~Escapable
@@ -47,7 +47,7 @@ public protocol ConcludingAsyncWriter<Underlying, FinalElement>: ~Copyable, ~Esc
     ) async throws -> Return
 }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 extension ConcludingAsyncWriter where Self: ~Copyable, Underlying: ~Copyable {
     /// Produces a final element using the underlying async writer without returning a separate value.
     ///
@@ -79,7 +79,7 @@ extension ConcludingAsyncWriter where Self: ~Copyable, Underlying: ~Copyable {
     }
 }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 extension ConcludingAsyncWriter where Self: ~Copyable, Underlying: ~Copyable {
     /// Writes a single element to the underlying writer and concludes with a final element.
     ///

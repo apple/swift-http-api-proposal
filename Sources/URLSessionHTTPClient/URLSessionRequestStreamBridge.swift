@@ -17,7 +17,7 @@ import BasicContainers
 import Foundation
 import Synchronization
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 final class URLSessionRequestStreamBridge: NSObject, StreamDelegate, Sendable {
     private weak let task: URLSessionTask?
 

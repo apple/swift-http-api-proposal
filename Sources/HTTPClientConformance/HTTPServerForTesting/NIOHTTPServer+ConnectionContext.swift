@@ -15,7 +15,7 @@ import NIOCore
 import NIOSSL
 public import X509
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 extension NIOHTTPServer {
     /// Connection-specific information available during request handling.
     ///
