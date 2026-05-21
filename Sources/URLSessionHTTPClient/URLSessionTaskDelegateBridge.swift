@@ -468,9 +468,12 @@ extension DispatchData {
         } else {
             // This doesn't actually make a copy if the data is immutable
             nonisolated(unsafe) let data = data.copy() as! NSData
-            self = unsafe DispatchData(bytesNoCopy: UnsafeRawBufferPointer(start: data.bytes, count: data.count), deallocator: .custom(nil) {
-                unsafe withExtendedLifetime(data) {}
-            })
+            self = unsafe DispatchData(
+                bytesNoCopy: UnsafeRawBufferPointer(start: data.bytes, count: data.count),
+                deallocator: .custom(nil) {
+                    unsafe withExtendedLifetime(data) {}
+                }
+            )
         }
     }
 }
