@@ -23,7 +23,7 @@ import NIOPosix
 import NIOSSL
 import X509
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 extension NIOHTTPServer {
     func serveSecureUpgrade(
         bindTarget: NIOHTTPServerConfiguration.BindTarget,
@@ -167,7 +167,7 @@ extension NIOHTTPServer {
     }
 }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 extension NIOHTTPServer {
     func makeSSLServerHandler(
         _ tlsConfiguration: TLSConfiguration,

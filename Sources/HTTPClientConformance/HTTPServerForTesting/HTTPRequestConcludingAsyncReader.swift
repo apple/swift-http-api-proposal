@@ -25,7 +25,7 @@ import Synchronization
 /// and concluding with the HTTP trailer fields received at the end of the request. This type
 /// follows the ``ConcludingAsyncReader`` pattern, which allows for asynchronous consumption of
 /// a stream with a conclusive final element.
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 public struct HTTPRequestConcludingAsyncReader: ConcludingAsyncReader, ~Copyable {
     /// A reader for HTTP request body chunks that implements the ``AsyncReader`` protocol.
     ///

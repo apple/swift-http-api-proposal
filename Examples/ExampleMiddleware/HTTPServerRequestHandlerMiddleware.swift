@@ -19,7 +19,7 @@ public import Middleware
 /// ``HTTPServerRequestHandlerMiddleware`` serves as an example terminal middleware that reads
 /// the entire request body and writes it back as the response body with a 200 OK status.
 /// This middleware has `Never` as its `NextInput` type, indicating it's the end of the chain.
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 public struct HTTPServerRequestHandlerMiddleware<
     RequestContext: HTTPServerCapability.RequestContext,
     RequestConcludingAsyncReader: ConcludingAsyncReader & ~Copyable,
@@ -64,7 +64,7 @@ where
     }
 }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 extension Middleware where Input: ~Copyable, NextInput: ~Copyable {
     /// Creates a request handler middleware that echoes the request body back as the response.
     ///

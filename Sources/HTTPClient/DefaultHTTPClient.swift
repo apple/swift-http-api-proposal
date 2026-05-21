@@ -21,13 +21,13 @@ public import BasicContainers
 #if canImport(Darwin)
 import URLSessionHTTPClient
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 typealias ActualHTTPClient = URLSessionHTTPClient
 #else
 import AsyncHTTPClient
 import AHCHTTPClient
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 typealias ActualHTTPClient = AsyncHTTPClient.HTTPClient
 #endif
 
@@ -36,7 +36,7 @@ typealias ActualHTTPClient = AsyncHTTPClient.HTTPClient
 /// `DefaultHTTPClient` provides an efficient HTTP client implementation that reuses
 /// connections across multiple requests. It supports HTTP/1.1, HTTP/2, and HTTP/3 protocols,
 /// automatically handling connection management, protocol negotiation, and resource cleanup.
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 public final class DefaultHTTPClient: HTTPAPIs.HTTPClient {
     public struct RequestWriter: AsyncWriter, ~Copyable {
         public typealias WriteElement = UInt8

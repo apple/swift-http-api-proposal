@@ -17,7 +17,7 @@ import Logging
 import Middleware
 
 /// This is an example server that wraps an HTTP server inside a middleware.
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 struct ExampleMiddlewareServer<
     Server: HTTPServer,
     ServerMiddleware: Middleware & Sendable
@@ -62,7 +62,7 @@ where
     }
 }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 struct RequestMiddleware<Server: HTTPServer>: Middleware
 where
     Server.RequestConcludingReader: ~Copyable,

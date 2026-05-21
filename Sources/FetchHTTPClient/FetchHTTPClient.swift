@@ -36,7 +36,6 @@ enum FetchError: Error {
     case TrailersUnsupported
 }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, *)
 public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
     public typealias RequestWriter = RequestBodyWriter
     public typealias ResponseConcludingReader = ResponseReader

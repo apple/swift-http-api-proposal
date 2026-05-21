@@ -21,7 +21,7 @@ public import Middleware
 /// decorators that output information about the HTTP request path, method, response status,
 /// and the number of bytes read from the request body and written to the response body.
 /// This middleware is useful for debugging and monitoring HTTP traffic.
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 public struct HTTPServerLoggingMiddleware<
     RequestContext: HTTPServerCapability.RequestContext,
     RequestConcludingAsyncReader: ConcludingAsyncReader & ~Copyable,
@@ -100,7 +100,7 @@ where
     }
 }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 extension Middleware where Input: ~Copyable, NextInput: ~Copyable {
     /// Creates logging middleware for HTTP servers.
     ///
@@ -138,7 +138,7 @@ extension Middleware where Input: ~Copyable, NextInput: ~Copyable {
     }
 }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 public struct HTTPRequestLoggingConcludingAsyncReader<
     Base: ConcludingAsyncReader & ~Copyable
 >: ConcludingAsyncReader, ~Copyable
@@ -204,7 +204,7 @@ where
     }
 }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 public struct HTTPResponseLoggingConcludingAsyncWriter<
     Base: ConcludingAsyncWriter & ~Copyable
 >: ConcludingAsyncWriter, ~Copyable

@@ -19,7 +19,7 @@ import NIOHTTPTypes
 import NIOHTTPTypesHTTP1
 import NIOPosix
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 extension NIOHTTPServer {
     func serveInsecureHTTP1_1(
         bindTarget: NIOHTTPServerConfiguration.BindTarget,

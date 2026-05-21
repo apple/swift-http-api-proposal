@@ -21,7 +21,7 @@ import NetworkTypes
 import Synchronization
 
 /// The HTTPClient implementation backed by URLSession.
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
     public struct RequestWriter: AsyncWriter, ~Copyable {
         public typealias WriteElement = UInt8

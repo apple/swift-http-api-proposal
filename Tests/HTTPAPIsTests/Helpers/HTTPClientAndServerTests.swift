@@ -22,7 +22,7 @@ import Testing
 /// A test client and server.
 ///
 /// This type hooks up a client to a server in-process.
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 final class TestClientAndServer: HTTPClient, HTTPServer {
     struct RequestOptions: HTTPClientCapability.RequestOptions {
         init() {}

@@ -17,7 +17,7 @@ public import struct FoundationEssentials.Data
 public import struct Foundation.Data
 #endif
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 extension HTTPClientRequestBody where Writer: ~Copyable {
     /// Creates a seekable request body from `Data`.
     ///

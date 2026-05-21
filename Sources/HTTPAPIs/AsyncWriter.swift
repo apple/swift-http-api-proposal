@@ -13,7 +13,7 @@
 
 public import AsyncStreaming
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 extension AsyncWriter where Self: ~Copyable, Self: ~Escapable {
     /// Writes the provided element to the underlying destination.
     ///
@@ -34,9 +34,6 @@ extension AsyncWriter where Self: ~Copyable, Self: ~Escapable {
     /// // Write data to a file asynchronously
     /// try await fileWriter.write(dataChunk)
     /// ```
-    #if compiler(<6.3)
-    @_lifetime(self: copy self)
-    #endif
     public mutating func write(_ element: consuming WriteElement) async throws(WriteFailure) {
         // Since the element is ~Copyable but we don't have call-once closures
         // we need to move it into an Optional and then take it out once. This
@@ -61,9 +58,6 @@ extension AsyncWriter where Self: ~Copyable, Self: ~Escapable {
     /// - Parameter span: The elements to write.
     ///
     /// - Throws: An error of type `WriteFailure` if the write operation cannot be completed successfully.
-    #if compiler(<6.3)
-    @_lifetime(self: copy self)
-    #endif
     public mutating func write(_ span: Span<WriteElement>) async throws(WriteFailure)
     where WriteElement: Copyable {
         do {

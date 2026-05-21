@@ -16,7 +16,7 @@ public import AsyncStreaming
 public import BasicContainers
 public import ContainersPreview
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 extension MultiProducerSingleConsumerAsyncChannel: AsyncReader {
     public typealias ReadElement = Element
     public typealias ReadFailure = Failure
@@ -45,7 +45,7 @@ extension MultiProducerSingleConsumerAsyncChannel: AsyncReader {
     }
 }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 extension MultiProducerSingleConsumerAsyncChannel.Source: AsyncWriter where Element == UInt8 {
     public typealias WriteElement = Element
     public typealias WriteFailure = any Error

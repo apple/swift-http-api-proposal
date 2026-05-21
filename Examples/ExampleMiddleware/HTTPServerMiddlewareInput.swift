@@ -19,7 +19,7 @@ public import HTTPAPIs
 /// request body reader, and response sender. This boxing is necessary because some of these
 /// parameters are `~Copyable` types that cannot be stored in tuples, and it provides a
 /// convenient way to pass all request-handling components through the middleware chain.
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 public struct HTTPServerMiddlewareInput<
     RequestContext: HTTPServerCapability.RequestContext,
     RequestReader: ConcludingAsyncReader & ~Copyable,
