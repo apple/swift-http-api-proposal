@@ -58,7 +58,7 @@
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public protocol HTTPServerRequestHandler<RequestContext, RequestReader, ResponseWriter>: Sendable {
     /// The type of the request context provided by the server.
-    associatedtype RequestContext: HTTPServerCapability.RequestContext
+    associatedtype RequestContext: HTTPServerCapability.RequestContext, ~Copyable, ~Escapable
 
     /// The type used to read request body data and trailers.
     associatedtype RequestReader: ConcludingAsyncReader, ~Copyable
@@ -88,7 +88,7 @@ public protocol HTTPServerRequestHandler<RequestContext, RequestReader, Response
     /// - Throws: Any error encountered during request processing or response generation.
     func handle(
         request: HTTPRequest,
-        requestContext: RequestContext,
+        requestContext: consuming RequestContext,
         requestBodyAndTrailers: consuming sending RequestReader,
         responseSender: consuming sending HTTPResponseSender<ResponseWriter>
     ) async throws

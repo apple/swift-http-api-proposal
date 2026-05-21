@@ -36,7 +36,7 @@
 /// ```
 @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
 public struct HTTPServerClosureRequestHandler<
-    RequestContext: HTTPServerCapability.RequestContext,
+    RequestContext: HTTPServerCapability.RequestContext & ~Copyable & ~Escapable,
     RequestReader: ConcludingAsyncReader & ~Copyable,
     ResponseWriter: ConcludingAsyncWriter & ~Copyable,
 >: HTTPServerRequestHandler
@@ -53,7 +53,7 @@ where
     private let _handler:
         @Sendable (
             HTTPRequest,
-            RequestContext,
+            consuming RequestContext,
             consuming sending RequestReader,
             consuming sending HTTPResponseSender<ResponseWriter>
         ) async throws -> Void
@@ -67,7 +67,7 @@ where
         handler:
             @Sendable @escaping (
                 HTTPRequest,
-                RequestContext,
+                consuming RequestContext,
                 consuming sending RequestReader,
                 consuming sending HTTPResponseSender<ResponseWriter>
             ) async throws -> Void
@@ -86,7 +86,7 @@ where
     ///   - responseSender: An ``HTTPResponseSender`` to send the HTTP response.
     public func handle(
         request: HTTPRequest,
-        requestContext: RequestContext,
+        requestContext: consuming RequestContext,
         requestBodyAndTrailers: consuming sending RequestReader,
         responseSender: consuming sending HTTPResponseSender<ResponseWriter>
     ) async throws {
@@ -132,7 +132,7 @@ where
         handler:
             @Sendable @escaping (
                 _ request: HTTPRequest,
-                _ requestContext: RequestContext,
+                _ requestContext: consuming RequestContext,
                 _ requestBodyAndTrailers: consuming sending RequestConcludingReader,
                 _ responseSender: consuming sending HTTPResponseSender<ResponseConcludingWriter>
             ) async throws -> Void

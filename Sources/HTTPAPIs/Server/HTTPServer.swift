@@ -17,7 +17,7 @@
 /// ``HTTPServer`` provides the contract for server implementations that accept
 /// incoming HTTP connections and process requests using a ``HTTPServerRequestHandler``.
 public protocol HTTPServer<RequestContext, RequestConcludingReader, ResponseConcludingWriter>: Sendable, ~Copyable, ~Escapable {
-    associatedtype RequestContext: HTTPServerCapability.RequestContext
+    associatedtype RequestContext: HTTPServerCapability.RequestContext, ~Copyable, ~Escapable
 
     /// The type used to read request body data and trailers.
     // TODO: Check if we should allow ~Escapable readers https://github.com/apple/swift-http-api-proposal/issues/13
@@ -54,6 +54,7 @@ public protocol HTTPServer<RequestContext, RequestConcludingReader, ResponseConc
     /// ```
     func serve<Handler: HTTPServerRequestHandler>(handler: Handler) async throws
     where
+        Handler.RequestContext: ~Copyable & ~Escapable,
         Handler.RequestContext == RequestContext,
         Handler.RequestReader == RequestConcludingReader,
         Handler.RequestReader: ~Copyable,
