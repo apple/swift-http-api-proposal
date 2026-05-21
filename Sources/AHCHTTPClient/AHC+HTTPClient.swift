@@ -19,7 +19,6 @@ import HTTPTypes
 import NIOCore
 import NIOHTTP1
 import NIOSSL
-public import NetworkTypes
 import Synchronization
 
 @available(anyAppleOS 26.0, *)

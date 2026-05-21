@@ -13,7 +13,6 @@
 
 #if canImport(Darwin)
 import Security
-public import NetworkTypes
 
 @available(anyAppleOS 26.0, *)
 extension HTTPClientCapability {

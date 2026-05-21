@@ -73,7 +73,6 @@ let package = Package(
             dependencies: [
                 "AHCHTTPClient",
                 "URLSessionHTTPClient",
-                "NetworkTypes",
                 .product(name: "AsyncHTTPClient", package: "async-http-client"),
             ],
             swiftSettings: extraSettings
