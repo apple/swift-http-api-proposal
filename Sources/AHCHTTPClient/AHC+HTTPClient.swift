@@ -18,6 +18,8 @@ import Foundation
 import HTTPTypes
 import NIOCore
 import NIOHTTP1
+import NIOSSL
+public import NetworkTypes
 import Synchronization
 
 @available(anyAppleOS 26.0, *)
@@ -25,8 +27,8 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
     public typealias RequestWriter = RequestBodyWriter
     public typealias ResponseConcludingReader = ResponseReader
 
-    public struct RequestOptions: HTTPClientCapability.RequestOptions {
-
+    public struct RequestOptions: HTTPClientCapability.DeclarativeTLS {
+        public var serverTrustPolicy: TrustEvaluationPolicy = .default
     }
 
     public struct RequestBodyWriter: AsyncWriter, ~Copyable {
@@ -163,6 +165,7 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
                 let sequence = request.headerFields.lazy.map({ ($0.name.rawName, $0.value) })
                 ahcRequest.headers.add(contentsOf: sequence)
             }
+            ahcRequest.tlsConfiguration = Self.tlsConfiguration(for: options.serverTrustPolicy)
 
             if let body, body.knownLength != 0 {
                 let (asyncStream, startUploadContinuation) = AsyncStream.makeStream(of: HTTPClientRequest.Body.RequestWriter.self)
@@ -216,5 +219,20 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
         }
 
         return try result!.get()
+    }
+
+    private static func tlsConfiguration(for policy: TrustEvaluationPolicy) -> TLSConfiguration? {
+        switch policy {
+        case .default:
+            return nil
+        case .allowNameMismatch:
+            var config = TLSConfiguration.makeClientConfiguration()
+            config.certificateVerification = .noHostnameVerification
+            return config
+        case .allowAny:
+            var config = TLSConfiguration.makeClientConfiguration()
+            config.certificateVerification = .none
+            return config
+        }
     }
 }

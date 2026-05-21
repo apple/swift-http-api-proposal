@@ -73,6 +73,7 @@ let package = Package(
             dependencies: [
                 "AHCHTTPClient",
                 "URLSessionHTTPClient",
+                "NetworkTypes",
                 .product(name: "AsyncHTTPClient", package: "async-http-client"),
             ],
             swiftSettings: extraSettings
@@ -96,6 +97,7 @@ let package = Package(
 
                 .product(name: "AsyncHTTPClient", package: "async-http-client"),
                 .product(name: "NIOHTTP1", package: "swift-nio"),
+                .product(name: "NIOSSL", package: "swift-nio-ssl"),
             ],
             swiftSettings: extraSettings
         ),

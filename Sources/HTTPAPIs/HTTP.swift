@@ -14,6 +14,7 @@
 @_exported public import AsyncStreaming
 @_exported public import ContainersPreview
 @_exported public import HTTPTypes
+@_exported public import NetworkTypes
 
 /// The namespace for HTTP.
 public enum HTTP {}

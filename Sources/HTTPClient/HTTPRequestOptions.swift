@@ -11,8 +11,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+public import HTTPAPIs
+public import NetworkTypes
+
 /// The options for the default HTTP client implementation.
 @available(anyAppleOS 26.0, *)
-public struct HTTPRequestOptions: HTTPClientCapability.RequestOptions {
+public struct HTTPRequestOptions: HTTPClientCapability.DeclarativeTLS {
+    public var serverTrustPolicy: TrustEvaluationPolicy = .default
+
     public init() {}
 }
