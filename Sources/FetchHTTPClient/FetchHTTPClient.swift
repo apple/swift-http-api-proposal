@@ -11,10 +11,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import BasicContainers
+public import BasicContainers
 import Foundation
-import HTTPAPIs
-import HTTPTypes
+@_exported public import HTTPAPIs
 import JavaScriptEventLoop
 import JavaScriptKit
 
