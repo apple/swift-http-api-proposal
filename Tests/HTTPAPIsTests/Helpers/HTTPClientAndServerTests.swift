@@ -19,6 +19,11 @@ import HTTPTypes
 import Synchronization
 import Testing
 
+@available(anyAppleOS 26.0, *)
+struct HTTPRequestContext: HTTPServerCapability.RequestContext {
+    init() {}
+}
+
 /// A test client and server.
 ///
 /// This type hooks up a client to a server in-process.
