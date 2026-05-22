@@ -83,7 +83,9 @@ extension Middleware where Input: ~Copyable, NextInput: ~Copyable {
     ///     .requestHandler()
     /// }
     /// ```
-    public func requestHandler<RequestContext, RequestReader, ResponseWriter>() -> HTTPServerRequestHandlerMiddleware<RequestContext, RequestReader, ResponseWriter>
+    public func requestHandler<RequestContext, RequestReader, ResponseWriter>() -> HTTPServerRequestHandlerMiddleware<
+        RequestContext, RequestReader, ResponseWriter
+    >
     where
         Input == HTTPServerMiddlewareInput<RequestContext, RequestReader, ResponseWriter>,
         RequestContext: HTTPServerCapability.RequestContext,
