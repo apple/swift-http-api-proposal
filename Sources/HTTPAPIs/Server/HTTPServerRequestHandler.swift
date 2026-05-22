@@ -58,7 +58,7 @@
 @available(anyAppleOS 26.0, *)
 public protocol HTTPServerRequestHandler<RequestContext, RequestReader, ResponseWriter>: Sendable {
     /// The type of the request context provided by the server.
-    associatedtype RequestContext: HTTPServerCapability.RequestContext, ~Copyable, ~Escapable
+    associatedtype RequestContext: HTTPServerCapability.RequestContext, ~Copyable
 
     /// The type used to read request body data and trailers.
     associatedtype RequestReader: ConcludingAsyncReader, ~Copyable

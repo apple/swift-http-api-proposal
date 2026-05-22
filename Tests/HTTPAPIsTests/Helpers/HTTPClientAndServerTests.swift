@@ -21,7 +21,13 @@ import Testing
 
 @available(anyAppleOS 26.0, *)
 struct HTTPRequestContext: HTTPServerCapability.RequestContext {
-    init() {}
+    var remoteAddress: String?
+    var localAddress: String?
+
+    init(remoteAddress: String? = nil, localAddress: String? = nil) {
+        self.remoteAddress = remoteAddress
+        self.localAddress = localAddress
+    }
 }
 
 /// A test client and server.
@@ -252,7 +258,10 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
             try await handler
                 .handle(
                     request: request.request,
-                    requestContext: .init(),
+                    requestContext: HTTPRequestContext(
+                        remoteAddress: "127.0.0.1:54321",
+                        localAddress: "0.0.0.0:8080"
+                    ),
                     requestBodyAndTrailers: requestReader,
                     responseSender: responseSender
                 )

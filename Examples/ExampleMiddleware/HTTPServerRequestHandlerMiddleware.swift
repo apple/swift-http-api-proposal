@@ -21,7 +21,7 @@ public import Middleware
 /// This middleware has `Never` as its `NextInput` type, indicating it's the end of the chain.
 @available(anyAppleOS 26.0, *)
 public struct HTTPServerRequestHandlerMiddleware<
-    RequestContext: HTTPServerCapability.RequestContext,
+    RequestContext: HTTPServerCapability.RequestContext & ~Copyable,
     RequestConcludingAsyncReader: ConcludingAsyncReader & ~Copyable,
     ResponseConcludingAsyncWriter: ConcludingAsyncWriter & ~Copyable,
 >: Middleware, Sendable
@@ -88,7 +88,7 @@ extension Middleware where Input: ~Copyable, NextInput: ~Copyable {
     >
     where
         Input == HTTPServerMiddlewareInput<RequestContext, RequestReader, ResponseWriter>,
-        RequestContext: HTTPServerCapability.RequestContext,
+        RequestContext: HTTPServerCapability.RequestContext & ~Copyable,
         RequestReader: ConcludingAsyncReader & ~Copyable,
         RequestReader.Underlying: ~Copyable,
         RequestReader.Underlying.ReadElement == UInt8,

@@ -15,80 +15,60 @@ import Foundation
 import HTTPAPIs
 import Testing
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 extension HTTPServerCapability {
     protocol ConnectionInfo: RequestContext {
         var remoteAddress: String? { get }
         var localAddress: String? { get }
-        var negotiatedProtocol: String? { get }
     }
 }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-struct TestConnectionContext: HTTPServerCapability.ConnectionInfo {
-    var remoteAddress: String?
-    var localAddress: String?
-    var negotiatedProtocol: String?
-}
+@available(anyAppleOS 26.0, *)
+extension HTTPRequestContext: HTTPServerCapability.ConnectionInfo {}
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-func connectionInfoHandler<S: HTTPServer>(
-    server: S
-) async throws
-where
-    S.RequestContext: HTTPServerCapability.ConnectionInfo,
-    S.RequestConcludingReader: ~Copyable,
-    S.RequestConcludingReader.Underlying: ~Copyable,
-    S.ResponseConcludingWriter: ~Copyable,
-    S.ResponseConcludingWriter.Underlying: ~Copyable
-{
-    try await server.serve { request, requestContext, requestBodyAndTrailers, responseSender in
-        let remote = requestContext.remoteAddress ?? "unknown"
-        let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
-        try await responseBodyAndTrailers.writeAndConclude(remote.utf8.span, finalElement: nil)
-    }
-}
+@available(anyAppleOS 26.0, *)
+extension TestClientAndServer {
+    func serveWithContextAssertions() async throws {
+        try await self.serve { request, requestContext, requestBodyAndTrailers, responseSender in
+            #expect(requestContext.remoteAddress == "127.0.0.1:54321")
+            #expect(requestContext.localAddress == "0.0.0.0:8080")
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-struct ConnectionInfoTestServer: HTTPServer {
-    typealias RequestContext = TestConnectionContext
-    typealias RequestConcludingReader = TestClientAndServer.AsyncChannelConcludingAsyncReader
-    typealias ResponseConcludingWriter = TestClientAndServer.AsyncChannelConcludingAsyncWriter
-
-    let context: TestConnectionContext
-
-    init(context: TestConnectionContext) {
-        self.context = context
-    }
-
-    func serve<Handler: HTTPServerRequestHandler>(handler: Handler) async throws
-    where
-        Handler.RequestContext == TestConnectionContext,
-        Handler.RequestReader == RequestConcludingReader,
-        Handler.RequestReader: ~Copyable,
-        Handler.ResponseWriter == ResponseConcludingWriter,
-        Handler.ResponseWriter: ~Copyable
-    {
-        // This test just verifies the capability constraint compiles and the
-        // context is accessible. A full integration test would wire up connections.
+            let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
+            try await responseBodyAndTrailers.writeAndConclude("".utf8.span, finalElement: nil)
+        }
     }
 }
 
 @Suite("Server Capability Tests")
 struct ServerCapabilityTests {
-    @Test("ConnectionInfo capability constraint compiles and context is accessible")
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+    @Test("RequestContext values flow through to handler")
+    @available(anyAppleOS 26.0, *)
     func connectionInfoCapability() async throws {
-        let context = TestConnectionContext(
-            remoteAddress: "127.0.0.1:54321",
-            localAddress: "0.0.0.0:8080",
-            negotiatedProtocol: "h2"
-        )
+        let clientAndServer = TestClientAndServer()
+        try await withThrowingTaskGroup { group in
+            group.addTask {
+                try await clientAndServer.serveWithContextAssertions()
+            }
 
-        // Verify a server with ConnectionInfo context can be passed to a
-        // function requiring that capability
-        let server = ConnectionInfoTestServer(context: context)
-        try await connectionInfoHandler(server: server)
+            let request = HTTPRequest(
+                method: .get,
+                scheme: "http",
+                authority: nil,
+                path: nil
+            )
+            var client = clientAndServer
+            try await client.perform(
+                request: request,
+                body: nil
+            ) { response, responseBodyAndTrailers in
+                #expect(response.status == .ok)
+                _ = try await responseBodyAndTrailers.consumeAndConclude { reader in
+                    var reader = reader
+                    try await reader.collect(upTo: 100) { _ in }
+                }
+            }
+
+            group.cancelAll()
+        }
     }
-
 }

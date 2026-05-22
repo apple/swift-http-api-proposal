@@ -23,7 +23,7 @@ public import Middleware
 /// This middleware is useful for debugging and monitoring HTTP traffic.
 @available(anyAppleOS 26.0, *)
 public struct HTTPServerLoggingMiddleware<
-    RequestContext: HTTPServerCapability.RequestContext,
+    RequestContext: HTTPServerCapability.RequestContext & ~Copyable,
     RequestConcludingAsyncReader: ConcludingAsyncReader & ~Copyable,
     ResponseConcludingAsyncWriter: ConcludingAsyncWriter & ~Copyable
 >: Middleware
@@ -124,7 +124,7 @@ extension Middleware where Input: ~Copyable, NextInput: ~Copyable {
     ) -> HTTPServerLoggingMiddleware<RequestContext, RequestReader, ResponseWriter>
     where
         Input == HTTPServerMiddlewareInput<RequestContext, RequestReader, ResponseWriter>,
-        RequestContext: HTTPServerCapability.RequestContext,
+        RequestContext: HTTPServerCapability.RequestContext & ~Copyable,
         RequestReader: ConcludingAsyncReader & ~Copyable & Escapable,
         RequestReader.Underlying: ~Copyable & Escapable,
         RequestReader.Underlying.ReadElement == UInt8,

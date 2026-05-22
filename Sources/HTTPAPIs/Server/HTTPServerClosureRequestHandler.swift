@@ -36,7 +36,7 @@
 /// ```
 @available(anyAppleOS 26.0, *)
 public struct HTTPServerClosureRequestHandler<
-    RequestContext: HTTPServerCapability.RequestContext & ~Copyable & ~Escapable,
+    RequestContext: HTTPServerCapability.RequestContext & ~Copyable,
     RequestReader: ConcludingAsyncReader & ~Copyable,
     ResponseWriter: ConcludingAsyncWriter & ~Copyable,
 >: HTTPServerRequestHandler
