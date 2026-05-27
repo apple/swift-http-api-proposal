@@ -32,8 +32,8 @@
 /// ## Using a capability in middleware or handlers
 ///
 /// ```swift
-/// func logConnection<S: HTTPServer>(server: S) async throws
-/// where S.RequestContext: HTTPServerCapability.ConnectionInfo {
+/// func logConnection<Server: HTTPServer>(server: Server) async throws
+/// where Server.RequestContext: HTTPServerCapability.ConnectionInfo {
 ///     try await server.serve { request, context, body, sender in
 ///         print("Request from: \(context.remoteAddress ?? "unknown")")
 ///         // ...

@@ -19,22 +19,21 @@ import HTTPTypes
 import Synchronization
 import Testing
 
-@available(anyAppleOS 26.0, *)
-struct HTTPRequestContext: HTTPServerCapability.RequestContext {
-    var remoteAddress: String?
-    var localAddress: String?
-
-    init(remoteAddress: String? = nil, localAddress: String? = nil) {
-        self.remoteAddress = remoteAddress
-        self.localAddress = localAddress
-    }
-}
-
 /// A test client and server.
 ///
 /// This type hooks up a client to a server in-process.
 @available(anyAppleOS 26.0, *)
 final class TestClientAndServer: HTTPClient, HTTPServer {
+    struct HTTPRequestContext: HTTPServerCapability.RequestContext {
+        var remoteAddress: String?
+        var localAddress: String?
+
+        init(remoteAddress: String? = nil, localAddress: String? = nil) {
+            self.remoteAddress = remoteAddress
+            self.localAddress = localAddress
+        }
+    }
+
     struct RequestOptions: HTTPClientCapability.RequestOptions {
         init() {}
     }

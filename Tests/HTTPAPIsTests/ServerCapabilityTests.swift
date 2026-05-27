@@ -24,7 +24,7 @@ extension HTTPServerCapability {
 }
 
 @available(anyAppleOS 26.0, *)
-extension HTTPRequestContext: HTTPServerCapability.ConnectionInfo {}
+extension TestClientAndServer.HTTPRequestContext: HTTPServerCapability.ConnectionInfo {}
 
 @available(anyAppleOS 26.0, *)
 extension TestClientAndServer {

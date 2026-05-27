@@ -17,6 +17,10 @@
 /// ``HTTPServer`` provides the contract for server implementations that accept
 /// incoming HTTP connections and process requests using a ``HTTPServerRequestHandler``.
 public protocol HTTPServer<RequestContext, RequestConcludingReader, ResponseConcludingWriter>: Sendable, ~Copyable, ~Escapable {
+    /// The type of context provided to request handlers for each incoming request.
+    ///
+    /// Server implementations define this type to carry per-request metadata that isn't part
+    /// of the HTTP message itself, such as connection information or routing state.
     associatedtype RequestContext: HTTPServerCapability.RequestContext, ~Copyable
 
     /// The type used to read request body data and trailers.
