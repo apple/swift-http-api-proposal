@@ -28,7 +28,7 @@ extension NIOHTTPServer {
     func serveSecureUpgrade(
         bindTarget: NIOHTTPServerConfiguration.BindTarget,
         tlsConfiguration: TLSConfiguration,
-        handler: some HTTPServerRequestHandler<RequestConcludingReader, ResponseConcludingWriter>,
+        handler: some HTTPServerRequestHandler<HTTPRequestContext, RequestConcludingReader, ResponseConcludingWriter>,
         asyncChannelConfiguration: NIOAsyncChannel<HTTPRequestPart, HTTPResponsePart>.Configuration,
         http2Configuration: NIOHTTP2Handler.Configuration,
         verificationCallback: (@Sendable ([X509.Certificate]) async throws -> CertificateVerificationResult)? = nil
@@ -120,7 +120,7 @@ extension NIOHTTPServer {
 
     func _serveSecureUpgrade(
         serverChannel: NIOAsyncChannel<EventLoopFuture<NegotiatedChannel>, Never>,
-        handler: some HTTPServerRequestHandler<RequestConcludingReader, ResponseConcludingWriter>
+        handler: some HTTPServerRequestHandler<HTTPRequestContext, RequestConcludingReader, ResponseConcludingWriter>
     ) async throws {
         try await withThrowingDiscardingTaskGroup { group in
             try await serverChannel.executeThenClose { inbound in

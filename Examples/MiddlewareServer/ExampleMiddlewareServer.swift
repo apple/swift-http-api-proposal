@@ -29,7 +29,7 @@ where
     Server.ResponseConcludingWriter.Underlying: ~Copyable,
     ServerMiddleware.Input: ~Copyable,
     ServerMiddleware.NextInput: ~Copyable,
-    ServerMiddleware.Input == HTTPServerMiddlewareInput<Server.RequestConcludingReader, Server.ResponseConcludingWriter>
+    ServerMiddleware.Input == HTTPServerMiddlewareInput<Server.RequestContext, Server.RequestConcludingReader, Server.ResponseConcludingWriter>
 {
     typealias RequestConcludingReader = Server.RequestConcludingReader
     typealias ResponseConcludingWriter = Server.ResponseConcludingWriter
@@ -70,7 +70,7 @@ where
     Server.ResponseConcludingWriter: ~Copyable,
     Server.ResponseConcludingWriter.Underlying: ~Copyable
 {
-    typealias Input = HTTPServerMiddlewareInput<Server.RequestConcludingReader, Server.ResponseConcludingWriter>
+    typealias Input = HTTPServerMiddlewareInput<Server.RequestContext, Server.RequestConcludingReader, Server.ResponseConcludingWriter>
     typealias NextInput = Input
 
     func intercept<Return: ~Copyable>(

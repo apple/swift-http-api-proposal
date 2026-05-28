@@ -24,6 +24,16 @@ import Testing
 /// This type hooks up a client to a server in-process.
 @available(anyAppleOS 26.0, *)
 final class TestClientAndServer: HTTPClient, HTTPServer {
+    struct HTTPRequestContext: HTTPServerCapability.RequestContext {
+        var remoteAddress: String?
+        var localAddress: String?
+
+        init(remoteAddress: String? = nil, localAddress: String? = nil) {
+            self.remoteAddress = remoteAddress
+            self.localAddress = localAddress
+        }
+    }
+
     struct RequestOptions: HTTPClientCapability.RequestOptions {
         init() {}
     }
@@ -120,6 +130,7 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
 
     typealias RequestWriter = AsyncChannelConcludingAsyncWriter.Underlying
     typealias ResponseConcludingReader = AsyncChannelConcludingAsyncReader
+    typealias RequestContext = HTTPRequestContext
     typealias RequestConcludingReader = AsyncChannelConcludingAsyncReader
     typealias ResponseConcludingWriter = AsyncChannelConcludingAsyncWriter
 
@@ -164,7 +175,7 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
     }
 
     func serve(
-        handler: some HTTPServerRequestHandler<AsyncChannelConcludingAsyncReader, AsyncChannelConcludingAsyncWriter>
+        handler: some HTTPServerRequestHandler<HTTPRequestContext, AsyncChannelConcludingAsyncReader, AsyncChannelConcludingAsyncWriter>
     ) async throws {
         try await withThrowingDiscardingTaskGroup { group in
             for await _ in self.stream {
@@ -184,7 +195,7 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
 
     private static func handleRequest(
         request: consuming BufferedRequest,
-        handler: some HTTPServerRequestHandler<AsyncChannelConcludingAsyncReader, AsyncChannelConcludingAsyncWriter>
+        handler: some HTTPServerRequestHandler<HTTPRequestContext, AsyncChannelConcludingAsyncReader, AsyncChannelConcludingAsyncWriter>
     ) async throws {
         try await withThrowingTaskGroup { group in
             let trailersChannel = AsyncChannel<HTTPFields?>()
@@ -246,7 +257,10 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
             try await handler
                 .handle(
                     request: request.request,
-                    requestContext: .init(),
+                    requestContext: HTTPRequestContext(
+                        remoteAddress: "127.0.0.1:54321",
+                        localAddress: "0.0.0.0:8080"
+                    ),
                     requestBodyAndTrailers: requestReader,
                     responseSender: responseSender
                 )
