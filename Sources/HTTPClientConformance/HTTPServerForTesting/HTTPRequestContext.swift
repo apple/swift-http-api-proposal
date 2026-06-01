@@ -11,9 +11,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// A context object that carries additional information about an HTTP request.
-///
-/// `HTTPRequestContext` provides a way to pass metadata through the HTTP request pipeline.
-public struct HTTPRequestContext: Sendable {
+public import HTTPAPIs
+
+@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+public struct HTTPRequestContext: HTTPServerCapability.RequestContext {
     public init() {}
 }

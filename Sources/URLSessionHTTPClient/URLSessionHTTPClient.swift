@@ -84,9 +84,9 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
             public mutating func read<Return: ~Copyable, Failure>(
                 body: (inout UniqueArray<UInt8>) async throws(Failure) -> Return
             ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Return where Failure: Error {
-                let data: Data?
+                let data: DispatchData?
                 do {
-                    data = try await self.actual.data(maximumCount: nil)
+                    data = try await self.actual.data()
                 } catch {
                     throw .first(error)
                 }
@@ -95,7 +95,9 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
                 var buffer = self.buffer.take()!
                 if let data, !data.isEmpty {
                     buffer.reserveCapacity(data.count)
-                    buffer.append(copying: data.span)
+                    for region in data.regions {
+                        buffer.append(copying: region)
+                    }
                 }
 
                 let result: Return

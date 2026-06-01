@@ -36,6 +36,7 @@
 /// ```
 @available(anyAppleOS 26.0, *)
 public struct HTTPServerClosureRequestHandler<
+    RequestContext: HTTPServerCapability.RequestContext & ~Copyable,
     RequestReader: ConcludingAsyncReader & ~Copyable,
     ResponseWriter: ConcludingAsyncWriter & ~Copyable,
 >: HTTPServerRequestHandler
@@ -47,11 +48,12 @@ where
     RequestReader.FinalElement == HTTPFields?,
     ResponseWriter.FinalElement == HTTPFields?
 {
+
     /// The underlying closure that handles HTTP requests.
     private let _handler:
         @Sendable (
             HTTPRequest,
-            HTTPRequestContext,
+            consuming RequestContext,
             consuming sending RequestReader,
             consuming sending HTTPResponseSender<ResponseWriter>
         ) async throws -> Void
@@ -65,7 +67,7 @@ where
         handler:
             @Sendable @escaping (
                 HTTPRequest,
-                HTTPRequestContext,
+                consuming RequestContext,
                 consuming sending RequestReader,
                 consuming sending HTTPResponseSender<ResponseWriter>
             ) async throws -> Void
@@ -79,12 +81,12 @@ where
     ///
     /// - Parameters:
     ///   - request: The HTTP request headers and metadata.
-    ///   - requestContext: A ``HTTPRequestContext``.
+    ///   - requestContext: The request context provided by the server.
     ///   - requestBodyAndTrailers: A reader for accessing the request body data and trailing headers.
     ///   - responseSender: An ``HTTPResponseSender`` to send the HTTP response.
     public func handle(
         request: HTTPRequest,
-        requestContext: HTTPRequestContext,
+        requestContext: consuming RequestContext,
         requestBodyAndTrailers: consuming sending RequestReader,
         responseSender: consuming sending HTTPResponseSender<ResponseWriter>
     ) async throws {
@@ -109,14 +111,14 @@ where
     /// - Parameters:
     ///   - handler: An async closure that processes HTTP requests. The closure receives:
     ///     - `HTTPRequest`: The incoming HTTP request with headers and metadata.
-    ///     - ``HTTPRequestContext``: The request's context.
+    ///     - `RequestContext`: The request context provided by the server.
     ///     - ``HTTPRequestConcludingAsyncReader``: An async reader for consuming the request body and trailers.
     ///     - ``HTTPResponseSender``: A non-copyable wrapper for a function that accepts an `HTTPResponse` and provides access to an ``HTTPResponseConcludingAsyncWriter``.
     ///
     /// ## Example
     ///
     /// ```swift
-    /// try await server.serve { request, bodyReader, responseSender in
+    /// try await server.serve { request, requestContext, bodyReader, responseSender in
     ///     // Process the request
     ///     let response = HTTPResponse(status: .ok)
     ///     let writer = try await responseSender.send(response)
@@ -130,7 +132,7 @@ where
         handler:
             @Sendable @escaping (
                 _ request: HTTPRequest,
-                _ requestContext: HTTPRequestContext,
+                _ requestContext: consuming RequestContext,
                 _ requestBodyAndTrailers: consuming sending RequestConcludingReader,
                 _ responseSender: consuming sending HTTPResponseSender<ResponseConcludingWriter>
             ) async throws -> Void

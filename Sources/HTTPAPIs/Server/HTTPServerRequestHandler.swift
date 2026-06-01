@@ -26,6 +26,7 @@
 ///
 /// ```swift
 /// struct EchoHandler<
+///     Context: HTTPServerCapability.RequestContext,
 ///     ConcludingRequestReader: ConcludingAsyncReader<RequestReader, HTTPFields?> & ~Copyable,
 ///     RequestReader: AsyncReader<UInt8, any Error> & ~Copyable,
 ///     ConcludingResponseWriter: ConcludingAsyncWriter<ResponseWriter, HTTPFields?> & ~Copyable,
@@ -33,7 +34,7 @@
 /// >: HTTPServerRequestHandler {
 ///     func handle(
 ///         request: HTTPRequest,
-///         requestContext: HTTPRequestContext,
+///         requestContext: Context,
 ///         requestBodyAndTrailers: consuming sending ConcludingRequestReader,
 ///         responseSender: consuming sending HTTPResponseSender<ConcludingResponseWriter>
 ///     ) async throws {
@@ -55,7 +56,10 @@
 /// }
 /// ```
 @available(anyAppleOS 26.0, *)
-public protocol HTTPServerRequestHandler<RequestReader, ResponseWriter>: Sendable {
+public protocol HTTPServerRequestHandler<RequestContext, RequestReader, ResponseWriter>: Sendable {
+    /// The type of the request context provided by the server.
+    associatedtype RequestContext: HTTPServerCapability.RequestContext, ~Copyable
+
     /// The type used to read request body data and trailers.
     associatedtype RequestReader: ConcludingAsyncReader, ~Copyable
     where RequestReader.Underlying: ~Copyable, RequestReader.Underlying.ReadElement == UInt8, RequestReader.FinalElement == HTTPFields?
@@ -76,7 +80,7 @@ public protocol HTTPServerRequestHandler<RequestReader, ResponseWriter>: Sendabl
     ///
     /// - Parameters:
     ///   - request: The HTTP request headers and metadata.
-    ///   - requestContext: A ``HTTPRequestContext`` carrying additional request information.
+    ///   - requestContext: A context carrying additional request information provided by the server.
     ///   - requestBodyAndTrailers: A reader for accessing the request body data and trailing headers.
     ///   - responseSender: An ``HTTPResponseSender`` that accepts an HTTP response and returns a writer for the
     ///     response body. The returned writer allows for incremental writing of the response body and supports trailers.
@@ -84,7 +88,7 @@ public protocol HTTPServerRequestHandler<RequestReader, ResponseWriter>: Sendabl
     /// - Throws: Any error encountered during request processing or response generation.
     func handle(
         request: HTTPRequest,
-        requestContext: HTTPRequestContext,
+        requestContext: consuming RequestContext,
         requestBodyAndTrailers: consuming sending RequestReader,
         responseSender: consuming sending HTTPResponseSender<ResponseWriter>
     ) async throws
