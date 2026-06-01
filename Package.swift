@@ -7,6 +7,7 @@ let extraSettings: [SwiftSetting] = [
     .enableExperimentalFeature("SuppressedAssociatedTypesWithDefaults"),
     .enableExperimentalFeature("LifetimeDependence"),
     .enableExperimentalFeature("Lifetimes"),
+    .enableExperimentalFeature("Extern"),
     .enableUpcomingFeature("LifetimeDependence"),
     .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
     .enableUpcomingFeature("InferIsolatedConformances"),
@@ -38,10 +39,7 @@ let package = Package(
         .default(enabledTraits: ["Configuration"]),
     ],
     dependencies: [
-        .package(
-            url: "https://github.com/apple/swift-collections.git",
-            from: "1.5.0"
-        ),
+        .package(url: "https://github.com/apple/swift-collections.git", from: "1.5.0"),
         .package(
             url: "https://github.com/apple/swift-async-algorithms.git",
             from: "1.1.4",
@@ -92,8 +90,6 @@ let package = Package(
                 .product(name: "AsyncStreaming", package: "swift-async-algorithms"),
                 "NetworkTypes",
                 .product(name: "HTTPTypes", package: "swift-http-types"),
-                .product(name: "HTTPTypesFoundation", package: "swift-http-types"),
-
                 .product(name: "AsyncHTTPClient", package: "async-http-client"),
                 .product(name: "NIOHTTP1", package: "swift-nio"),
             ],
@@ -245,22 +241,22 @@ let package = Package(
 let enableWASM = Context.environment["HTTP_API_ENABLE_WASM"] != nil
 
 if enableWASM {
-    // BridgeJS generated code wants `Extern` and doesn't work well with
-    // `NonisolatedNonsendingByDefault` and `InternalImportsByDefault`
+    // BridgeJS generated code doesn't work well with `NonisolatedNonsendingByDefault`
     let wasmExtraSettings: [SwiftSetting] = [
         .strictMemorySafety(),
         .enableExperimentalFeature("SuppressedAssociatedTypes"),
         .enableExperimentalFeature("LifetimeDependence"),
         .enableExperimentalFeature("Lifetimes"),
+        .enableExperimentalFeature("Extern"),
         .enableUpcomingFeature("LifetimeDependence"),
         .enableUpcomingFeature("InferIsolatedConformances"),
         .enableUpcomingFeature("ExistentialAny"),
         .enableUpcomingFeature("MemberImportVisibility"),
-        .enableExperimentalFeature("Extern"),
+        .enableUpcomingFeature("InternalImportsByDefault"),
     ]
 
     package.dependencies.append(
-        .package(url: "https://github.com/swiftwasm/JavaScriptKit", from: "0.50.2")
+        .package(url: "https://github.com/swiftwasm/JavaScriptKit", from: "0.53.0")
     )
     package.products.append(
         .library(name: "FetchHTTPClient", targets: ["FetchHTTPClient"])
@@ -273,10 +269,7 @@ if enableWASM {
                 .product(name: "AsyncStreaming", package: "swift-async-algorithms"),
                 .product(name: "BasicContainers", package: "swift-collections"),
                 .product(name: "HTTPTypes", package: "swift-http-types"),
-                .product(
-                    name: "JavaScriptKit",
-                    package: "JavaScriptKit",
-                ),
+                .product(name: "JavaScriptKit", package: "JavaScriptKit"),
                 .product(name: "JavaScriptEventLoop", package: "JavaScriptKit"),
             ],
             swiftSettings: wasmExtraSettings,
@@ -292,10 +285,7 @@ if enableWASM {
                 "FetchHTTPClient",
                 .product(name: "BasicContainers", package: "swift-collections"),
                 .product(name: "ContainersPreview", package: "swift-collections"),
-                .product(
-                    name: "JavaScriptKit",
-                    package: "JavaScriptKit",
-                ),
+                .product(name: "JavaScriptKit", package: "JavaScriptKit"),
                 .product(name: "JavaScriptEventLoop", package: "JavaScriptKit"),
             ],
             path: "Examples/WASMClient",
