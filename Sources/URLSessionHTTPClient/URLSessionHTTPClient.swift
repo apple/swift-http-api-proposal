@@ -42,10 +42,17 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
         ) async throws(WriteFailure) where Buffer.Element: ~Copyable {
             guard buffer.count > 0 else { return }
             var consumer = buffer.consumeAll()
-            while true {
+            // `while !done { ... }` instead of `while true { ... break }` to
+            // dodge a SIL ownership-verifier crash on the nightly main
+            // toolchain (https://github.com/swiftlang/swift/issues/89639).
+            var done = false
+            while !done {
                 let span = consumer.drainNext()
-                if span.isEmpty { break }
-                try await self.actual.internalWrite(span.span)
+                if span.isEmpty {
+                    done = true
+                } else {
+                    try await self.actual.internalWrite(span.span)
+                }
             }
         }
 
@@ -55,10 +62,15 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
         ) async throws(WriteFailure) where Buffer.Element: ~Copyable {
             if buffer.count > 0 {
                 var consumer = buffer.consumeAll()
-                while true {
+                // See note in `write(buffer:)`.
+                var done = false
+                while !done {
                     let span = consumer.drainNext()
-                    if span.isEmpty { break }
-                    try await self.actual.internalWrite(span.span)
+                    if span.isEmpty {
+                        done = true
+                    } else {
+                        try await self.actual.internalWrite(span.span)
+                    }
                 }
             }
             self.actual.close(trailerFields: finalElement)

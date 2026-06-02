@@ -53,10 +53,17 @@ public struct NIOHTTPResponseSender: HTTPResponseSender, ~Copyable {
             guard buffer.count > 0 else { return }
             self.byteBuffer.clear()
             var consumer = buffer.consumeAll()
-            while true {
+            // `while !done { ... }` instead of `while true { ... break }` to
+            // dodge a SIL ownership-verifier crash on the nightly main
+            // toolchain (https://github.com/swiftlang/swift/issues/89639).
+            var done = false
+            while !done {
                 let span = consumer.drainNext()
-                if span.isEmpty { break }
-                unsafe self.byteBuffer.writeBytes(span.span.bytes)
+                if span.isEmpty {
+                    done = true
+                } else {
+                    unsafe self.byteBuffer.writeBytes(span.span.bytes)
+                }
             }
             try await self.writer.write(.body(self.byteBuffer))
         }
@@ -68,10 +75,15 @@ public struct NIOHTTPResponseSender: HTTPResponseSender, ~Copyable {
             if buffer.count > 0 {
                 self.byteBuffer.clear()
                 var consumer = buffer.consumeAll()
-                while true {
+                // See note in `write(buffer:)`.
+                var done = false
+                while !done {
                     let span = consumer.drainNext()
-                    if span.isEmpty { break }
-                    unsafe self.byteBuffer.writeBytes(span.span.bytes)
+                    if span.isEmpty {
+                        done = true
+                    } else {
+                        unsafe self.byteBuffer.writeBytes(span.span.bytes)
+                    }
                 }
                 try await self.writer.write(.body(self.byteBuffer))
             }
