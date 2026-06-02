@@ -94,27 +94,21 @@ func serve(server: NIOHTTPServer) async throws {
         responseSender in
         // This server expects a path
         guard let path = request.path else {
-            var body = UniqueArray<UInt8>(
+            var body: UniqueArray<UInt8>? = UniqueArray<UInt8>(
                 capacity: 17,
                 copying: "No path specified".utf8
             )
-            try await responseSender.send(
-                HTTPResponse(status: .internalServerError),
-                copying: &body
-            )
+            try await responseSender.sendAndFinish(HTTPResponse(status: .internalServerError), buffer: &body, trailers: nil)
             return
         }
 
         // This server expects a valid path
         guard let components = URLComponents(string: path) else {
-            var body = UniqueArray<UInt8>(
+            var body: UniqueArray<UInt8>? = UniqueArray<UInt8>(
                 capacity: 17,
                 copying: "Malformed path".utf8
             )
-            try await responseSender.send(
-                HTTPResponse(status: .internalServerError),
-                copying: &body
-            )
+            try await responseSender.sendAndFinish(HTTPResponse(status: .internalServerError), buffer: &body, trailers: nil)
             return
         }
 
@@ -155,16 +149,16 @@ func serve(server: NIOHTTPServer) async throws {
             let response = JSONHTTPRequest(params: params, headers: headers, body: body, method: method, trailers: trailers)
 
             let responseData = try JSONEncoder().encode(response)
-            var arrayResponseData = UniqueArray(copying: responseData)
-            try await responseSender.send(HTTPResponse(status: .ok), copying: &arrayResponseData)
+            var arrayResponseData: UniqueArray<UInt8>? = UniqueArray<UInt8>(copying: responseData)
+            try await responseSender.sendAndFinish(HTTPResponse(status: .ok), buffer: &arrayResponseData, trailers: nil)
         case "/head_with_cl":
             if request.method != .head {
-                _ = try await responseSender.send(HTTPResponse(status: .methodNotAllowed))
+                try await responseSender.sendAndFinish(HTTPResponse(status: .methodNotAllowed))
                 break
             }
 
             // OK with a theoretical 1000-byte body
-            _ = try await responseSender.send(
+            try await responseSender.sendAndFinish(
                 HTTPResponse(
                     status: .ok,
                     headerFields: [
@@ -175,16 +169,16 @@ func serve(server: NIOHTTPServer) async throws {
         case "/200":
             // Do not write a response body for a HEAD request
             if request.method == .head {
-                _ = try await responseSender.send(HTTPResponse(status: .ok))
+                try await responseSender.sendAndFinish(HTTPResponse(status: .ok))
             } else {
-                var body = UniqueArray<UInt8>()
-                try await responseSender.send(HTTPResponse(status: .ok), copying: &body)
+                var body: UniqueArray<UInt8>? = UniqueArray<UInt8>()
+                try await responseSender.sendAndFinish(HTTPResponse(status: .ok), buffer: &body, trailers: nil)
             }
         case "/gzip":
             // If the client didn't say that they supported this encoding,
             // then fallback to no encoding.
             let acceptEncoding = request.headerFields[.acceptEncoding]
-            var bytes: UniqueArray<UInt8>
+            var bytes: UniqueArray<UInt8>?
             var headers: HTTPFields
             if let acceptEncoding,
                 acceptEncoding.contains("gzip")
@@ -224,12 +218,12 @@ func serve(server: NIOHTTPServer) async throws {
                 headers = [:]
             }
 
-            try await responseSender.send(HTTPResponse(status: .ok, headerFields: headers), copying: &bytes)
+            try await responseSender.sendAndFinish(HTTPResponse(status: .ok, headerFields: headers), buffer: &bytes, trailers: nil)
         case "/deflate":
             // If the client didn't say that they supported this encoding,
             // then fallback to no encoding.
             let acceptEncoding = request.headerFields[.acceptEncoding]
-            var bytes: UniqueArray<UInt8>
+            var bytes: UniqueArray<UInt8>?
             var headers: HTTPFields
             if let acceptEncoding,
                 acceptEncoding.contains("deflate")
@@ -244,15 +238,12 @@ func serve(server: NIOHTTPServer) async throws {
             }
 
             try await responseSender
-                .send(
-                    HTTPResponse(status: .ok, headerFields: headers),
-                    copying: &bytes
-                )
+                .sendAndFinish(HTTPResponse(status: .ok, headerFields: headers), buffer: &bytes, trailers: nil)
         case "/brotli":
             // If the client didn't say that they supported this encoding,
             // then fallback to no encoding.
             let acceptEncoding = request.headerFields[.acceptEncoding]
-            var bytes: UniqueArray<UInt8>
+            var bytes: UniqueArray<UInt8>?
             var headers: HTTPFields
             if let acceptEncoding,
                 acceptEncoding.contains("br")
@@ -266,9 +257,9 @@ func serve(server: NIOHTTPServer) async throws {
                 headers = [:]
             }
 
-            try await responseSender.send(HTTPResponse(status: .ok, headerFields: headers), copying: &bytes)
+            try await responseSender.sendAndFinish(HTTPResponse(status: .ok, headerFields: headers), buffer: &bytes, trailers: nil)
         case "/header_multivalue":
-            _ = try await responseSender.send(
+            try await responseSender.sendAndFinish(
                 HTTPResponse(
                     status: .ok,
                     headerFields: [
@@ -280,55 +271,56 @@ func serve(server: NIOHTTPServer) async throws {
         case "/identity":
             // This will always write out the body with no encoding.
             // Used to check that a client can handle fallback to no encoding.
-            var body = UniqueArray<UInt8>.init(copying: "TEST\n".utf8)
-            try await responseSender.send(HTTPResponse(status: .ok), copying: &body)
+            var body: UniqueArray<UInt8>? = UniqueArray<UInt8>(copying: "TEST\n".utf8)
+            try await responseSender.sendAndFinish(HTTPResponse(status: .ok), buffer: &body, trailers: nil)
         case "/redirect_ping":
             // Infinite redirection as a result of arriving here
-            var body = UniqueArray<UInt8>.init(copying: "".utf8)
-            try await responseSender.send(
+            var body: UniqueArray<UInt8>? = UniqueArray<UInt8>(copying: "".utf8)
+            try await responseSender.sendAndFinish(
                 HTTPResponse(status: .movedPermanently, headerFields: HTTPFields([HTTPField(name: .location, value: "/redirect_pong")])),
-                copying: &body
+                buffer: &body,
+                trailers: nil
             )
         case "/redirect_pong":
             // Infinite redirection as a result of arriving here
-            var body = UniqueArray<UInt8>.init(copying: "".utf8)
-            try await responseSender.send(
+            var body: UniqueArray<UInt8>? = UniqueArray<UInt8>(copying: "".utf8)
+            try await responseSender.sendAndFinish(
                 HTTPResponse(status: .movedPermanently, headerFields: HTTPFields([HTTPField(name: .location, value: "/redirect_ping")])),
-                copying: &body
+                buffer: &body,
+                trailers: nil
             )
         case "/301":
             // Redirect to /request
-            var body = UniqueArray<UInt8>.init(copying: "".utf8)
-            try await responseSender.send(
+            var body: UniqueArray<UInt8>? = UniqueArray<UInt8>(copying: "".utf8)
+            try await responseSender.sendAndFinish(
                 HTTPResponse(status: .movedPermanently, headerFields: HTTPFields([HTTPField(name: .location, value: "/request")])),
-                copying: &body
+                buffer: &body,
+                trailers: nil
             )
         case "/308":
             // Redirect to /request
-            var body = UniqueArray<UInt8>.init(copying: "".utf8)
-            try await responseSender.send(
+            var body: UniqueArray<UInt8>? = UniqueArray<UInt8>(copying: "".utf8)
+            try await responseSender.sendAndFinish(
                 HTTPResponse(
                     status: .permanentRedirect,
                     headerFields: HTTPFields(
                         [HTTPField(name: .location, value: "/request")]
                     )
                 ),
-                copying: &body
+                buffer: &body,
+                trailers: nil
             )
         case "/404":
-            var body = UniqueArray<UInt8>.init(copying: "".utf8)
-            try await responseSender.send(HTTPResponse(status: .notFound), copying: &body)
+            var body: UniqueArray<UInt8>? = UniqueArray<UInt8>(copying: "".utf8)
+            try await responseSender.sendAndFinish(HTTPResponse(status: .notFound), buffer: &body, trailers: nil)
         case "/999":
-            var body = UniqueArray<UInt8>.init(copying: "".utf8)
-            try await responseSender.send(HTTPResponse(status: 999), copying: &body)
+            var body: UniqueArray<UInt8>? = UniqueArray<UInt8>(copying: "".utf8)
+            try await responseSender.sendAndFinish(HTTPResponse(status: 999), buffer: &body, trailers: nil)
         case "/echo":
             // Bad method
             if request.method != .post {
-                var body = UniqueArray<UInt8>.init(copying: "Incorrect method".utf8)
-                try await responseSender.send(
-                    HTTPResponse(status: .methodNotAllowed),
-                    copying: &body
-                )
+                var body: UniqueArray<UInt8>? = UniqueArray<UInt8>(copying: "Incorrect method".utf8)
+                try await responseSender.sendAndFinish(HTTPResponse(status: .methodNotAllowed), buffer: &body, trailers: nil)
                 return
             }
 
@@ -381,9 +373,9 @@ func serve(server: NIOHTTPServer) async throws {
                 // It is okay for the client to give up on the connection due to the stall.
             }
         case "/1mb_body":
-            var body = UniqueArray<UInt8>.init(copying: String(repeating: "A", count: 1_000_000).data(using: .ascii)!)
+            var body: UniqueArray<UInt8>? = UniqueArray<UInt8>(copying: String(repeating: "A", count: 1_000_000).data(using: .ascii)!)
             do {
-                try await responseSender.send(.init(status: .ok), copying: &body)
+                try await responseSender.sendAndFinish(.init(status: .ok), buffer: &body, trailers: nil)
             } catch {
                 // It is okay for the client to give up while reading this response.
                 // Example: a client may only want the first byte from this response.
@@ -393,23 +385,24 @@ func serve(server: NIOHTTPServer) async throws {
             }
         case "/cookie":
             let cookie = UUID().uuidString
-            var body = UniqueArray<UInt8>.init(copying: "".utf8)
-            try await responseSender.send(
+            var body: UniqueArray<UInt8>? = UniqueArray<UInt8>(copying: "".utf8)
+            try await responseSender.sendAndFinish(
                 .init(
                     status: .ok,
                     headerFields: [
                         .setCookie: "foo=\(cookie)"
                     ]
                 ),
-                copying: &body
+                buffer: &body,
+                trailers: nil
             )
         case "/etag":
             let clientETag = request.headerFields[.ifNoneMatch]
             let (serverETag, isNotModified) = eTag.next(clientETag: clientETag)
             if isNotModified {
-                var body = UniqueArray<UInt8>.init(copying: "".utf8)
+                var body: UniqueArray<UInt8>? = UniqueArray<UInt8>(copying: "".utf8)
                 // Nothing has changed, so 304 Not Modified.
-                try await responseSender.send(
+                try await responseSender.sendAndFinish(
                     .init(
                         status: .notModified,
                         headerFields: [
@@ -417,13 +410,14 @@ func serve(server: NIOHTTPServer) async throws {
                             .cached: "true",
                         ]
                     ),
-                    copying: &body
+                    buffer: &body,
+                    trailers: nil
                 )
             } else {
                 // The server wants to give a new ETag to the client
                 // Give the etag itself as the new body
-                var body = UniqueArray<UInt8>.init(copying: serverETag.data(using: .ascii)!)
-                try await responseSender.send(
+                var body: UniqueArray<UInt8>? = UniqueArray<UInt8>(copying: serverETag.data(using: .ascii)!)
+                try await responseSender.sendAndFinish(
                     .init(
                         status: .ok,
                         headerFields: [
@@ -431,7 +425,8 @@ func serve(server: NIOHTTPServer) async throws {
                             .cached: "false",
                         ]
                     ),
-                    copying: &body
+                    buffer: &body,
+                    trailers: nil
                 )
             }
         case "/trailers":
@@ -447,11 +442,8 @@ func serve(server: NIOHTTPServer) async throws {
                 ]
             )
         default:
-            var body = UniqueArray<UInt8>.init(copying: "Unknown path".utf8)
-            try await responseSender.send(
-                HTTPResponse(status: .internalServerError),
-                copying: &body
-            )
+            var body: UniqueArray<UInt8>? = UniqueArray<UInt8>(copying: "Unknown path".utf8)
+            try await responseSender.sendAndFinish(HTTPResponse(status: .internalServerError), buffer: &body, trailers: nil)
         }
     }
 }

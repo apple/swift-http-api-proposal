@@ -153,4 +153,24 @@ where Writer.WriteElement == UInt8, Writer.FinalElement == HTTPFields? {
         self.knownLength = knownLength
         self.writeBody = writeBody
     }
+
+    // TODO: We should revisit this method and decide how we want external
+    // modules to map bodies.
+    package init<OtherWriter: ~Copyable & SendableMetatype>(
+        other: HTTPClientRequestBody<OtherWriter>,
+        transform: @escaping @Sendable (consuming Writer) -> OtherWriter
+    ) where Writer: SendableMetatype {
+        self.knownLength = other.knownLength
+        self.writeBody =
+            switch other.writeBody {
+            case .restartable(let writeBody):
+                .restartable { writer in
+                    try await writeBody(transform(writer))
+                }
+            case .seekable(let writeBody):
+                .seekable { offset, writer in
+                    try await writeBody(offset, transform(writer))
+                }
+            }
+    }
 }

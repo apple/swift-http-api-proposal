@@ -34,8 +34,8 @@ extension TestClientAndServer {
             #expect(requestContext.remoteAddress == "127.0.0.1:54321")
             #expect(requestContext.localAddress == "0.0.0.0:8080")
 
-            var emptyBody = UniqueArray<UInt8>()
-            try await responseSender.send(.init(status: .ok), copying: &emptyBody)
+            var emptyBody: UniqueArray<UInt8>? = UniqueArray<UInt8>()
+            try await responseSender.sendAndFinish(.init(status: .ok), buffer: &emptyBody, trailers: nil)
         }
     }
 }

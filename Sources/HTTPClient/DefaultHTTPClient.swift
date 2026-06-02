@@ -147,17 +147,10 @@ public final class DefaultHTTPClient: HTTPAPIs.HTTPClient {
     ) async throws -> Return {
         // TODO: translate request options
         let options = self.client.defaultRequestOptions
-        let translatedBody: HTTPClientRequestBody<ActualHTTPClient.Writer>? = body.map { userBody in
-            guard userBody.isSeekable else {
-                return HTTPClientRequestBody<ActualHTTPClient.Writer>.restartable(knownLength: userBody.knownLength) { actualWriter in
-                    try await userBody.produce(into: Writer(actual: actualWriter))
-                }
-            }
-            return HTTPClientRequestBody<ActualHTTPClient.Writer>.seekable(knownLength: userBody.knownLength) { offset, actualWriter in
-                try await userBody.produce(offset: offset, into: Writer(actual: actualWriter))
-            }
+        let body = body.map {
+            HTTPClientRequestBody<ActualHTTPClient.RequestWriter>(other: $0) { Writer(actual: $0) }
         }
-        return try await self.client.perform(request: request, body: translatedBody, options: options) { response, actualReader in
+        return try await self.client.perform(request: request, body: body, options: options) { response, actualReader in
             try await responseHandler(response, Reader(actual: actualReader))
         }
     }
