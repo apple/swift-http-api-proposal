@@ -43,9 +43,10 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
 
     typealias UnderlyingDuplex = DuplexAsyncChannel<UInt8, HTTPFields?, any Error>
 
-    /// A body writer for the test client/server. Wraps one side of a
-    /// ``DuplexAsyncChannel`` and adapts its `EitherError` write/finish
-    /// failures to plain `any Error`.
+    /// A body writer for the test client/server.
+    ///
+    /// Wraps one side of a ``DuplexAsyncChannel`` and adapts its `EitherError`
+    /// write/finish failures to plain `any Error`.
     struct AsyncChannelBodyWriter: CallerAsyncWriter, ~Copyable, SendableMetatype {
         typealias WriteElement = UInt8
         typealias WriteFailure = any Error
@@ -71,9 +72,10 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
         }
     }
 
-    /// A body reader for the test client/server. Wraps one side of a
-    /// ``DuplexAsyncChannel`` and flattens its nested `EitherError` read
-    /// failures into the shape this test type publishes.
+    /// A body reader for the test client/server.
+    ///
+    /// Wraps one side of a ``DuplexAsyncChannel`` and flattens its nested
+    /// `EitherError` read failures into the shape this test type publishes.
     struct AsyncChannelBodyReader: AsyncReader, ~Copyable, SendableMetatype {
         typealias ReadElement = UInt8
         typealias ReadFailure = any Error
@@ -141,9 +143,10 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
         final class Response {
             var response: HTTPResponse
             private var responseReader: AsyncChannelBodyReader?
-            /// Signaled by the client when it's finished using the response
-            /// reader. The server awaits this before letting the
-            /// ``withDuplex`` scope tear the underlying channel down.
+            /// Signaled by the client when it's finished using the response reader.
+            ///
+            /// The server awaits this before letting the ``withDuplex`` scope
+            /// tear the underlying channel down.
             let clientDone: AsyncStream<Void>.Continuation
 
             init(
