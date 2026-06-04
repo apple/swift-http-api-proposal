@@ -296,7 +296,9 @@ func serve(server: NIOHTTPServer) async throws {
             if request.method != .post {
                 var body = UniqueArray<UInt8>(copying: "Incorrect method".utf8)
                 try await responseSender.sendAndFinish(
-                    HTTPResponse(status: .methodNotAllowed), buffer: &body, trailer: nil
+                    HTTPResponse(status: .methodNotAllowed),
+                    buffer: &body,
+                    trailer: nil
                 )
                 return
             }
