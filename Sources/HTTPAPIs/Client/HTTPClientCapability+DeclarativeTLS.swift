@@ -11,6 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+public import NetworkTypes
+
 @available(anyAppleOS 26.0, *)
 extension HTTPClientCapability {
     /// A protocol for HTTP request options that support TLS policies.
