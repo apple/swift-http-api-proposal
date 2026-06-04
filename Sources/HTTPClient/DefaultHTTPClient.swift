@@ -148,7 +148,7 @@ public final class DefaultHTTPClient: HTTPAPIs.HTTPClient {
         // TODO: translate request options
         let options = self.client.defaultRequestOptions
         let body = body.map {
-            HTTPClientRequestBody<ActualHTTPClient.RequestWriter>(other: $0) { Writer(actual: $0) }
+            HTTPClientRequestBody<ActualHTTPClient.Writer>(other: $0) { Writer(actual: $0) }
         }
         return try await self.client.perform(request: request, body: body, options: options) { response, actualReader in
             try await responseHandler(response, Reader(actual: actualReader))

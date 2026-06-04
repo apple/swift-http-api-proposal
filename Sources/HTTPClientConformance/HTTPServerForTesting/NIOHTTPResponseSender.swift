@@ -62,7 +62,7 @@ public struct NIOHTTPResponseSender: HTTPResponseSender, ~Copyable {
                 if span.isEmpty {
                     done = true
                 } else {
-                    unsafe self.byteBuffer.writeBytes(span.span.bytes)
+                    self.byteBuffer.writeBytes(span.span.bytes)
                 }
             }
             try await self.writer.write(.body(self.byteBuffer))
@@ -82,7 +82,7 @@ public struct NIOHTTPResponseSender: HTTPResponseSender, ~Copyable {
                     if span.isEmpty {
                         done = true
                     } else {
-                        unsafe self.byteBuffer.writeBytes(span.span.bytes)
+                        self.byteBuffer.writeBytes(span.span.bytes)
                     }
                 }
                 try await self.writer.write(.body(self.byteBuffer))

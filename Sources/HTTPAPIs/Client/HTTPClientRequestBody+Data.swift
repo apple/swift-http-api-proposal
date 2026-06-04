@@ -27,7 +27,6 @@ extension HTTPClientRequestBody where Writer: ~Copyable {
     public static func data(_ data: Data) -> Self {
         .seekable(knownLength: Int64(data.count)) { offset, writer in
             // TODO: Once data conforms to RangeReplaceableContainer we should remove this copy
-            let writer = writer
             var buffer = UniqueArray<UInt8>(
                 copying: data.span.extracting(droppingFirst: Int(offset))
             )

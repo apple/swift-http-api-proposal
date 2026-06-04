@@ -22,14 +22,11 @@ import Synchronization
 
 @available(anyAppleOS 26.0, *)
 extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
-    public typealias Writer = RequestBodyWriter
-    public typealias Reader = ResponseBodyReader
-
     public struct RequestOptions: HTTPClientCapability.RequestOptions {
 
     }
 
-    public struct RequestBodyWriter: CallerAsyncWriter, ~Copyable {
+    public struct Writer: CallerAsyncWriter, ~Copyable {
         public typealias WriteElement = UInt8
         public typealias WriteFailure = any Error
         public typealias FinalElement = HTTPFields?
@@ -58,7 +55,7 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
                 if span.isEmpty {
                     done = true
                 } else {
-                    unsafe self.byteBuffer.writeBytes(span.span.bytes)
+                    self.byteBuffer.writeBytes(span.span.bytes)
                 }
             }
             try await self.requestWriter.writeRequestBodyPart(self.byteBuffer)
@@ -78,7 +75,7 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
                     if span.isEmpty {
                         done = true
                     } else {
-                        unsafe self.byteBuffer.writeBytes(span.span.bytes)
+                        self.byteBuffer.writeBytes(span.span.bytes)
                     }
                 }
                 try await self.requestWriter.writeRequestBodyPart(self.byteBuffer)
@@ -93,7 +90,7 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
         }
     }
 
-    public struct ResponseBodyReader: AsyncReader, ~Copyable {
+    public struct Reader: AsyncReader, ~Copyable {
         public typealias ReadElement = UInt8
         public typealias ReadFailure = any Error
         public typealias Buffer = UniqueArray<UInt8>
@@ -157,9 +154,9 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
 
     public func perform<Return: ~Copyable>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<RequestBodyWriter>?,
+        body: consuming HTTPClientRequestBody<Writer>?,
         options: RequestOptions,
-        responseHandler: (HTTPResponse, consuming ResponseBodyReader) async throws -> Return
+        responseHandler: (HTTPResponse, consuming Reader) async throws -> Return
     ) async throws -> Return {
         guard let url = request.url else {
             fatalError()
@@ -183,7 +180,7 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
 
                     for await ahcWriter in asyncStream {
                         do {
-                            let writer = RequestBodyWriter(ahcWriter)
+                            let writer = Writer(ahcWriter)
                             try await body.produce(into: writer)
                             // writer.finish already calls requestBodyStreamFinished
                             break  // the loop
@@ -214,7 +211,7 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
                     headerFields: responseFields
                 )
 
-                result = .success(try await responseHandler(response, ResponseBodyReader(body: ahcResponse.body)))
+                result = .success(try await responseHandler(response, Reader(body: ahcResponse.body)))
             } catch {
                 result = .failure(error)
             }

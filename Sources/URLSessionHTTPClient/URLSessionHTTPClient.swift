@@ -23,10 +23,7 @@ import Synchronization
 /// The HTTPClient implementation backed by URLSession.
 @available(anyAppleOS 26.0, *)
 public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
-    public typealias Writer = RequestWriter
-    public typealias Reader = ResponseReader
-
-    public struct RequestWriter: CallerAsyncWriter, ~Copyable {
+    public struct Writer: CallerAsyncWriter, ~Copyable {
         public typealias WriteElement = UInt8
         public typealias WriteFailure = any Error
         public typealias FinalElement = HTTPFields?
@@ -77,7 +74,7 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
         }
     }
 
-    public struct ResponseReader: AsyncReader, ~Copyable {
+    public struct Reader: AsyncReader, ~Copyable {
         public typealias ReadElement = UInt8
         public typealias ReadFailure = any Error
         public typealias Buffer = UniqueArray<UInt8>
@@ -89,7 +86,7 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
 
         init(actual: URLSessionTaskDelegateBridge) {
             self.actual = actual
-            self.buffer = UniqueArray(minimumCapacity: 1024)
+            self.buffer = UniqueArray()
         }
 
         public mutating func read<Return: ~Copyable, Failure>(
@@ -372,9 +369,9 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
 
     public func perform<Return: ~Copyable>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<RequestWriter>?,
+        body: consuming HTTPClientRequestBody<Writer>?,
         options: URLSessionRequestOptions,
-        responseHandler: (HTTPResponse, consuming ResponseReader) async throws -> Return
+        responseHandler: (HTTPResponse, consuming Reader) async throws -> Return
     ) async throws -> Return {
         guard request.schemeSupported else {
             throw HTTPTypeConversionError.unsupportedScheme
@@ -403,7 +400,7 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
                 guard let response = (response as? HTTPURLResponse)?.httpResponse else {
                     throw HTTPTypeConversionError.failedToConvertURLTypeToHTTPTypes
                 }
-                result = .success(try await responseHandler(response, ResponseReader(actual: delegateBridge)))
+                result = .success(try await responseHandler(response, Reader(actual: delegateBridge)))
             } catch {
                 result = .failure(error)
             }
