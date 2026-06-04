@@ -20,8 +20,8 @@ where Self: ~Copyable, Self: ~Escapable, WriteElement == UInt8, FinalElement == 
     /// Concludes an HTTP body writer with no remaining buffer and the supplied
     /// trailers. Sugar over ``finish(buffer:finalElement:)``.
     // TODO: This should be moved to the AsyncStreaming module as a general purpose convenience
-    public consuming func finish(trailers: HTTPFields?) async throws(WriteFailure) {
+    public consuming func finish(trailer: HTTPFields?) async throws(WriteFailure) {
         var empty = UniqueArray<UInt8>()
-        try await self.finish(buffer: &empty, finalElement: trailers)
+        try await self.finish(buffer: &empty, finalElement: trailer)
     }
 }

@@ -308,8 +308,8 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
                     if let body {
                         try await body.produce(into: writer)
                     } else {
-                        // No body: just signal end-of-stream with no trailers.
-                        try await writer.finish(trailers: nil)
+                        // No body: just signal end-of-stream with no trailer.
+                        try await writer.finish(trailer: nil)
                     }
                 }
 

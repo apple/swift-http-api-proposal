@@ -25,12 +25,12 @@ import BasicContainers
 /// for streaming the body. The caller is responsible for terminating the body
 /// via ``CallerAsyncWriter/finish(buffer:finalElement:)``.
 ///
-/// For the common case where the entire body and trailers are already in hand
-/// before the response head is sent, ``sendAndFinish(_:copying:trailers:)``
-/// completes the entire response in a single call. It has a default
-/// implementation on top of ``send(_:)``, but conformers are encouraged to
-/// override it when the underlying transport can coalesce the head, body, and
-/// trailing fields into a single frame.
+/// For the common case where the entire body is already in hand before the
+/// response head is sent, ``sendAndFinish(_:copying:trailer:)`` completes the
+/// entire response in a single call. It has a default implementation on top of
+/// ``send(_:)``, but conformers are encouraged to override it when the
+/// underlying transport can coalesce the head, body, and trailing fields into
+/// a single frame.
 @available(anyAppleOS 26.0, *)
 public protocol HTTPResponseSender<Writer>: ~Copyable, ~Escapable {
     /// The body writer type used to stream response body bytes and signal end-of-body.
@@ -76,22 +76,21 @@ public protocol HTTPResponseSender<Writer>: ~Copyable, ~Escapable {
     ///
     /// On return the response is fully sent and no further calls are possible
     /// on the sender. For empty-body responses (such as `204 No Content`,
-    /// `304 Not Modified`, or error responses without a body), pass `nil` for
+    /// `304 Not Modified`, or error responses without a body), pass an empty
     /// `buffer` or use the ``sendAndFinish(_:)`` convenience; for responses
-    /// without trailers, pass `nil` for `trailers`.
+    /// without a trailer, pass `nil` for `trailer`.
     ///
     /// - Parameters:
     ///   - response: The final HTTP response head. Must not be informational (1xx).
-    ///   - buffer: The full response body, or `nil` for an empty body. When
-    ///     non-`nil`, the buffer is drained as part of the call; on return
-    ///     it is `nil`.
-    ///   - trailers: The optional trailing HTTP fields, or `nil` to terminate
-    ///     the body without trailers.
+    ///   - buffer: The full response body. The buffer is drained as part of
+    ///     the call; on return it is `nil`.
+    ///   - trailer: The optional trailing HTTP fields, or `nil` to terminate
+    ///     the body without a trailer.
     /// - Throws: Any error encountered while writing the head, body, or trailing fields.
     consuming func sendAndFinish<Buffer: RangeReplaceableContainer<UInt8> & ~Copyable>(
         _ response: HTTPResponse,
-        buffer: inout Buffer?,
-        trailers: HTTPFields?
+        buffer: inout Buffer,
+        trailer: HTTPFields?
     ) async throws where Buffer.Element: ~Copyable
 }
 
@@ -99,16 +98,11 @@ public protocol HTTPResponseSender<Writer>: ~Copyable, ~Escapable {
 extension HTTPResponseSender where Self: ~Copyable, Writer: ~Copyable {
     public consuming func sendAndFinish<Buffer: RangeReplaceableContainer<UInt8> & ~Copyable>(
         _ response: HTTPResponse,
-        buffer: inout Buffer?,
-        trailers: HTTPFields?
+        buffer: inout Buffer,
+        trailer: HTTPFields? = nil
     ) async throws where Buffer.Element: ~Copyable {
         let writer = try await self.send(response)
-        if var unwrapped = buffer.take() {
-            try await writer.finish(buffer: &unwrapped, finalElement: trailers)
-        } else {
-            var empty = UniqueArray<UInt8>()
-            try await writer.finish(buffer: &empty, finalElement: trailers)
-        }
+        try await writer.finish(buffer: &buffer, finalElement: trailer)
     }
 
     /// Sends the final HTTP response head with no body and no trailing fields,
@@ -116,14 +110,14 @@ extension HTTPResponseSender where Self: ~Copyable, Writer: ~Copyable {
     ///
     /// Convenience for empty-body responses such as `204 No Content`,
     /// `304 Not Modified`, or error responses without a body. Equivalent to
-    /// ``sendAndFinish(_:buffer:trailers:)`` with `nil` for both `buffer` and
-    /// `trailers`; conformers that override that requirement to fuse into a
+    /// ``sendAndFinish(_:buffer:trailer:)`` with an empty buffer and `nil` for
+    /// `trailer`; conformers that override that requirement to fuse into a
     /// single transport frame benefit here too.
     ///
     /// - Parameter response: The final HTTP response head. Must not be informational (1xx).
     /// - Throws: Any error encountered while writing the response head or the FIN signal.
     public consuming func sendAndFinish(_ response: HTTPResponse) async throws {
-        var noBody: UniqueArray<UInt8>? = nil
-        try await self.sendAndFinish(response, buffer: &noBody, trailers: nil)
+        var noBody = UniqueArray<UInt8>()
+        try await self.sendAndFinish(response, buffer: &noBody, trailer: nil)
     }
 }

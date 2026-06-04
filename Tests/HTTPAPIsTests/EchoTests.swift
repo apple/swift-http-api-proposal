@@ -50,16 +50,16 @@ struct HTTPClientAndServerTests {
                     var body = UniqueArray<UInt8>.init(copying: "Hello".utf8)
                     try await writer.finish(
                         buffer: &body,
-                        finalElement: HTTPFields([.init(name: .date, value: "test")])
+                        finalElement: [.date: "test"]
                     )
                 }
             ) { (response: HTTPResponse, reader: consuming TestClientAndServer.AsyncChannelBodyReader) in
                 #expect(response.status == .ok)
                 var responseBody = UniqueArray<UInt8>(minimumCapacity: 100)
-                let trailers = try await reader.collect(into: &responseBody)
+                let trailer = try await reader.collect(into: &responseBody)
                 let isEqual = responseBody == UniqueArray(copying: "Hello".utf8)
                 #expect(isEqual)
-                #expect(trailers == HTTPFields([.init(name: .date, value: "test")]))
+                #expect(trailer == [.date: "test"])
             }
 
             group.cancelAll()

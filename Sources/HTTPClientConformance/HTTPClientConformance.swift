@@ -491,7 +491,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
             scheme: "http",
             authority: "127.0.0.1:\(testServerPort)",
             path: "/request",
-            headerFields: HTTPFields([HTTPField(name: .init("X-Foo")!, value: "BARbaz")])
+            headerFields: [.init("X-Foo")!: "BARbaz"]
         )
 
         try await client.perform(
@@ -653,7 +653,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
                     // Only proceed once the client receives the echo.
                     await writerWaiting.first(where: { true })
                 }
-                try await writer.finish(trailers: nil)
+                try await writer.finish(trailer: nil)
             }
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
@@ -726,7 +726,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
                     var buffer = UniqueArray<UInt8>(copying: chunk.utf8Span.span)
                     try await writer.write(buffer: &buffer)
                 }
-                try await writer.finish(trailers: nil)
+                try await writer.finish(trailer: nil)
             }
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
