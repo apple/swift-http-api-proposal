@@ -167,13 +167,7 @@ func serve(server: NIOHTTPServer) async throws {
                 )
             )
         case "/200":
-            // Do not write a response body for a HEAD request
-            if request.method == .head {
-                try await responseSender.sendAndFinish(HTTPResponse(status: .ok))
-            } else {
-                var body: UniqueArray<UInt8>? = UniqueArray<UInt8>()
-                try await responseSender.sendAndFinish(HTTPResponse(status: .ok), buffer: &body, trailers: nil)
-            }
+            try await responseSender.sendAndFinish(HTTPResponse(status: .ok))
         case "/gzip":
             // If the client didn't say that they supported this encoding,
             // then fallback to no encoding.
@@ -275,52 +269,35 @@ func serve(server: NIOHTTPServer) async throws {
             try await responseSender.sendAndFinish(HTTPResponse(status: .ok), buffer: &body, trailers: nil)
         case "/redirect_ping":
             // Infinite redirection as a result of arriving here
-            var body: UniqueArray<UInt8>? = UniqueArray<UInt8>(copying: "".utf8)
             try await responseSender.sendAndFinish(
-                HTTPResponse(status: .movedPermanently, headerFields: HTTPFields([HTTPField(name: .location, value: "/redirect_pong")])),
-                buffer: &body,
-                trailers: nil
+                HTTPResponse(status: .movedPermanently, headerFields: [.location: "/redirect_pong"])
             )
         case "/redirect_pong":
             // Infinite redirection as a result of arriving here
-            var body: UniqueArray<UInt8>? = UniqueArray<UInt8>(copying: "".utf8)
             try await responseSender.sendAndFinish(
-                HTTPResponse(status: .movedPermanently, headerFields: HTTPFields([HTTPField(name: .location, value: "/redirect_ping")])),
-                buffer: &body,
-                trailers: nil
+                HTTPResponse(status: .movedPermanently, headerFields: [.location: "/redirect_ping"])
             )
         case "/301":
             // Redirect to /request
-            var body: UniqueArray<UInt8>? = UniqueArray<UInt8>(copying: "".utf8)
             try await responseSender.sendAndFinish(
-                HTTPResponse(status: .movedPermanently, headerFields: HTTPFields([HTTPField(name: .location, value: "/request")])),
-                buffer: &body,
-                trailers: nil
+                HTTPResponse(status: .movedPermanently, headerFields: [.location: "/request"])
             )
         case "/308":
             // Redirect to /request
-            var body: UniqueArray<UInt8>? = UniqueArray<UInt8>(copying: "".utf8)
             try await responseSender.sendAndFinish(
-                HTTPResponse(
-                    status: .permanentRedirect,
-                    headerFields: HTTPFields(
-                        [HTTPField(name: .location, value: "/request")]
-                    )
-                ),
-                buffer: &body,
-                trailers: nil
+                HTTPResponse(status: .permanentRedirect, headerFields: [.location: "/request"])
             )
         case "/404":
-            var body: UniqueArray<UInt8>? = UniqueArray<UInt8>(copying: "".utf8)
-            try await responseSender.sendAndFinish(HTTPResponse(status: .notFound), buffer: &body, trailers: nil)
+            try await responseSender.sendAndFinish(HTTPResponse(status: .notFound))
         case "/999":
-            var body: UniqueArray<UInt8>? = UniqueArray<UInt8>(copying: "".utf8)
-            try await responseSender.sendAndFinish(HTTPResponse(status: 999), buffer: &body, trailers: nil)
+            try await responseSender.sendAndFinish(HTTPResponse(status: 999))
         case "/echo":
             // Bad method
             if request.method != .post {
                 var body: UniqueArray<UInt8>? = UniqueArray<UInt8>(copying: "Incorrect method".utf8)
-                try await responseSender.sendAndFinish(HTTPResponse(status: .methodNotAllowed), buffer: &body, trailers: nil)
+                try await responseSender.sendAndFinish(
+                    HTTPResponse(status: .methodNotAllowed), buffer: &body, trailers: nil
+                )
                 return
             }
 
@@ -385,22 +362,18 @@ func serve(server: NIOHTTPServer) async throws {
             }
         case "/cookie":
             let cookie = UUID().uuidString
-            var body: UniqueArray<UInt8>? = UniqueArray<UInt8>(copying: "".utf8)
             try await responseSender.sendAndFinish(
                 .init(
                     status: .ok,
                     headerFields: [
                         .setCookie: "foo=\(cookie)"
                     ]
-                ),
-                buffer: &body,
-                trailers: nil
+                )
             )
         case "/etag":
             let clientETag = request.headerFields[.ifNoneMatch]
             let (serverETag, isNotModified) = eTag.next(clientETag: clientETag)
             if isNotModified {
-                var body: UniqueArray<UInt8>? = UniqueArray<UInt8>(copying: "".utf8)
                 // Nothing has changed, so 304 Not Modified.
                 try await responseSender.sendAndFinish(
                     .init(
@@ -409,9 +382,7 @@ func serve(server: NIOHTTPServer) async throws {
                             .eTag: serverETag,
                             .cached: "true",
                         ]
-                    ),
-                    buffer: &body,
-                    trailers: nil
+                    )
                 )
             } else {
                 // The server wants to give a new ETag to the client
