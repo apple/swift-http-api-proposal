@@ -52,8 +52,9 @@ struct ProxyServer {
                     }!
                     // Pipe the server request body straight into the upstream writer.
                     try await reader.pipe(into: upstreamWriter)
+                    return nil
                 }
-            ) { response, upstreamReader in
+            ) { response, upstreamReader, _ in
                 // Pipe the upstream client response body straight into the
                 // downstream response sender.
                 let writer = try await responseSender.take()!.send(response)

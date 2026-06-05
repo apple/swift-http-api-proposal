@@ -20,20 +20,16 @@ import Middleware
 @available(anyAppleOS 26.0, *)
 struct ExampleMiddlewareClient<
     Client: HTTPClient & ~Copyable,
-    OutWriter: CallerAsyncWriter & ~Copyable & SendableMetatype,
     ClientMiddleware: Middleware & Sendable
 >: HTTPClient, ~Copyable
 where
-    OutWriter.WriteElement == UInt8,
-    OutWriter.FinalElement == HTTPFields?,
-    Client.Writer: SendableMetatype,
     ClientMiddleware.Input: ~Copyable,
     ClientMiddleware.NextInput: ~Copyable,
-    ClientMiddleware.Input == HTTPClientMiddlewareInput<OutWriter>,
+    ClientMiddleware.Input == HTTPClientMiddlewareInput<Client.Writer>,
     ClientMiddleware.NextInput == HTTPClientMiddlewareInput<Client.Writer>
 {
     typealias RequestOptions = Client.RequestOptions
-    typealias Writer = OutWriter
+    typealias Writer = Client.Writer
     typealias Reader = Client.Reader
 
     var defaultRequestOptions: Client.RequestOptions {
@@ -54,9 +50,9 @@ where
 
     mutating func perform<Return: ~Copyable>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<OutWriter>?,
+        body: consuming HTTPClientRequestBody<Writer>?,
         options: RequestOptions,
-        responseHandler: (HTTPResponse, consuming Reader) async throws -> Return
+        responseHandler: (HTTPResponse, consuming Reader, consuming Future<Writer?>) async throws -> Return
     ) async throws -> Return {
         return try await self.middleware.intercept(
             input: HTTPClientMiddlewareInput(request: request, body: body)

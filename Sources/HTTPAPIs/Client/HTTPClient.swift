@@ -63,6 +63,6 @@ public protocol HTTPClient<RequestOptions>: Sendable, ~Copyable, ~Escapable {
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<Writer>?,
         options: RequestOptions,
-        responseHandler: (HTTPResponse, consuming Reader) async throws -> Return
+        responseHandler: (HTTPResponse, consuming Reader, consuming Future<Writer?>) async throws -> Return
     ) async throws -> Return
 }

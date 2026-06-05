@@ -156,7 +156,7 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<Writer>?,
         options: RequestOptions,
-        responseHandler: (HTTPResponse, consuming Reader) async throws -> Return
+        responseHandler: (HTTPResponse, consuming Reader, consuming Future<Writer?>) async throws -> Return
     ) async throws -> Return {
         guard let url = request.url else {
             fatalError()
@@ -164,6 +164,10 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
 
         var result: Result<Return, any Error>?
         await withTaskGroup(of: Void.self) { taskGroup in
+
+            let pair = Promise.makePromise(of: Writer?.self)
+            var requestBodyPromise = Optional(pair.a)
+            let requestBodyFuture = pair.b
 
             var ahcRequest = HTTPClientRequest(url: url.absoluteString)
             ahcRequest.method = .init(rawValue: request.method.rawValue)
@@ -181,10 +185,12 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
                     for await ahcWriter in asyncStream {
                         do {
                             let writer = Writer(ahcWriter)
-                            try await body.produce(into: writer)
+                            let result = try await body.produce(into: writer)
+                            requestBodyPromise.take()!.fulfill(result)
                             // writer.finish already calls requestBodyStreamFinished
                             break  // the loop
                         } catch let error {
+                            requestBodyPromise.take()!.fulfill(error: error)
                             // if we fail because the user throws in upload, we have to cancel the
                             // upload and fail the request I guess.
                             ahcWriter.fail(error)
@@ -211,7 +217,7 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
                     headerFields: responseFields
                 )
 
-                result = .success(try await responseHandler(response, Reader(body: ahcResponse.body)))
+                result = .success(try await responseHandler(response, Reader(body: ahcResponse.body), requestBodyFuture))
             } catch {
                 result = .failure(error)
             }

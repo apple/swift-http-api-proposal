@@ -48,7 +48,7 @@ where
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<Writer>? = nil,
         options: RequestOptions? = nil,
-        responseHandler: (HTTPResponse, consuming Reader) async throws -> Return,
+        responseHandler: (HTTPResponse, consuming Reader, consuming Future<Writer?>) async throws -> Return,
     ) async throws -> Return {
         let options = options ?? self.defaultRequestOptions
         return try await self.perform(request: request, body: body, options: options, responseHandler: responseHandler)
@@ -76,7 +76,7 @@ where
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
         let request = HTTPRequest(url: url, headerFields: headerFields)
         let options = options ?? self.defaultRequestOptions
-        return try await self.perform(request: request, body: nil, options: options) { response, reader in
+        return try await self.perform(request: request, body: nil, options: options) { response, reader, _ in
             (
                 response,
                 try await Self.collectBody(reader, upTo: limit)
@@ -108,7 +108,7 @@ where
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
         let request = HTTPRequest(method: .post, url: url, headerFields: headerFields)
         let options = options ?? self.defaultRequestOptions
-        return try await self.perform(request: request, body: .data(bodyData), options: options) { response, reader in
+        return try await self.perform(request: request, body: .data(bodyData), options: options) { response, reader, _ in
             (
                 response,
                 try await Self.collectBody(reader, upTo: limit)
@@ -140,7 +140,7 @@ where
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
         let request = HTTPRequest(method: .put, url: url, headerFields: headerFields)
         let options = options ?? self.defaultRequestOptions
-        return try await self.perform(request: request, body: .data(bodyData), options: options) { response, reader in
+        return try await self.perform(request: request, body: .data(bodyData), options: options) { response, reader, _ in
             (
                 response,
                 try await Self.collectBody(reader, upTo: limit)
@@ -172,7 +172,7 @@ where
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
         let request = HTTPRequest(method: .delete, url: url, headerFields: headerFields)
         let options = options ?? self.defaultRequestOptions
-        return try await self.perform(request: request, body: bodyData.map { .data($0) }, options: options) { response, reader in
+        return try await self.perform(request: request, body: bodyData.map { .data($0) }, options: options) { response, reader, _ in
             (
                 response,
                 try await Self.collectBody(reader, upTo: limit)
@@ -204,7 +204,7 @@ where
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
         let request = HTTPRequest(method: .patch, url: url, headerFields: headerFields)
         let options = options ?? self.defaultRequestOptions
-        return try await self.perform(request: request, body: .data(bodyData), options: options) { response, reader in
+        return try await self.perform(request: request, body: .data(bodyData), options: options) { response, reader, _ in
             (
                 response,
                 try await Self.collectBody(reader, upTo: limit)

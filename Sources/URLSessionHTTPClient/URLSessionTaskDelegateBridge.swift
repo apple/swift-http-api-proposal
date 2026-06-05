@@ -40,8 +40,6 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionTaskDele
     private let stream: AsyncStream<Callback>
     private let continuation: AsyncStream<Callback>.Continuation
     private let requestBody: HTTPClientRequestBody<URLSessionHTTPClient.Writer>?
-    // TODO: Can we get rid of this task and instead use on task group per client?
-    private let requestBodyTask: Mutex<Task<Void, Never>?> = .init(nil)
 
     init(task: URLSessionTask, body: consuming HTTPClientRequestBody<URLSessionHTTPClient.Writer>?) {
         self.task = task
@@ -55,7 +53,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionTaskDele
 
     private static let highWatermark = 256 * 1024
 
-    private struct TaskState {
+    private struct TaskState: ~Copyable {
         // This describes the current state of the HTTP response and also the waiting relationship
         // between external client invoking the API and URLSession.
         enum State {
@@ -73,7 +71,10 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionTaskDele
         }
         var state: State = .awaitingResponse
         var completionContinuation: CheckedContinuation<Void, Never>? = nil
-        var responseTrailerFields: HTTPFields?
+        var responseTrailerFields: HTTPFields? = nil
+        // TODO: Can we get rid of this task and instead use on task group per client?
+        var requestBodyTask: Task<Void, Never>? = nil
+        var requestBodyResult: Future<URLSessionHTTPClient.Writer?>? = nil
     }
 
     private let state: Mutex<TaskState> = .init(.init())
@@ -99,9 +100,9 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionTaskDele
                     break
                 }
             }
-            return state
+            return state.state
         }
-        switch oldState.state {
+        switch oldState {
         case .awaitingResponse:
             self.continuation.yield(.response(response))
         case .awaitingData, .awaitingConsumption:
@@ -137,9 +138,9 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionTaskDele
                     )
                 }
             }
-            return state
+            return state.state
         }
-        switch oldState.state {
+        switch oldState {
         case .awaitingData(let continuation):
             continuation.resume(returning: (false, nil))
         case .awaitingResponse:
@@ -152,7 +153,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionTaskDele
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: (any Error)?) {
-        let oldState = self.state.withLock { state in
+        let (oldState, completionContinuation) = self.state.withLock { state in
             defer {
                 switch state.state {
                 case .awaitingData:
@@ -173,9 +174,9 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionTaskDele
                     state.responseTrailerFields = trailerFields
                 }
             }
-            return state
+            return (state.state, state.completionContinuation)
         }
-        switch oldState.state {
+        switch oldState {
         case .awaitingResponse:
             self.continuation.yield(.error(error ?? URLError(.unknown)))
         case .awaitingData(let continuation):
@@ -183,7 +184,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionTaskDele
         case .awaitingConsumption:
             break
         }
-        oldState.completionContinuation?.resume()
+        completionContinuation?.resume()
         self.continuation.finish()
     }
 
@@ -249,16 +250,23 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionTaskDele
         guard let requestBody = self.requestBody else {
             fatalError()
         }
-        self.requestBodyTask.withLock {
-            let oldTask = $0
+        self.state.withLock {
+            let oldTask = $0.requestBodyTask
             oldTask?.cancel()
-            $0 = Task.immediate {
+
+            let pair = Promise.makePromise(of: URLSessionHTTPClient.Writer?.self)
+            var requestBodyPromise = Optional(pair.a)
+            $0.requestBodyResult = consume pair.b
+
+            $0.requestBodyTask = Task.immediate {
                 await oldTask?.value
                 let bridge = URLSessionRequestStreamBridge(task: task)
                 completionHandler(bridge.inputStream)
                 do {
-                    try await requestBody.produce(into: URLSessionHTTPClient.Writer(actual: bridge))
+                    let result = try await requestBody.produce(into: URLSessionHTTPClient.Writer(actual: bridge))
+                    requestBodyPromise.take()!.fulfill(result)
                 } catch {
+                    requestBodyPromise.take()!.fulfill(error: error)
                     if bridge.writeFailed {
                         // Ignore error
                     } else {
@@ -279,16 +287,23 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionTaskDele
         guard let requestBody = self.requestBody else {
             fatalError()
         }
-        self.requestBodyTask.withLock {
-            let oldTask = $0
+        self.state.withLock {
+            let oldTask = $0.requestBodyTask
             oldTask?.cancel()
-            $0 = Task.immediate {
+
+            let pair = Promise.makePromise(of: URLSessionHTTPClient.Writer?.self)
+            var requestBodyPromise = Optional(pair.a)
+            $0.requestBodyResult = consume pair.b
+
+            $0.requestBodyTask = Task.immediate {
                 await oldTask?.value
                 let bridge = URLSessionRequestStreamBridge(task: task)
                 completionHandler(bridge.inputStream)
                 do {
-                    try await requestBody.produce(offset: offset, into: URLSessionHTTPClient.Writer(actual: bridge))
+                    let result = try await requestBody.produce(offset: offset, into: URLSessionHTTPClient.Writer(actual: bridge))
+                    requestBodyPromise.take()!.fulfill(result)
                 } catch {
+                    requestBodyPromise.take()!.fulfill(error: error)
                     if bridge.writeFailed {
                         // Ignore error
                     } else {
@@ -341,10 +356,14 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionTaskDele
         self.continuation.yield(.error(error))
     }
 
-    func processDelegateCallbacksBeforeResponse(_ options: URLSessionRequestOptions) async throws -> URLResponse {
+    func processDelegateCallbacksBeforeResponse(
+        _ options: URLSessionRequestOptions,
+        futureWriter: inout Future<URLSessionHTTPClient.Writer?>?
+    ) async throws -> URLResponse {
         for await callback in self.stream {
             switch callback {
             case .response(let response):
+                futureWriter = self.state.withLock { $0.requestBodyResult.take() }
                 return response
             case .redirection(let response, let request, let completionHandler):
                 if let redirectionHandler = options.redirectionHandler {
@@ -441,11 +460,11 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionTaskDele
             case .challenge(_, let completionHandler):
                 completionHandler(.cancelAuthenticationChallenge, nil)
             case .error(let error):
-                await self.requestBodyTask.withLock { $0 }?.value
+                await self.state.withLock { $0.requestBodyTask }?.value
                 throw error
             }
         }
-        await self.requestBodyTask.withLock { $0 }?.value
+        await self.state.withLock { $0.requestBodyTask }?.value
         await withCheckedContinuation { continuation in
             self.state.withLock { state in
                 if case .awaitingConsumption(_, true, _, _) = state.state {

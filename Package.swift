@@ -19,11 +19,11 @@ let extraSettings: [SwiftSetting] = [
 let package = Package(
     name: "HTTPAPIProposal",
     platforms: [  // TODO: Needed until https://github.com/swiftlang/swift/issues/89028 is fixed
-        .macOS(.v15),
-        .iOS(.v18),
-        .watchOS(.v11),
-        .tvOS(.v18),
-        .visionOS(.v2),
+        .macOS(.v27),
+        .iOS(.v27),
+        .watchOS(.v27),
+        .tvOS(.v27),
+        .visionOS(.v27),
     ],
     products: [
         .library(name: "HTTPAPIs", targets: ["HTTPAPIs"]),

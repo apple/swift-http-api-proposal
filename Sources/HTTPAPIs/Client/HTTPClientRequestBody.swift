@@ -72,8 +72,8 @@ where Writer.WriteElement == UInt8, Writer.FinalElement == HTTPFields? {
     public let knownLength: Int64?
 
     private enum WriteBody {
-        case restartable(@Sendable (consuming Writer) async throws -> Void)
-        case seekable(@Sendable (Int64, consuming Writer) async throws -> Void)
+        case restartable(@Sendable (consuming Writer) async throws -> Writer?)
+        case seekable(@Sendable (Int64, consuming Writer) async throws -> Writer?)
     }
     private let writeBody: WriteBody
 
@@ -81,7 +81,7 @@ where Writer.WriteElement == UInt8, Writer.FinalElement == HTTPFields? {
     /// - Parameters:
     ///   - writer: The destination into which to write the body.
     /// - Throws: An error thrown from the body closure.
-    public func produce(into writer: consuming Writer) async throws {
+    public func produce(into writer: consuming Writer) async throws -> Writer? {
         switch self.writeBody {
         case .restartable(let writeBody):
             try await writeBody(writer)
@@ -96,7 +96,7 @@ where Writer.WriteElement == UInt8, Writer.FinalElement == HTTPFields? {
     ///   - offset: The offset from which to start writing the body.
     ///   - writer: The destination into which to write the body.
     /// - Throws: An error thrown from the body closure.
-    public func produce(offset: Int64, into writer: consuming Writer) async throws {
+    public func produce(offset: Int64, into writer: consuming Writer) async throws -> Writer? {
         switch self.writeBody {
         case .restartable:
             fatalError("Request body is not seekable")
@@ -119,7 +119,7 @@ where Writer.WriteElement == UInt8, Writer.FinalElement == HTTPFields? {
     ///     ``CallerAsyncWriter/finish(buffer:finalElement:)`` to terminate the body.
     public static func restartable(
         knownLength: Int64? = nil,
-        _ body: @escaping @Sendable (consuming Writer) async throws -> Void
+        _ body: @escaping @Sendable (consuming Writer) async throws -> Writer?
     ) -> Self {
         Self.init(
             knownLength: knownLength,
@@ -141,7 +141,7 @@ where Writer.WriteElement == UInt8, Writer.FinalElement == HTTPFields? {
     ///     ``CallerAsyncWriter/finish(buffer:finalElement:)`` to terminate the body.
     public static func seekable(
         knownLength: Int64? = nil,
-        _ body: @escaping @Sendable (Int64, consuming Writer) async throws -> Void
+        _ body: @escaping @Sendable (Int64, consuming Writer) async throws -> Writer?
     ) -> Self {
         Self.init(
             knownLength: knownLength,
@@ -158,18 +158,27 @@ where Writer.WriteElement == UInt8, Writer.FinalElement == HTTPFields? {
     // modules to map bodies.
     package init<OtherWriter: ~Copyable & SendableMetatype>(
         other: HTTPClientRequestBody<OtherWriter>,
-        transform: @escaping @Sendable (consuming Writer) -> OtherWriter
+        transform: @escaping @Sendable (consuming Writer) -> OtherWriter,
+        reverseTransform: @escaping @Sendable (consuming OtherWriter) -> Writer
     ) where Writer: SendableMetatype {
         self.knownLength = other.knownLength
         self.writeBody =
             switch other.writeBody {
             case .restartable(let writeBody):
                 .restartable { writer in
-                    try await writeBody(transform(writer))
+                    if let writer = try await writeBody(transform(writer)) {
+                        reverseTransform(writer)
+                    } else {
+                        nil
+                    }
                 }
             case .seekable(let writeBody):
                 .seekable { offset, writer in
-                    try await writeBody(offset, transform(writer))
+                    if let writer = try await writeBody(offset, transform(writer)) {
+                        reverseTransform(writer)
+                    } else {
+                        nil
+                    }
                 }
             }
     }

@@ -42,7 +42,7 @@ extension HTTP {
         body: consuming HTTPClientRequestBody<DefaultHTTPClient.Writer>? = nil,
         options: HTTPRequestOptions = .init(),
         on client: DefaultHTTPClient = .shared,
-        responseHandler: (HTTPResponse, consuming DefaultHTTPClient.Reader) async throws -> Return,
+        responseHandler: (HTTPResponse, consuming DefaultHTTPClient.Reader, consuming Future<DefaultHTTPClient.Writer?>) async throws -> Return,
     ) async throws -> Return {
         return try await client.perform(request: request, body: body, options: options, responseHandler: responseHandler)
     }

@@ -52,8 +52,9 @@ struct HTTPClientAndServerTests {
                         buffer: &body,
                         finalElement: [.date: "test"]
                     )
+                    return nil
                 }
-            ) { (response: HTTPResponse, reader: consuming TestClientAndServer.AsyncChannelBodyReader) in
+            ) { (response: HTTPResponse, reader: consuming TestClientAndServer.AsyncChannelBodyReader, _) in
                 #expect(response.status == .ok)
                 var responseBody = UniqueArray<UInt8>(minimumCapacity: 100)
                 let trailer = try await reader.collect(into: &responseBody)

@@ -60,7 +60,7 @@ struct ServerCapabilityTests {
             try await client.perform(
                 request: request,
                 body: nil
-            ) { response, reader in
+            ) { response, reader, _ in
                 #expect(response.status == .ok)
                 var reader = reader
                 _ = try await reader.collect(upTo: 100) { _ in }

@@ -31,6 +31,7 @@ extension HTTPClientRequestBody where Writer: ~Copyable {
                 copying: data.span.extracting(droppingFirst: Int(offset))
             )
             try await writer.finish(buffer: &buffer, finalElement: nil)
+            return nil
         }
     }
 }

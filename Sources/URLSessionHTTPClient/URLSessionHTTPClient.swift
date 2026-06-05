@@ -371,7 +371,7 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<Writer>?,
         options: URLSessionRequestOptions,
-        responseHandler: (HTTPResponse, consuming Reader) async throws -> Return
+        responseHandler: (HTTPResponse, consuming Reader, consuming Future<Writer?>) async throws -> Return
     ) async throws -> Return {
         guard request.schemeSupported else {
             throw HTTPTypeConversionError.unsupportedScheme
@@ -396,11 +396,13 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
         var result: Result<Return, any Error>? = nil
         try await withTaskCancellationHandler {
             do {
-                let response = try await delegateBridge.processDelegateCallbacksBeforeResponse(options)
+                var futureWriter: Future<Writer?>? = nil
+                let response = try await delegateBridge.processDelegateCallbacksBeforeResponse(options, futureWriter: &futureWriter)
                 guard let response = (response as? HTTPURLResponse)?.httpResponse else {
                     throw HTTPTypeConversionError.failedToConvertURLTypeToHTTPTypes
                 }
-                result = .success(try await responseHandler(response, Reader(actual: delegateBridge)))
+                let writer = futureWriter ?? Future(immediateValue: nil)
+                result = .success(try await responseHandler(response, Reader(actual: delegateBridge), writer))
             } catch {
                 result = .failure(error)
             }

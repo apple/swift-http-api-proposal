@@ -166,7 +166,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         await #expect(throws: (any Error).self) {
             try await client.perform(
                 request: request,
-            ) { _, _ in }
+            ) { _, _, _ in }
         }
     }
 
@@ -180,7 +180,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         )
         try await client.perform(
             request: request,
-        ) { response, _ in
+        ) { response, _, _ in
             #expect(response.status == .ok)
         }
     }
@@ -196,7 +196,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         await #expect(throws: (any Error).self) {
             try await client.perform(
                 request: request,
-            ) { _, _ in }
+            ) { _, _, _ in }
         }
     }
 
@@ -210,7 +210,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         )
         try await client.perform(
             request: request
-        ) { response, responseBodyAndTrailers in
+        ) { response, responseBodyAndTrailers, _ in
             #expect(response.status == .noContent)
             var array = UniqueArray<UInt8>(minimumCapacity: 1024)
             _ = try await responseBodyAndTrailers.collect(into: &array)
@@ -229,7 +229,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         )
         try await client.perform(
             request: request
-        ) { response, responseBodyAndTrailers in
+        ) { response, responseBodyAndTrailers, _ in
             #expect(response.status == .notModified)
             var array = UniqueArray<UInt8>(minimumCapacity: 1024)
             _ = try await responseBodyAndTrailers.collect(into: &array)
@@ -251,7 +251,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         await #expect(throws: (any Error).self) {
             try await client.perform(
                 request: request
-            ) { response, responseBodyAndTrailers in
+            ) { response, responseBodyAndTrailers, _ in
                 #expect(response.status == .ok)
                 var array = UniqueArray<UInt8>(minimumCapacity: 1024)
                 _ = try await responseBodyAndTrailers.collect(into: &array)
@@ -274,7 +274,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         await #expect(throws: (any Error).self) {
             try await client.perform(
                 request: request
-            ) { response, responseBodyAndTrailers in
+            ) { response, responseBodyAndTrailers, _ in
                 #expect(response.status == .ok)
                 var array = UniqueArray<UInt8>(minimumCapacity: 1024)
                 _ = try await responseBodyAndTrailers.collect(into: &array)
@@ -295,7 +295,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
 
         try await client.perform(
             request: request
-        ) { response, responseBodyAndTrailers in
+        ) { response, responseBodyAndTrailers, _ in
             #expect(response.status == .ok)
             var array = UniqueArray<UInt8>(minimumCapacity: 1024)
             _ = try await responseBodyAndTrailers.collect(into: &array)
@@ -316,7 +316,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
             )
             try await client.perform(
                 request: request,
-            ) { response, responseBodyAndTrailers in
+            ) { response, responseBodyAndTrailers, _ in
                 #expect(response.status == .ok)
                 var array = UniqueArray<UInt8>(minimumCapacity: 1024)
                 let trailers = try await responseBodyAndTrailers.collect(into: &array)
@@ -337,10 +337,11 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         )
         try await client.perform(
             request: request,
-            body: .restartable(knownLength: 0) { sender in
+            body: .restartable { sender in
                 try await sender.finish()
+                return nil
             }
-        ) { response, responseBodyAndTrailers in
+        ) { response, responseBodyAndTrailers, _ in
             #expect(response.status == .ok)
             var array = UniqueArray<UInt8>(minimumCapacity: 1024)
             _ = try await responseBodyAndTrailers.collect(into: &array)
@@ -364,8 +365,9 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
             body: .restartable { sender in
                 var body = UniqueArray<UInt8>.init(copying: "Hello World".utf8)
                 try await sender.finish(buffer: &body, finalElement: nil)
+                return nil
             }
-        ) { response, responseBodyAndTrailers in
+        ) { response, responseBodyAndTrailers, _ in
             #expect(response.status == .ok)
             var array = UniqueArray<UInt8>(minimumCapacity: 1024)
             _ = try await responseBodyAndTrailers.collect(into: &array)
@@ -386,7 +388,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         )
         try await client.perform(
             request: request
-        ) { response, responseBodyAndTrailers in
+        ) { response, responseBodyAndTrailers, _ in
             #expect(response.status == .ok)
 
             // If gzip is not advertised by the client, a fallback to no-encoding
@@ -415,7 +417,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         )
         try await client.perform(
             request: request
-        ) { response, responseBodyAndTrailers in
+        ) { response, responseBodyAndTrailers, _ in
             #expect(response.status == .ok)
 
             // If deflate is not advertised by the client, a fallback to no-encoding
@@ -444,7 +446,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         )
         try await client.perform(
             request: request
-        ) { response, responseBodyAndTrailers in
+        ) { response, responseBodyAndTrailers, _ in
             #expect(response.status == .ok)
 
             // If brotli is not advertised by the client, a fallback to no-encoding
@@ -473,7 +475,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         )
         try await client.perform(
             request: request,
-        ) { response, responseBodyAndTrailers in
+        ) { response, responseBodyAndTrailers, _ in
             #expect(response.status == .ok)
             let contentEncoding = response.headerFields[.contentEncoding]
             #expect(contentEncoding == nil || contentEncoding == "identity")
@@ -499,8 +501,9 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
             body: .restartable { sender in
                 var body = UniqueArray<UInt8>.init(copying: "Hello World".utf8)
                 try await sender.finish(buffer: &body, finalElement: nil)
+                return nil
             }
-        ) { response, responseBodyAndTrailers in
+        ) { response, responseBodyAndTrailers, _ in
             #expect(response.status == .ok)
             var array = UniqueArray<UInt8>(minimumCapacity: 1024)
             _ = try await responseBodyAndTrailers.collect(into: &array)
@@ -525,7 +528,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
 
             try await client.perform(
                 request: request,
-            ) { response, responseBodyAndTrailers in
+            ) { response, responseBodyAndTrailers, _ in
                 #expect(response.status == .ok)
                 var array = UniqueArray<UInt8>(minimumCapacity: 1024)
                 _ = try await responseBodyAndTrailers.collect(into: &array)
@@ -552,7 +555,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         await #expect(throws: (any Error).self) {
             try await client.perform(
                 request: request,
-            ) { _, _ in }
+            ) { _, _, _ in }
         }
     }
 
@@ -567,7 +570,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
 
         try await client.perform(
             request: request,
-        ) { response, responseBodyAndTrailers in
+        ) { response, responseBodyAndTrailers, _ in
             #expect(response.status == .notFound)
             var array = UniqueArray<UInt8>(minimumCapacity: 1024)
             _ = try await responseBodyAndTrailers.collect(into: &array)
@@ -587,7 +590,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
 
         try await client.perform(
             request: request,
-        ) { response, responseBodyAndTrailers in
+        ) { response, responseBodyAndTrailers, _ in
             #expect(response.status == 999)
             var array = UniqueArray<UInt8>(minimumCapacity: 1024)
             _ = try await responseBodyAndTrailers.collect(into: &array)
@@ -610,7 +613,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
                 group.addTask {
                     try await client.perform(
                         request: request,
-                    ) { response, responseBodyAndTrailers in
+                    ) { response, responseBodyAndTrailers, _ in
                         #expect(response.status == .ok)
                         var array = UniqueArray<UInt8>(minimumCapacity: 1024)
                         _ = try await responseBodyAndTrailers.collect(into: &array)
@@ -654,8 +657,9 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
                     await writerWaiting.first(where: { true })
                 }
                 try await writer.finish(trailer: nil)
+                return nil
             }
-        ) { response, responseBodyAndTrailers in
+        ) { response, responseBodyAndTrailers, _ in
             #expect(response.status == .ok)
             let reader = responseBodyAndTrailers
             var numberOfChunks = 0
@@ -690,7 +694,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
 
         try await client.perform(
             request: request,
-        ) { response, responseBodyAndTrailers in
+        ) { response, responseBodyAndTrailers, _ in
             #expect(response.status == .ok)
             var array = UniqueArray<UInt8>(minimumCapacity: 1024)
             _ = try await responseBodyAndTrailers.collect(into: &array)
@@ -727,8 +731,9 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
                     try await writer.write(buffer: &buffer)
                 }
                 try await writer.finish(trailer: nil)
+                return nil
             }
-        ) { response, responseBodyAndTrailers in
+        ) { response, responseBodyAndTrailers, _ in
             #expect(response.status == .ok)
             let reader = responseBodyAndTrailers
             // Read all chunks from server
@@ -769,7 +774,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
 
                 try await client.perform(
                     request: request,
-                ) { response, responseBodyAndTrailers in
+                ) { response, responseBodyAndTrailers, _ in
                     assertionFailure("Never expected to actually receive a response")
                 }
             }
@@ -807,7 +812,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
 
                 try await client.perform(
                     request: request,
-                ) { response, responseBodyAndTrailers in
+                ) { response, responseBodyAndTrailers, _ in
                     #expect(response.status == .ok)
                     let reader = responseBodyAndTrailers
 
@@ -878,8 +883,9 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
                 // Write out 1Mb of "A"
                 var body = UniqueArray<UInt8>.init(copying: String(repeating: "A", count: 1_000_000).data(using: .ascii)!)
                 try await sender.finish(buffer: &body, finalElement: nil)
+                return nil
             }
-        ) { response, responseBodyAndTrailers in
+        ) { response, responseBodyAndTrailers, _ in
             #expect(response.status == .ok)
             var array = UniqueArray<UInt8>(minimumCapacity: 2_000_000)
             _ = try await responseBodyAndTrailers.collect(into: &array)
@@ -902,7 +908,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         // when the reader produces more elements than the limit, so we tolerate it.
         try await client.perform(
             request: request,
-        ) { response, responseBodyAndTrailers in
+        ) { response, responseBodyAndTrailers, _ in
             #expect(response.status == .ok)
             var reader = responseBodyAndTrailers
             var firstByte: UInt8? = nil
@@ -933,7 +939,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         // Read the whole body a byte at a time from the reader.
         try await client.perform(
             request: request,
-        ) { response, responseBodyAndTrailers in
+        ) { response, responseBodyAndTrailers, _ in
             #expect(response.status == .ok)
 
             let reader = responseBodyAndTrailers
@@ -957,7 +963,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         )
         try await client.perform(
             request: request,
-        ) { response, responseBodyAndTrailers in
+        ) { response, responseBodyAndTrailers, _ in
             #expect(response.status == .ok)
             var array = UniqueArray<UInt8>(minimumCapacity: 1024)
             let trailers = try await responseBodyAndTrailers.collect(into: &array)
@@ -977,7 +983,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         )
         try await client.perform(
             request: request,
-        ) { response, responseBodyAndTrailers in
+        ) { response, responseBodyAndTrailers, _ in
             #expect(response.status == .ok)
             let values = response.headerFields[values: .init("X-Test")!]
 
@@ -1006,7 +1012,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         )
         try await client.perform(
             request: request,
-        ) { response, responseBodyAndTrailers in
+        ) { response, responseBodyAndTrailers, _ in
             var array = UniqueArray<UInt8>(minimumCapacity: 1024)
             _ = try await responseBodyAndTrailers.collect(into: &array)
             let body = String(copying: try UTF8Span(validating: array.span))
@@ -1035,7 +1041,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
             authority: "127.0.0.1:\(testServerPort)",
             path: "/cookie"
         )
-        let serverCookie = try await client.perform(request: request1) { response, responseBodyAndTrailers in
+        let serverCookie = try await client.perform(request: request1) { response, responseBodyAndTrailers, _ in
             // Parse the cookie
             #expect(response.headerFields.contains(.setCookie))
             let values = response.headerFields[values: .setCookie]
@@ -1052,7 +1058,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
             authority: "127.0.0.1:\(testServerPort)",
             path: "/request"
         )
-        let clientCookie = try await client.perform(request: request2) { response, responseBodyAndTrailers in
+        let clientCookie = try await client.perform(request: request2) { response, responseBodyAndTrailers, _ in
             // The server gave us the request back. Check that the cookie was in the request.
             var array = UniqueArray<UInt8>(minimumCapacity: 1024)
             _ = try await responseBodyAndTrailers.collect(into: &array)
@@ -1110,7 +1116,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
             for attempt in 0..<2 {
                 try await client.perform(
                     request: request
-                ) { response, responseBodyAndTrailers in
+                ) { response, responseBodyAndTrailers, _ in
                     #expect(response.status == .ok)
                     #expect(response.headerFields[.eTag] == expectedResponse)
                     if attempt == 0 {
@@ -1142,7 +1148,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         let request = HTTPRequest(url: components.url!)
         try await client.perform(
             request: request,
-        ) { response, responseBodyAndTrailers in
+        ) { response, responseBodyAndTrailers, _ in
             var array = UniqueArray<UInt8>(minimumCapacity: 1024)
             _ = try await responseBodyAndTrailers.collect(into: &array)
             let body = String(copying: try UTF8Span(validating: array.span))
@@ -1170,7 +1176,7 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         )
         try await client.perform(
             request: request
-        ) { response, responseBodyAndTrailers in
+        ) { response, responseBodyAndTrailers, _ in
             #expect(response.status == .ok)
             var array = UniqueArray<UInt8>(minimumCapacity: 1024)
             let trailers = try await responseBodyAndTrailers.collect(into: &array)
@@ -1208,8 +1214,9 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
                         .init("X-Request-Trailer-Two")!: "second-trailer-value",
                     ]
                 )
+                return nil
             }
-        ) { response, responseBodyAndTrailers in
+        ) { response, responseBodyAndTrailers, _ in
             #expect(response.status == .ok)
             var array = UniqueArray<UInt8>(minimumCapacity: 1024)
             _ = try await responseBodyAndTrailers.collect(into: &array)

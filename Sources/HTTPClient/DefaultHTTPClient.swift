@@ -44,7 +44,7 @@ public final class DefaultHTTPClient: HTTPAPIs.HTTPClient {
         public typealias WriteFailure = any Error
         public typealias FinalElement = HTTPFields?
 
-        private var actual: ActualHTTPClient.Writer
+        fileprivate var actual: ActualHTTPClient.Writer
 
         init(actual: consuming ActualHTTPClient.Writer) {
             self.actual = actual
@@ -143,15 +143,22 @@ public final class DefaultHTTPClient: HTTPAPIs.HTTPClient {
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<Writer>?,
         options: HTTPRequestOptions,
-        responseHandler: (HTTPResponse, consuming Reader) async throws -> Return
+        responseHandler: (HTTPResponse, consuming Reader, consuming Future<Writer?>) async throws -> Return
     ) async throws -> Return {
         // TODO: translate request options
         let options = self.client.defaultRequestOptions
         let body = body.map {
-            HTTPClientRequestBody<ActualHTTPClient.Writer>(other: $0) { Writer(actual: $0) }
+            HTTPClientRequestBody<ActualHTTPClient.Writer>(
+                other: $0,
+                transform: { Writer(actual: $0) },
+                reverseTransform: { $0.actual }
+            )
         }
-        return try await self.client.perform(request: request, body: body, options: options) { response, actualReader in
-            try await responseHandler(response, Reader(actual: actualReader))
+        return try await self.client.perform(request: request, body: body, options: options) { response, actualReader, writer in
+            let writer: Future<Writer?> = writer.map {
+                if let writer = $0 { Writer(actual: writer) } else { nil }
+            }
+            return try await responseHandler(response, Reader(actual: actualReader), writer)
         }
     }
 }

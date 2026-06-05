@@ -204,7 +204,7 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
         request: HTTPRequest,
         body: consuming HTTPClientRequestBody<AsyncChannelBodyWriter>?,
         options: RequestOptions,
-        responseHandler: (HTTPResponse, consuming AsyncChannelBodyReader) async throws -> Return
+        responseHandler: (HTTPResponse, consuming AsyncChannelBodyReader, consuming Future<AsyncChannelBodyWriter?>) async throws -> Return
     ) async throws -> Return {
         let response = try await withCheckedThrowingContinuation { continuation in
             self.requests.withLock { requests in
@@ -232,7 +232,8 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
         return try await responseHandler(
             response.response,
             // Needed since we are lacking call-once closures
-            response.takeResponseReader()
+            response.takeResponseReader(),
+            Future(immediateValue: nil)
         )
     }
 
