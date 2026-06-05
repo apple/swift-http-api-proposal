@@ -1,22 +1,22 @@
-# WASM HTTP Client Example
+# Wasm HTTP Client Example
 
 ## Introduction
-This is an example WASM binary that uses the `FetchHTTPClient` (built on Javascript `fetch()` API) to make HTTP requests
+This is an example Wasm binary that uses the `FetchHTTPClient` (built on Javascript `fetch()` API) to make HTTP requests
 from Swift.
 
 ## How to use
-1. Install the latest WASM SDK from swift.org
-1. Build the WASMClient using the WASM SDK
+1. Install the latest Wasm Swift SDK from swift.org
+1. Build the WasmClient using the Wasm Swift SDK
    ```bash
    $ export HTTP_API_ENABLE_WASM=1
    $ swift sdk list
-   $ swift package --swift-sdk <WASM SDK ID> js --product WASMClient --use-cdn
+   $ swift package --swift-sdk <Wasm Swift SDK ID> js --product WasmClient --use-cdn
    ```
 1. Serve the *root of this repository* using Python
     ```bash
     $ python -m http.server
     ```
-1. In your browser, visit `http://localhost:8000/Examples/WASMClient`
+1. In your browser, visit `http://localhost:8000/Examples/WasmClient`
 1. The page will prompt you for a URL, HTTP method and (optional) request body.
 1. The page will then make the HTTP request and collect the response.
 
