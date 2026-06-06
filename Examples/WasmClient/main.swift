@@ -61,7 +61,7 @@ do {
             method: method,
             url: url,
             headerFields: [
-                .init("Client")!: "Swift-WASM"
+                .init("Client")!: "Swift-Wasm"
             ]
         ),
         body: body,

@@ -236,14 +236,14 @@ let package = Package(
     ]
 )
 
-// ------- WASM specific targets --------
+// ------- Wasm specific targets --------
 
-// This environment variable is needed to allow WASM to compile only
-// when the WASM SDK is available and being used. Attempting to compile
-// WASM targets using non-WASM SDKs causes build failures.
-let enableWASM = Context.environment["HTTP_API_ENABLE_WASM"] != nil
+// This environment variable is needed to allow Wasm to compile only
+// when the Wasm Swift SDK is available and being used. Attempting to compile
+// Wasm targets using non-Wasm Swift SDKs causes build failures.
+let enableWasm = Context.environment["HTTP_API_ENABLE_WASM"] != nil
 
-if enableWASM {
+if enableWasm {
     // BridgeJS generated code doesn't work well with `NonisolatedNonsendingByDefault`
     let wasmExtraSettings: [SwiftSetting] = [
         .strictMemorySafety(),
@@ -283,7 +283,7 @@ if enableWASM {
     )
     package.targets.append(
         .executableTarget(
-            name: "WASMClient",
+            name: "WasmClient",
             dependencies: [
                 "FetchHTTPClient",
                 .product(name: "BasicContainers", package: "swift-collections"),
@@ -291,7 +291,7 @@ if enableWASM {
                 .product(name: "JavaScriptKit", package: "JavaScriptKit"),
                 .product(name: "JavaScriptEventLoop", package: "JavaScriptKit"),
             ],
-            path: "Examples/WASMClient",
+            path: "Examples/WasmClient",
             swiftSettings: wasmExtraSettings,
             plugins: [
                 .plugin(name: "BridgeJS", package: "JavaScriptKit")
