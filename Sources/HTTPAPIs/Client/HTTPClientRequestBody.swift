@@ -56,7 +56,7 @@ public import AsyncStreaming
 /// ```
 @available(anyAppleOS 26.0, *)
 public struct HTTPClientRequestBody<Writer: CallerAsyncWriter & ~Copyable>: Sendable
-where Writer.WriteElement == UInt8, Writer.FinalElement == HTTPFields? {
+where Writer: SendableMetatype, Writer.WriteElement == UInt8, Writer.FinalElement == HTTPFields? {
     /// The body can be asked to restart writing from an arbitrary offset.
     public var isSeekable: Bool {
         switch self.writeBody {
