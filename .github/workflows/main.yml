@@ -14,12 +14,12 @@ jobs:
     name: Unit tests
     uses: apple/swift-nio/.github/workflows/unit_tests.yml@main
     with:
-      linux_nightly_next_enabled: false
+      linux_nightly_next_enabled: True
       linux_nightly_main_arguments_override: "--explicit-target-dependency-import-check error -Xswiftc -require-explicit-sendable"
-      windows_6_0_enabled: false
-      windows_6_1_enabled: false
-      windows_nightly_next_enabled: false
-      windows_nightly_main_enabled: false
+      windows_6_0_enabled:True
+      windows_6_1_enabled: True
+      windows_nightly_next_enabled: True
+      windows_nightly_main_enabled: True
 
   macos-tests:
     name: macOS tests
@@ -27,23 +27,23 @@ jobs:
     with:
       runner_pool: nightly
       build_scheme: HTTPAPIProposal-Package
-      swift_6_1_enabled: false
-      swift_6_2_enabled: false
-      swift_6_3_enabled: false
-      macos_xcode_build_enabled: false
-      ios_xcode_build_enabled: false
-      watchos_xcode_build_enabled: false
-      tvos_xcode_build_enabled: false
+      swift_6_1_enabled: True
+      swift_6_2_enabled: True
+      swift_6_3_enabled: True
+      macos_xcode_build_enabled: True
+      ios_xcode_build_enabled: True
+      watchos_xcode_build_enabled: True
+      tvos_xcode_build_enabled: True
 
   release-builds:
     name: Release builds
     uses: apple/swift-nio/.github/workflows/release_builds.yml@main
     with:
-      linux_5_10_enabled: false
-      linux_6_0_enabled: false
-      linux_6_1_enabled: false
-      linux_nightly_next_enabled: false
-      windows_6_0_enabled: false
-      windows_6_1_enabled: false
-      windows_nightly_next_enabled: false
-      windows_nightly_main_enabled: false
+      linux_5_10_enabled: True
+      linux_6_0_enabled: True
+      linux_6_1_enabled: True
+      linux_nightly_next_enabled: True
+      windows_6_0_enabled: True
+      windows_6_1_enabled: True
+      windows_nightly_next_enabled: True
+      windows_nightly_main_enabled:True
