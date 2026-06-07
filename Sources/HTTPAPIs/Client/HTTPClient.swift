@@ -11,26 +11,31 @@
 //
 //===----------------------------------------------------------------------===//
 
+public import AsyncStreaming
+
 /// A protocol that defines the interface for an HTTP client.
 ///
 /// ``HTTPClient`` provides asynchronous request execution with streaming request
-/// and response bodies.
+/// and response bodies. Implementations expose the body reader and writer types
+/// directly; there are no separate "receiver" or "request sender" wrapper types.
 @available(anyAppleOS 26.0, *)
 public protocol HTTPClient<RequestOptions>: Sendable, ~Copyable, ~Escapable {
     associatedtype RequestOptions: HTTPClientCapability.RequestOptions
 
-    /// The type used to write request body data and trailers.
+    /// The body writer type used to stream request body bytes and signal end-of-body.
+    ///
+    /// Conforms to ``CallerAsyncWriter`` with ``HTTPFields`` as the optional
+    /// final element.
     // TODO: Check if we should allow ~Escapable readers https://github.com/apple/swift-http-api-proposal/issues/13
-    associatedtype RequestWriter: AsyncWriter, ~Copyable, SendableMetatype
-    where RequestWriter.WriteElement == UInt8
+    associatedtype Writer: CallerAsyncWriter, ~Copyable, SendableMetatype
+    where Writer.WriteElement == UInt8, Writer.FinalElement == HTTPFields?
 
-    /// The type used to read response body data and trailers.
-    // TODO: Check if we should allow ~Escapable writers https://github.com/apple/swift-http-api-proposal/issues/13
-    associatedtype ResponseConcludingReader: ConcludingAsyncReader, ~Copyable, SendableMetatype
-    where
-        ResponseConcludingReader.Underlying: ~Copyable,
-        ResponseConcludingReader.Underlying.ReadElement == UInt8,
-        ResponseConcludingReader.FinalElement == HTTPFields?
+    /// The body reader type used to stream response body bytes and trailers.
+    ///
+    /// Conforms to ``AsyncReader`` with ``HTTPFields`` as the optional final element.
+    // TODO: Check if we should allow ~Escapable readers https://github.com/apple/swift-http-api-proposal/issues/13
+    associatedtype Reader: AsyncReader, ~Copyable, SendableMetatype
+    where Reader.ReadElement == UInt8, Reader.FinalElement == HTTPFields?
 
     /// The default request options for `perform`.
     var defaultRequestOptions: RequestOptions { get }
@@ -45,16 +50,19 @@ public protocol HTTPClient<RequestOptions>: Sendable, ~Copyable, ~Escapable {
     ///   - request: The HTTP request header to send.
     ///   - body: The optional request body to send. When `nil`, sends no body.
     ///   - options: The options for this request.
-    ///   - responseHandler: A closure that processes the response. The method invokes this
-    ///     closure when it receives the response header, providing access to the response body.
+    ///   - responseHandler: A closure that runs once the response head has
+    ///     arrived. Receives the response head and a body reader. The reader
+    ///     is owned by the closure and must be drained or its scope must end
+    ///     before the closure returns; the surrounding `perform` performs
+    ///     per-request cleanup based on the reader's terminal state.
     ///
     /// - Returns: The value returned by the response handler closure.
     ///
     /// - Throws: An error if the request fails or if the response handler throws.
     mutating func perform<Return: ~Copyable>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<RequestWriter>?,
+        body: consuming HTTPClientRequestBody<Writer>?,
         options: RequestOptions,
-        responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return
+        responseHandler: (HTTPResponse, consuming Reader) async throws -> Return
     ) async throws -> Return
 }

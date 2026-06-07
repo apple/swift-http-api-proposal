@@ -23,18 +23,9 @@ struct EchoServer {
     }
 
     static func echo<Server: HTTPServer>(server: Server) async throws {
-        try await server.serve { request, requestContext, requestBodyAndTrailers, responseSender in
-            // Needed since we are lacking call-once closures
-            var requestBodyAndTrailers = Optional(requestBodyAndTrailers)
-            let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
-
-            try await responseBodyAndTrailers.produceAndConclude { responseBody in
-                // Needed since we are lacking call-once closures
-                var responseBody = responseBody
-                return try await requestBodyAndTrailers.take()!.consumeAndConclude { reader in
-                    try await responseBody.write(reader)
-                }
-            }
+        try await server.serve { request, requestContext, reader, responseSender in
+            let writer = try await responseSender.send(.init(status: .ok))
+            try await reader.pipe(into: writer)
         }
     }
 }

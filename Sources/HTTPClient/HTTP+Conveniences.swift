@@ -39,12 +39,12 @@ extension HTTP {
     @available(anyAppleOS 26.0, *)
     public static func perform<Return: ~Copyable>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<DefaultHTTPClient.RequestWriter>? = nil,
+        body: consuming HTTPClientRequestBody<DefaultHTTPClient.Writer>? = nil,
         options: HTTPRequestOptions = .init(),
         on client: DefaultHTTPClient = .shared,
-        responseHandler: (HTTPResponse, consuming DefaultHTTPClient.ResponseConcludingReader) async throws -> Return,
+        responseHandler: (HTTPResponse, consuming DefaultHTTPClient.Reader) async throws -> Return,
     ) async throws -> Return {
-        try await client.perform(request: request, body: body, options: options, responseHandler: responseHandler)
+        return try await client.perform(request: request, body: body, options: options, responseHandler: responseHandler)
     }
 
     /// Performs an HTTP GET request and collects the response body.

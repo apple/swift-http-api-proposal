@@ -39,21 +39,24 @@ let package = Package(
         .default(enabledTraits: ["Configuration"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-collections.git", from: "1.5.0"),
+        .package(url: "https://github.com/apple/swift-collections.git", from: "1.5.1"),
         .package(
             url: "https://github.com/apple/swift-async-algorithms.git",
-            from: "1.1.4",
+            revision: "8ee3d2be1961950f94b6fa758477e3a0c5486aa9",
             traits: ["UnstableAsyncStreaming"]
         ),
-        .package(url: "https://github.com/apple/swift-http-types.git", from: "1.5.1"),
-        .package(url: "https://github.com/apple/swift-certificates.git", from: "1.16.0"),
-        .package(url: "https://github.com/apple/swift-log.git", from: "1.0.0"),
-        .package(url: "https://github.com/apple/swift-nio.git", from: "2.92.2"),
-        .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.36.0"),
-        .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.30.0"),
-        .package(url: "https://github.com/apple/swift-nio-http2.git", from: "1.0.0"),
-        .package(url: "https://github.com/apple/swift-configuration", from: "1.0.0"),
-        .package(url: "https://github.com/swift-server/async-http-client.git", revision: "393104434ea57710f2469036e816672fe15e8212"),
+        .package(url: "https://github.com/apple/swift-http-types.git", from: "1.6.0"),
+        .package(url: "https://github.com/apple/swift-certificates.git", from: "1.19.1"),
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.13.1"),
+        .package(url: "https://github.com/apple/swift-nio.git", from: "2.100.0"),
+        .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.37.0"),
+        .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.34.1"),
+        .package(url: "https://github.com/apple/swift-nio-http2.git", from: "1.44.0"),
+        .package(url: "https://github.com/apple/swift-configuration.git", from: "1.2.0"),
+        .package(
+            url: "https://github.com/swift-server/async-http-client.git",
+            revision: "a0ab90739bc856e7a097da8a4e71794aaaec651f"
+        ),
     ],
     targets: [
         // MARK: Libraries
@@ -256,7 +259,7 @@ if enableWasm {
     ]
 
     package.dependencies.append(
-        .package(url: "https://github.com/swiftwasm/JavaScriptKit", from: "0.53.0")
+        .package(url: "https://github.com/swiftwasm/JavaScriptKit.git", from: "0.53.0")
     )
     package.products.append(
         .library(name: "FetchHTTPClient", targets: ["FetchHTTPClient"])

@@ -39,11 +39,11 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionTaskDele
     // limits.
     private let stream: AsyncStream<Callback>
     private let continuation: AsyncStream<Callback>.Continuation
-    private let requestBody: HTTPClientRequestBody<URLSessionHTTPClient.RequestWriter>?
+    private let requestBody: HTTPClientRequestBody<URLSessionHTTPClient.Writer>?
     // TODO: Can we get rid of this task and instead use on task group per client?
     private let requestBodyTask: Mutex<Task<Void, Never>?> = .init(nil)
 
-    init(task: URLSessionTask, body: consuming HTTPClientRequestBody<URLSessionHTTPClient.RequestWriter>?) {
+    init(task: URLSessionTask, body: consuming HTTPClientRequestBody<URLSessionHTTPClient.Writer>?) {
         self.task = task
         var continuation: AsyncStream<Callback>.Continuation?
         self.stream = AsyncStream { continuation = $0 }
@@ -257,8 +257,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionTaskDele
                 let bridge = URLSessionRequestStreamBridge(task: task)
                 completionHandler(bridge.inputStream)
                 do {
-                    let trailerFields = try await requestBody.produce(into: URLSessionHTTPClient.RequestWriter(actual: bridge))
-                    bridge.close(trailerFields: trailerFields)
+                    try await requestBody.produce(into: URLSessionHTTPClient.Writer(actual: bridge))
                 } catch {
                     if bridge.writeFailed {
                         // Ignore error
@@ -288,8 +287,7 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionTaskDele
                 let bridge = URLSessionRequestStreamBridge(task: task)
                 completionHandler(bridge.inputStream)
                 do {
-                    let trailerFields = try await requestBody.produce(offset: offset, into: URLSessionHTTPClient.RequestWriter(actual: bridge))
-                    bridge.close(trailerFields: trailerFields)
+                    try await requestBody.produce(offset: offset, into: URLSessionHTTPClient.Writer(actual: bridge))
                 } catch {
                     if bridge.writeFailed {
                         // Ignore error

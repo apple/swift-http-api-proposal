@@ -23,76 +23,88 @@ import Synchronization
 /// The HTTPClient implementation backed by URLSession.
 @available(anyAppleOS 26.0, *)
 public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
-    public struct RequestWriter: AsyncWriter, ~Copyable {
+    public struct Writer: CallerAsyncWriter, ~Copyable {
         public typealias WriteElement = UInt8
         public typealias WriteFailure = any Error
-        public typealias Buffer = UniqueArray<UInt8>
+        public typealias FinalElement = HTTPFields?
 
         var actual: URLSessionRequestStreamBridge
-        var buffer: UniqueArray<UInt8>?
 
         init(actual: URLSessionRequestStreamBridge) {
             self.actual = actual
-            self.buffer = UniqueArray(minimumCapacity: 1024)
         }
 
-        public mutating func write<Return: ~Copyable, Failure>(
-            _ body: (inout UniqueArray<UInt8>) async throws(Failure) -> Return
-        ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Return where Failure: Error {
-            let result: Return
-            // This force-unwrap is safe since there can only be one concurrent write.
-            var buffer = self.buffer.take()!
-            do {
-                result = try await body(&buffer)
-            } catch {
-                buffer.removeAll()
-                self.buffer = consume buffer
-                throw .second(error)
+        public mutating func write<Buffer: RangeReplaceableContainer<UInt8> & ~Copyable>(
+            buffer: inout Buffer
+        ) async throws(WriteFailure) where Buffer.Element: ~Copyable {
+            guard buffer.count > 0 else { return }
+            var consumer = buffer.consumeAll()
+            // `while !done { ... }` instead of `while true { ... break }` to
+            // dodge a SIL ownership-verifier crash on the nightly main
+            // toolchain (https://github.com/swiftlang/swift/issues/89639).
+            var done = false
+            while !done {
+                let span = consumer.drainNext()
+                if span.isEmpty {
+                    done = true
+                } else {
+                    try await self.actual.internalWrite(span.span)
+                }
             }
-            if buffer.count == 0 {
-                self.buffer = consume buffer
-                return result
-            }
+        }
 
-            do {
-                try await self.actual.internalWrite(buffer.span)
-                buffer.removeAll()
-                self.buffer = consume buffer
-            } catch {
-                buffer.removeAll()
-                self.buffer = consume buffer
-                throw .first(error)
+        public consuming func finish<Buffer: RangeReplaceableContainer<UInt8> & ~Copyable>(
+            buffer: inout Buffer,
+            finalElement: consuming HTTPFields?
+        ) async throws(WriteFailure) where Buffer.Element: ~Copyable {
+            if buffer.count > 0 {
+                var consumer = buffer.consumeAll()
+                // See note in `write(buffer:)`.
+                var done = false
+                while !done {
+                    let span = consumer.drainNext()
+                    if span.isEmpty {
+                        done = true
+                    } else {
+                        try await self.actual.internalWrite(span.span)
+                    }
+                }
             }
-            return result
+            self.actual.close(trailerFields: finalElement)
         }
     }
 
-    public struct ResponseConcludingReader: ConcludingAsyncReader, ~Copyable {
-        public struct Underlying: AsyncReader, ~Copyable {
-            public typealias ReadElement = UInt8
-            public typealias ReadFailure = any Error
-            public typealias Buffer = UniqueArray<UInt8>
+    public struct Reader: AsyncReader, ~Copyable {
+        public typealias ReadElement = UInt8
+        public typealias ReadFailure = any Error
+        public typealias Buffer = UniqueArray<UInt8>
+        public typealias FinalElement = HTTPFields?
 
-            var actual: URLSessionTaskDelegateBridge
-            var buffer: UniqueArray<UInt8>?
+        var actual: URLSessionTaskDelegateBridge
+        var buffer: UniqueArray<UInt8>?
+        var trailersDelivered: Bool = false
 
-            init(actual: URLSessionTaskDelegateBridge) {
-                self.actual = actual
-                self.buffer = UniqueArray(minimumCapacity: 1024)
-            }
+        init(actual: URLSessionTaskDelegateBridge) {
+            self.actual = actual
+            self.buffer = UniqueArray()
+        }
 
-            public mutating func read<Return: ~Copyable, Failure>(
-                body: (inout UniqueArray<UInt8>) async throws(Failure) -> Return
-            ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Return where Failure: Error {
+        public mutating func read<Return: ~Copyable, Failure>(
+            body: (inout UniqueArray<UInt8>, consuming HTTPFields??) async throws(Failure) -> Return
+        ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Return where Failure: Error {
+            // This force-unwrap is safe since there can only be one concurrent read.
+            var buffer = self.buffer.take()!
+            var finalElement: HTTPFields?? = nil
+
+            if !self.trailersDelivered {
                 let data: DispatchData?
                 do {
                     data = try await self.actual.data()
                 } catch {
+                    self.buffer = consume buffer
                     throw .first(error)
                 }
 
-                // This force-unwrap is safe since there can only be one concurrent read.
-                var buffer = self.buffer.take()!
                 if let data, !data.isEmpty {
                     buffer.reserveCapacity(data.count)
                     for region in data.regions {
@@ -100,28 +112,24 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
                     }
                 }
 
-                let result: Return
-                do {
-                    result = try await body(&buffer)
-                } catch {
-                    buffer.removeAll()
-                    self.buffer = consume buffer
-                    throw .second(error)
+                if data == nil {
+                    self.trailersDelivered = true
+                    finalElement = .some(self.actual.responseTrailerFields)
                 }
+            }
+
+            let result: Return
+            do {
+                result = try await body(&buffer, finalElement)
+            } catch {
                 buffer.removeAll()
                 self.buffer = consume buffer
-                return result
+                throw .second(error)
             }
+            buffer.removeAll()
+            self.buffer = consume buffer
+            return result
         }
-
-        public func consumeAndConclude<Return, Failure>(
-            body: (consuming sending Underlying) async throws(Failure) -> Return
-        ) async throws(Failure) -> (Return, HTTPFields?) where Failure: Error {
-            let result = try await body(Underlying(actual: self.actual))
-            return (result, self.actual.responseTrailerFields)
-        }
-
-        let actual: URLSessionTaskDelegateBridge
     }
 
     public typealias RequestOptions = URLSessionRequestOptions
@@ -361,9 +369,9 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
 
     public func perform<Return: ~Copyable>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<RequestWriter>?,
+        body: consuming HTTPClientRequestBody<Writer>?,
         options: URLSessionRequestOptions,
-        responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return
+        responseHandler: (HTTPResponse, consuming Reader) async throws -> Return
     ) async throws -> Return {
         guard request.schemeSupported else {
             throw HTTPTypeConversionError.unsupportedScheme
@@ -392,7 +400,7 @@ public final class URLSessionHTTPClient: HTTPClient, IdleTimerEntryProvider {
                 guard let response = (response as? HTTPURLResponse)?.httpResponse else {
                     throw HTTPTypeConversionError.failedToConvertURLTypeToHTTPTypes
                 }
-                result = .success(try await responseHandler(response, .init(actual: delegateBridge)))
+                result = .success(try await responseHandler(response, Reader(actual: delegateBridge)))
             } catch {
                 result = .failure(error)
             }

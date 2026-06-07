@@ -24,7 +24,7 @@ import Testing
         config.httpVersion = .automatic
         config.decompression = .enabled(limit: .none)
         let httpClient = HTTPClient(eventLoopGroup: .singletonMultiThreadedEventLoopGroup, configuration: config)
-        defer { Task { try await httpClient.shutdown() } }
+        defer { try! await httpClient.shutdown() }
 
         try await runConformanceTests(excluding: [
             // TODO: AHC does not support cookies

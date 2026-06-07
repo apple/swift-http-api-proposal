@@ -26,44 +26,38 @@ struct ProxyServer {
         fatalError("Waiting for a concrete HTTP server implementation")
     }
 
-    static func proxy(server: some HTTPServer, client: some HTTPClient) async throws {
+    static func proxy<Server: HTTPServer, Client: HTTPClient>(
+        server: Server,
+        client: Client
+    ) async throws {
         try await server.serve {
             request,
             requestContext,
-            serverRequestBodyAndTrailers,
+            serverReader,
             responseSender in
-            // We need to use a mutex here to move the requestBodyAndTrailers into the
+            // We need to use a mutex here to move the reader into the
             // @Sendable restartable body
-            let serverRequestBodyAndTrailers = Mutex(Disconnected(value: Optional(serverRequestBodyAndTrailers)))
+            let serverReader = Mutex(Disconnected(value: Optional(serverReader)))
             // Needed since we are lacking call-once closures
             var responseSender = Optional(responseSender)
 
             var client = client
             try await client.perform(
                 request: request,
-                body: .restartable { clientRequestBody in
-                    var clientRequestBody = clientRequestBody
-                    // This takes the request body out of the mutex. Any restarts would hit
+                body: .restartable { upstreamWriter in
+                    // This takes the reader out of the mutex. Any restarts would hit
                     // a force-unwrap.
-                    let serverRequestBodyAndTrailers = serverRequestBodyAndTrailers.withLock {
+                    let reader = serverReader.withLock {
                         $0.swap(newValue: nil)
                     }!
-
-                    return try await serverRequestBodyAndTrailers.consumeAndConclude { serverRequestBody in
-                        try await clientRequestBody.write(serverRequestBody)
-                    }.1
+                    // Pipe the server request body straight into the upstream writer.
+                    try await reader.pipe(into: upstreamWriter)
                 }
-            ) { response, clientResponseBodyAndTrailers in
-                // Needed since we are lacking call-once closures
-                var clientResponseBodyAndTrailers = Optional(clientResponseBodyAndTrailers)
-
-                let serverResponseBodyAndTrailers = try await responseSender.take()!.send(response)
-                try await serverResponseBodyAndTrailers.produceAndConclude { serverResponseBody in
-                    var serverResponseBody = serverResponseBody
-                    return try await clientResponseBodyAndTrailers.take()!.consumeAndConclude { clientResponseBody in
-                        try await serverResponseBody.write(clientResponseBody)
-                    }
-                }
+            ) { response, upstreamReader in
+                // Pipe the upstream client response body straight into the
+                // downstream response sender.
+                let writer = try await responseSender.take()!.send(response)
+                try await upstreamReader.pipe(into: writer)
             }
         }
     }

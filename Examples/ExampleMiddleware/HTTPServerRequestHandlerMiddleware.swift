@@ -11,29 +11,23 @@
 //
 //===----------------------------------------------------------------------===//
 
+public import AsyncStreaming
 public import HTTPAPIs
 public import Middleware
 
 /// A terminal middleware that echoes HTTP request bodies back as responses.
-///
-/// ``HTTPServerRequestHandlerMiddleware`` serves as an example terminal middleware that reads
-/// the entire request body and writes it back as the response body with a 200 OK status.
-/// This middleware has `Never` as its `NextInput` type, indicating it's the end of the chain.
 @available(anyAppleOS 26.0, *)
 public struct HTTPServerRequestHandlerMiddleware<
     RequestContext: HTTPServerCapability.RequestContext & ~Copyable,
-    RequestConcludingAsyncReader: ConcludingAsyncReader & ~Copyable,
-    ResponseConcludingAsyncWriter: ConcludingAsyncWriter & ~Copyable,
+    Reader: AsyncReader & ~Copyable,
+    ResponseSender: HTTPResponseSender & ~Copyable,
 >: Middleware, Sendable
 where
-    RequestConcludingAsyncReader.Underlying: ~Copyable,
-    RequestConcludingAsyncReader.Underlying.ReadElement == UInt8,
-    RequestConcludingAsyncReader.FinalElement == HTTPFields?,
-    ResponseConcludingAsyncWriter.Underlying: ~Copyable,
-    ResponseConcludingAsyncWriter.Underlying.WriteElement == UInt8,
-    ResponseConcludingAsyncWriter.FinalElement == HTTPFields?
+    Reader.ReadElement == UInt8,
+    Reader.FinalElement == HTTPFields?,
+    ResponseSender.Writer: ~Copyable
 {
-    public typealias Input = HTTPServerMiddlewareInput<RequestContext, RequestConcludingAsyncReader, ResponseConcludingAsyncWriter>
+    public typealias Input = HTTPServerMiddlewareInput<RequestContext, Reader, ResponseSender>
     public typealias NextInput = Void
 
     /// Creates a new request handler middleware.
@@ -43,21 +37,9 @@ where
         input: consuming Input,
         next: (consuming NextInput) async throws -> Return
     ) async throws -> Return {
-        try await input.withContents { request, _, requestBodyAndTrailers, responseSender in
-            // Needed since we are lacking call-once closures
-            var responseSender: HTTPResponseSender<ResponseConcludingAsyncWriter>? = consume responseSender
-
-            _ = try await requestBodyAndTrailers.consumeAndConclude { reader in
-                // Needed since we are lacking call-once closures
-                var reader: RequestConcludingAsyncReader.Underlying? = consume reader
-
-                let responseBodyAndTrailers = try await responseSender.take()!.send(.init(status: .ok))
-                try await responseBodyAndTrailers.produceAndConclude { responseBody in
-                    var responseBody = responseBody
-                    try await responseBody.write(reader.take()!)
-                    return nil
-                }
-            }
+        try await input.withContents { request, _, reader, responseSender in
+            let writer = try await responseSender.send(.init(status: .ok))
+            try await reader.pipe(into: writer)
         }
 
         return try await next(())
@@ -65,38 +47,17 @@ where
 }
 
 @available(anyAppleOS 26.0, *)
-extension Middleware where Input: ~Copyable, NextInput: ~Copyable {
+extension Middleware where Input: ~Copyable & ~Escapable, NextInput: ~Copyable & ~Escapable {
     /// Creates a request handler middleware that echoes the request body back as the response.
-    ///
-    /// This is a simple example middleware that reads the entire request body and writes it
-    /// back as the response with a 200 OK status. This middleware is the terminal middleware
-    /// in the chain and has `Never` as its `NextInput` type.
-    ///
-    /// - Returns: A middleware that handles HTTP requests by echoing the body.
-    ///
-    /// ## Example
-    ///
-    /// ```swift
-    /// @MiddlewareBuilder
-    /// func buildMiddleware() -> some Middleware<...> {
-    ///     .logging(logger: Logger(label: "HTTPServer"))
-    ///     .requestHandler()
-    /// }
-    /// ```
-    public func requestHandler<RequestContext, RequestReader, ResponseWriter>() -> HTTPServerRequestHandlerMiddleware<
-        RequestContext, RequestReader, ResponseWriter
-    >
+    public func requestHandler<RequestContext, Reader, ResponseSender>() -> HTTPServerRequestHandlerMiddleware<RequestContext, Reader, ResponseSender>
     where
-        Input == HTTPServerMiddlewareInput<RequestContext, RequestReader, ResponseWriter>,
+        Input == HTTPServerMiddlewareInput<RequestContext, Reader, ResponseSender>,
         RequestContext: HTTPServerCapability.RequestContext & ~Copyable,
-        RequestReader: ConcludingAsyncReader & ~Copyable,
-        RequestReader.Underlying: ~Copyable,
-        RequestReader.Underlying.ReadElement == UInt8,
-        RequestReader.FinalElement == HTTPFields?,
-        ResponseWriter: ConcludingAsyncWriter & ~Copyable,
-        ResponseWriter.Underlying: ~Copyable,
-        ResponseWriter.Underlying.WriteElement == UInt8,
-        ResponseWriter.FinalElement == HTTPFields?
+        Reader: AsyncReader & ~Copyable,
+        Reader.ReadElement == UInt8,
+        Reader.FinalElement == HTTPFields?,
+        ResponseSender: HTTPResponseSender & ~Copyable,
+        ResponseSender.Writer: ~Copyable
     {
         HTTPServerRequestHandlerMiddleware()
     }

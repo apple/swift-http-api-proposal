@@ -11,6 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import BasicContainers
 import Foundation
 import HTTPAPIs
 import Testing
@@ -29,12 +30,11 @@ extension TestClientAndServer.HTTPRequestContext: HTTPServerCapability.Connectio
 @available(anyAppleOS 26.0, *)
 extension TestClientAndServer {
     func serveWithContextAssertions() async throws {
-        try await self.serve { request, requestContext, requestBodyAndTrailers, responseSender in
+        try await self.serve { request, requestContext, reader, responseSender in
             #expect(requestContext.remoteAddress == "127.0.0.1:54321")
             #expect(requestContext.localAddress == "0.0.0.0:8080")
 
-            let responseBodyAndTrailers = try await responseSender.send(.init(status: .ok))
-            try await responseBodyAndTrailers.writeAndConclude("".utf8.span, finalElement: nil)
+            try await responseSender.sendAndFinish(.init(status: .ok))
         }
     }
 }
@@ -60,12 +60,9 @@ struct ServerCapabilityTests {
             try await client.perform(
                 request: request,
                 body: nil
-            ) { response, responseBodyAndTrailers in
+            ) { response, reader in
                 #expect(response.status == .ok)
-                _ = try await responseBodyAndTrailers.consumeAndConclude { reader in
-                    var reader = reader
-                    try await reader.collect(upTo: 100) { _ in }
-                }
+                _ = try await reader.collect(upTo: 100) { _ in }
             }
 
             group.cancelAll()

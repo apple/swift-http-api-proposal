@@ -23,16 +23,17 @@ struct ExampleMiddlewareServer<
     ServerMiddleware: Middleware & Sendable
 >: ~Copyable
 where
-    Server.RequestConcludingReader: ~Copyable,
-    Server.RequestConcludingReader.Underlying: ~Copyable,
-    Server.ResponseConcludingWriter: ~Copyable,
-    Server.ResponseConcludingWriter.Underlying: ~Copyable,
+    Server.RequestContext: ~Copyable,
+    Server.Reader: ~Copyable,
+    Server.ResponseSender: ~Copyable,
+    Server.ResponseSender.Writer: ~Copyable,
     ServerMiddleware.Input: ~Copyable,
     ServerMiddleware.NextInput: ~Copyable,
-    ServerMiddleware.Input == HTTPServerMiddlewareInput<Server.RequestContext, Server.RequestConcludingReader, Server.ResponseConcludingWriter>
+    ServerMiddleware.Input == HTTPServerMiddlewareInput<Server.RequestContext, Server.Reader, Server.ResponseSender>
 {
-    typealias RequestConcludingReader = Server.RequestConcludingReader
-    typealias ResponseConcludingWriter = Server.ResponseConcludingWriter
+    typealias RequestContext = Server.RequestContext
+    typealias Reader = Server.Reader
+    typealias ResponseSender = Server.ResponseSender
 
     private let server: Server
     private let middleware: ServerMiddleware
@@ -48,11 +49,11 @@ where
 
     consuming func serve() async throws {
         let middleware = self.middleware
-        try await self.server.serve { request, requestContext, requestBodyAndTrailers, responseSender in
+        try await self.server.serve { request, requestContext, reader, responseSender in
             let input: ServerMiddleware.Input = ServerMiddleware.Input(
                 request: request,
                 requestContext: requestContext,
-                requestReader: requestBodyAndTrailers,
+                reader: reader,
                 responseSender: responseSender
             )
             return try await middleware.intercept(
@@ -65,12 +66,12 @@ where
 @available(anyAppleOS 26.0, *)
 struct RequestMiddleware<Server: HTTPServer>: Middleware
 where
-    Server.RequestConcludingReader: ~Copyable,
-    Server.RequestConcludingReader.Underlying: ~Copyable,
-    Server.ResponseConcludingWriter: ~Copyable,
-    Server.ResponseConcludingWriter.Underlying: ~Copyable
+    Server.RequestContext: ~Copyable,
+    Server.Reader: ~Copyable,
+    Server.ResponseSender: ~Copyable,
+    Server.ResponseSender.Writer: ~Copyable
 {
-    typealias Input = HTTPServerMiddlewareInput<Server.RequestContext, Server.RequestConcludingReader, Server.ResponseConcludingWriter>
+    typealias Input = HTTPServerMiddlewareInput<Server.RequestContext, Server.Reader, Server.ResponseSender>
     typealias NextInput = Input
 
     func intercept<Return: ~Copyable>(

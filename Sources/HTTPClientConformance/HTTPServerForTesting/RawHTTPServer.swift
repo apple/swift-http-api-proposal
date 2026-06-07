@@ -126,7 +126,7 @@ actor RawHTTPServer {
         ) { channel in
             channel.eventLoop.makeCompletedFuture {
                 let requestDecoder = ByteToMessageHandler(HTTPRequestDecoder(leftOverBytesStrategy: .forwardBytes))
-                channel.pipeline.addHandler(requestDecoder)
+                try channel.pipeline.syncOperations.addHandler(requestDecoder)
 
                 return try NIOAsyncChannel<
                     HTTPServerRequestPart, IOData
@@ -146,7 +146,7 @@ actor RawHTTPServer {
 
                         // It must be the header. We don't care about the rest.
                         guard case .head(let head) = requestPart else {
-                            print("Server unexpectedly received non-header as first part of request: \(requestPart)")
+                            print("Server unexpectedly received non-header as first part of request: \(String(describing: requestPart))")
                             return
                         }
 

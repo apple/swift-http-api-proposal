@@ -11,6 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import BasicContainers
+
 #if canImport(FoundationEssentials)
 public import struct FoundationEssentials.Data
 #else
@@ -24,9 +26,11 @@ extension HTTPClientRequestBody where Writer: ~Copyable {
     /// - Parameter data: The data to send as the request body.
     public static func data(_ data: Data) -> Self {
         .seekable(knownLength: Int64(data.count)) { offset, writer in
-            var writer = writer
-            try await writer.write(data.span.extracting(droppingFirst: Int(offset)))
-            return nil
+            // TODO: Once data conforms to RangeReplaceableContainer we should remove this copy
+            var buffer = UniqueArray<UInt8>(
+                copying: data.span.extracting(droppingFirst: Int(offset))
+            )
+            try await writer.finish(buffer: &buffer, finalElement: nil)
         }
     }
 }
