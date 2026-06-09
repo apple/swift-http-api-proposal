@@ -39,7 +39,7 @@ let package = Package(
         .default(enabledTraits: ["Configuration"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-collections.git", from: "1.5.1"),
+        .package(url: "https://github.com/apple/swift-collections.git", from: "1.6.0"),
         .package(
             url: "https://github.com/apple/swift-async-algorithms.git",
             revision: "8ee3d2be1961950f94b6fa758477e3a0c5486aa9",
