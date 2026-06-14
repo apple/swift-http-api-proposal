@@ -4,11 +4,8 @@ import PackageDescription
 
 let extraSettings: [SwiftSetting] = [
     .strictMemorySafety(),
-    .enableExperimentalFeature("SuppressedAssociatedTypesWithDefaults"),
-    .enableExperimentalFeature("LifetimeDependence"),
     .enableExperimentalFeature("Lifetimes"),
     .enableExperimentalFeature("Extern"),
-    .enableUpcomingFeature("LifetimeDependence"),
     .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
     .enableUpcomingFeature("InferIsolatedConformances"),
     .enableUpcomingFeature("ExistentialAny"),
