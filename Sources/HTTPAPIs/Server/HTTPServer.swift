@@ -11,21 +11,32 @@
 //
 //===----------------------------------------------------------------------===//
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+public import AsyncStreaming
+
 /// A protocol that defines the interface for an HTTP server.
 ///
 /// ``HTTPServer`` provides the contract for server implementations that accept
-/// incoming HTTP connections and process requests using a ``HTTPServerRequestHandler``.
-public protocol HTTPServer<RequestConcludingReader, ResponseConcludingWriter>: Sendable, ~Copyable, ~Escapable {
-    /// The type used to read request body data and trailers.
-    // TODO: Check if we should allow ~Escapable readers https://github.com/apple/swift-http-api-proposal/issues/13
-    associatedtype RequestConcludingReader: ConcludingAsyncReader, ~Copyable, SendableMetatype
-    where RequestConcludingReader.Underlying.ReadElement == UInt8, RequestConcludingReader.FinalElement == HTTPFields?
+/// incoming HTTP connections and process requests using a
+/// ``HTTPServerRequestHandler``. The body reader and response sender types are
+/// surfaced directly; there are no separate "request receiver" wrapper types.
+// TODO: We should revisit if this should be Sendable
+@available(anyAppleOS 26.0, *)
+public protocol HTTPServer<RequestContext, Reader, ResponseSender>: Sendable, ~Copyable, ~Escapable {
+    /// The type of context provided to request handlers for each incoming request.
+    ///
+    /// Server implementations define this type to carry per-request metadata that isn't part
+    /// of the HTTP message itself, such as connection information or routing state.
+    associatedtype RequestContext: HTTPServerCapability.RequestContext, ~Copyable
 
-    /// The type used to write response body data and trailers.
-    // TODO: Check if we should allow ~Escapable writers https://github.com/apple/swift-http-api-proposal/issues/13
-    associatedtype ResponseConcludingWriter: ConcludingAsyncWriter, ~Copyable, SendableMetatype
-    where ResponseConcludingWriter.Underlying.WriteElement == UInt8, ResponseConcludingWriter.FinalElement == HTTPFields?
+    /// The body reader type used to stream request body bytes and trailers.
+    // TODO: Check if we should allow ~Escapable readers https://github.com/apple/swift-http-api-proposal/issues/13
+    associatedtype Reader: AsyncReader, ~Copyable, SendableMetatype
+    where Reader.ReadElement == UInt8, Reader.FinalElement == HTTPFields?
+
+    /// The type used to write response head, body, and trailing fields.
+    // TODO: Check if we should allow ~Escapable readers https://github.com/apple/swift-http-api-proposal/issues/13
+    associatedtype ResponseSender: HTTPResponseSender, ~Copyable, SendableMetatype
+    where ResponseSender.Writer: ~Copyable
 
     /// Starts an HTTP server with the specified request handler.
     ///
@@ -34,15 +45,24 @@ public protocol HTTPServer<RequestConcludingReader, ResponseConcludingWriter>: S
     ///
     /// Implementations of this method should handle each connection concurrently using Swift's structured concurrency.
     ///
-    /// - Parameters:
-    ///   - handler: A ``HTTPServerRequestHandler`` implementation that processes incoming HTTP requests. The handler
-    ///     receives each request along with a body reader and ``HTTPResponseSender``.
-    ///
     /// ## Example
     ///
     /// ```swift
     /// let server = // create an instance of a type conforming to the `ServerProtocol`
     /// try await server.serve(handler: YourRequestHandler())
     /// ```
-    func serve(handler: some HTTPServerRequestHandler<RequestConcludingReader, ResponseConcludingWriter>) async throws
+    ///
+    /// - Parameters:
+    ///   - handler: A ``HTTPServerRequestHandler`` implementation that
+    ///     processes incoming HTTP requests. The handler receives each
+    ///     request along with a request body reader and an
+    ///     ``HTTPResponseSender``.
+    func serve<Handler: HTTPServerRequestHandler>(handler: Handler) async throws
+    where
+        Handler.RequestContext: ~Copyable,
+        Handler.RequestContext == RequestContext,
+        Handler.Reader == Reader,
+        Handler.Reader: ~Copyable,
+        Handler.ResponseSender == ResponseSender,
+        Handler.ResponseSender: ~Copyable
 }

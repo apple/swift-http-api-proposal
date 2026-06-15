@@ -15,10 +15,10 @@ import Middleware
 import Testing
 
 private struct ForwardingMiddleware<Input>: Middleware {
-    func intercept(
+    func intercept<Return: ~Copyable>(
         input: consuming Input,
-        next: (consuming Input) async throws -> Void
-    ) async throws {
+        next: (consuming Input) async throws -> Return
+    ) async throws -> Return {
         try await next(input)
     }
 }
@@ -30,10 +30,10 @@ private struct TransformingMiddleware<Input, NextInput>: Middleware {
         self.transformation = transformation
     }
 
-    func intercept(
+    func intercept<Return: ~Copyable>(
         input: consuming Input,
-        next: (consuming NextInput) async throws -> Void
-    ) async throws {
+        next: (consuming NextInput) async throws -> Return
+    ) async throws -> Return {
         try await next(self.transformation(input))
     }
 }

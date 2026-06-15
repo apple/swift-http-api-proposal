@@ -11,7 +11,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if compiler(>=6.1)
 // This is a helper type to move a non-Sendable value across isolation regions.
 @usableFromInline
 struct Disconnected<Value: ~Copyable>: ~Copyable, Sendable {
@@ -37,4 +36,3 @@ struct Disconnected<Value: ~Copyable>: ~Copyable, Sendable {
         return unsafe value
     }
 }
-#endif

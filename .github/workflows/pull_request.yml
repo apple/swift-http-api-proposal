@@ -4,25 +4,25 @@ on:
   pull_request:
     types: [opened, reopened, synchronize]
 
+permissions:
+  contents: read
+
 jobs:
   soundness:
     name: Soundness
     uses: swiftlang/github-workflows/.github/workflows/soundness.yml@main
     with:
       license_header_check_project_name: "Swift HTTP API Proposal"
+      api_breakage_check_container_image: "swiftlang/swift:nightly-main-noble"
       format_check_container_image: "swiftlang/swift:nightly-main-noble"  # Needed due to https://github.com/swiftlang/swift-format/issues/1081
 
   unit-tests:
     name: Unit tests
     uses: apple/swift-nio/.github/workflows/unit_tests.yml@main
     with:
-      linux_6_2_arguments_override: "--explicit-target-dependency-import-check error -Xswiftc -require-explicit-sendable"
-      linux_6_3_arguments_override: "--explicit-target-dependency-import-check error -Xswiftc -require-explicit-sendable"
-      linux_nightly_next_arguments_override: "--explicit-target-dependency-import-check error -Xswiftc -require-explicit-sendable"
+      linux_nightly_next_enabled: false
       linux_nightly_main_arguments_override: "--explicit-target-dependency-import-check error -Xswiftc -require-explicit-sendable"
-      windows_6_0_enabled: false
-      windows_6_1_enabled: false
-      windows_nightly_6_1_enabled: false
+      windows_nightly_next_enabled: false
       windows_nightly_main_enabled: false
 
   macos-tests:
@@ -31,10 +31,9 @@ jobs:
     with:
       runner_pool: general
       build_scheme: HTTPAPIProposal-Package
-      xcode_16_3_enabled: false
-      xcode_16_4_enabled: false
-      xcode_26_0_enabled: false
-      xcode_26_1_enabled: false
+      swift_6_1_enabled: false
+      swift_6_2_enabled: false
+      swift_6_3_enabled: false
       macos_xcode_build_enabled: false
       ios_xcode_build_enabled: false
       watchos_xcode_build_enabled: false
@@ -47,6 +46,7 @@ jobs:
       linux_5_10_enabled: false
       linux_6_0_enabled: false
       linux_6_1_enabled: false
+      linux_nightly_next_enabled: false
       windows_6_0_enabled: false
       windows_6_1_enabled: false
       windows_nightly_next_enabled: false

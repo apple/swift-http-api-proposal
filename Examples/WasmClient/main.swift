@@ -12,6 +12,8 @@
 //===----------------------------------------------------------------------===//
 
 import AsyncStreaming
+import BasicContainers
+import ContainersPreview
 import FetchHTTPClient
 import Foundation
 import HTTPAPIs
@@ -44,11 +46,10 @@ var body: HTTPClientRequestBody<FetchHTTPClient.RequestBodyWriter>? = nil
 if method == .post || method == .put {
     let bodyString = try prompt("Body:", "Hello World!")
     body = .restartable { writer in
-        var writer = writer
-        let span = bodyString.utf8Span.span
-        status.set("⏳ Writing \(span.count) bytes")
-        try await writer.write(span)
-        return nil
+        let bytes = bodyString.utf8
+        status.set("⏳ Writing \(bytes.count) bytes")
+        var buffer = UniqueArray<UInt8>(copying: bytes)
+        try await writer.finish(buffer: &buffer, finalElement: nil)
     }
 }
 
@@ -60,7 +61,7 @@ do {
             method: method,
             url: url,
             headerFields: [
-                .init("Client")!: "Swift-WASM"
+                .init("Client")!: "Swift-Wasm"
             ]
         ),
         body: body,
@@ -81,32 +82,18 @@ do {
         h2("Body")
         status.set("⏳ Reading response body")
 
-        // Read the body as it is streamed in
-        let (bytes, _) = try await reader.consumeAndConclude { reader in
-            var bytes = [UInt8]()
+        var bytes = [UInt8]()
+        if let contentLength = contentLength {
+            bytes.reserveCapacity(contentLength)
+        }
 
-            if let contentLength = contentLength {
-                bytes.reserveCapacity(contentLength)
+        status.set("⏳ Read \(bytes.count) bytes")
+        _ = try await reader.forEachBuffer { buffer in
+            var consumer = buffer.consumeAll()
+            while let b = consumer.next() {
+                bytes.append(b)
             }
-
-            var reader = reader
             status.set("⏳ Read \(bytes.count) bytes")
-            while true {
-                let shouldContinue = try await reader.read(maximumCount: nil) { span in
-                    if span.isEmpty {
-                        return false
-                    }
-                    for i in span.indices {
-                        bytes.append(span[i])
-                    }
-                    status.set("⏳ Read \(bytes.count) bytes")
-                    return true
-                }
-                if !shouldContinue {
-                    break
-                }
-            }
-            return bytes
         }
         status.set("✅ Read \(bytes.count) bytes")
 

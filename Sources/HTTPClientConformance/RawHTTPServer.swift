@@ -16,7 +16,7 @@ import NIOCore
 import NIOHTTP1
 import NIOPosix
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 public func withRawHTTPServer(perform: (Int) async throws -> Void) async throws {
     try await withThrowingTaskGroup {
         let server = try await RawHTTPServer()
@@ -103,7 +103,7 @@ func handler(request: HTTPRequestHead) -> Data {
     }
 }
 
-@available(macOS 14, iOS 17, tvOS 17, watchOS 10, *)
+@available(anyAppleOS 26.0, *)
 actor RawHTTPServer {
     let server_channel:
         NIOAsyncChannel<
@@ -126,7 +126,7 @@ actor RawHTTPServer {
         ) { channel in
             channel.eventLoop.makeCompletedFuture {
                 let requestDecoder = ByteToMessageHandler(HTTPRequestDecoder(leftOverBytesStrategy: .forwardBytes))
-                channel.pipeline.addHandler(requestDecoder)
+                try channel.pipeline.syncOperations.addHandler(requestDecoder)
 
                 return try NIOAsyncChannel<
                     HTTPServerRequestPart, IOData
@@ -146,7 +146,7 @@ actor RawHTTPServer {
 
                         // It must be the header. We don't care about the rest.
                         guard case .head(let head) = requestPart else {
-                            print("Server unexpectedly received non-header as first part of request: \(requestPart)")
+                            print("Server unexpectedly received non-header as first part of request: \(String(describing: requestPart))")
                             return
                         }
 

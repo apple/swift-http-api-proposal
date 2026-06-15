@@ -11,10 +11,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import BasicContainers
+public import BasicContainers
 import Foundation
-import HTTPAPIs
-import HTTPTypes
+@_exported public import HTTPAPIs
 import JavaScriptEventLoop
 import JavaScriptKit
 
@@ -22,6 +21,7 @@ import JavaScriptKit
 // between FetchHTTPClient and RequestBodyWriter.
 class RequestBodyBuffer {
     var array = UniqueArray<UInt8>()
+    var trailers: HTTPFields? = nil
 }
 
 enum FetchError: Error {
@@ -36,10 +36,9 @@ enum FetchError: Error {
     case TrailersUnsupported
 }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, *)
 public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
-    public typealias RequestWriter = RequestBodyWriter
-    public typealias ResponseConcludingReader = ResponseReader
+    public typealias Writer = RequestBodyWriter
+    public typealias Reader = ResponseBodyReader
 
     public struct RequestOptions: HTTPClientCapability.RequestOptions, Sendable {
         public init() {}
@@ -53,7 +52,7 @@ public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
         request: HTTPTypes.HTTPRequest,
         body: consuming HTTPAPIs.HTTPClientRequestBody<RequestBodyWriter>?,
         options: RequestOptions,
-        responseHandler: nonisolated(nonsending) (HTTPTypes.HTTPResponse, consuming ResponseReader) async throws -> Return
+        responseHandler: nonisolated(nonsending) (HTTPTypes.HTTPResponse, consuming ResponseBodyReader) async throws -> Return
     ) async throws -> Return where Return: ~Copyable {
         guard let url = request.url else {
             throw FetchError.BadURL
@@ -63,14 +62,11 @@ public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
 
         if let body = body {
             let buffer = RequestBodyBuffer()
-
             let writer = RequestBodyWriter(buffer: buffer)
-            let trailers = try await body.produce(into: writer)
-
-            if let trailers {
+            try await body.produce(into: writer)
+            if buffer.trailers != nil {
                 throw FetchError.TrailersUnsupported
             }
-
             jsBody = buffer.array.span.withUnsafeBufferPointer { bufferPtr in
                 JSTypedArray<UInt8>(buffer: bufferPtr).jsObject
             }
@@ -120,96 +116,75 @@ public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
 
         return try await responseHandler(
             HTTPResponse(status: .init(code: responseStatus, reasonPhrase: responseStatusText), headerFields: responseHeaders),
-            ResponseReader(reader: reader)
+            ResponseBodyReader(reader: reader)
         )
     }
 
-    public struct RequestBodyWriter: AsyncWriter, ~Copyable {
+    public struct RequestBodyWriter: CallerAsyncWriter, ~Copyable {
+        public typealias WriteElement = UInt8
+        public typealias WriteFailure = any Error
+        public typealias FinalElement = HTTPFields?
+
         let buffer: RequestBodyBuffer
 
-        public mutating func write<Result, Failure>(
-            _ body: nonisolated(nonsending) (inout OutputSpan<UInt8>) async throws(Failure) -> Result
-        ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Result where Failure: Error {
-            do {
-                // Each write attempt gets approximately a page of memory to populate with data.
-                return try await buffer.array.append(count: 4 * 1024) { span in
-                    return try await body(&span)
-                }
-            } catch {
-                throw .first(error)
-            }
+        public mutating func write<Buffer: RangeReplaceableContainer<UInt8> & ~Copyable>(
+            buffer: inout Buffer
+        ) async throws(WriteFailure) where Buffer.Element: ~Copyable {
+            self.buffer.array.append(moving: buffer.startIndex..<buffer.endIndex, from: &buffer)
         }
-    }
 
-    public struct ResponseReader: ConcludingAsyncReader, ~Copyable {
-        let reader: ReadableStreamDefaultReader
-
-        public consuming func consumeAndConclude<Return, Failure>(
-            body: nonisolated(nonsending) (consuming sending FetchHTTPClient.ResponseBodyReader) async throws(Failure) -> Return
-        ) async throws(Failure) -> (Return, HTTPTypes.HTTPFields?) where Failure: Error {
-            return (try await body(ResponseBodyReader(reader: reader)), nil)
+        public consuming func finish<Buffer: RangeReplaceableContainer<UInt8> & ~Copyable>(
+            buffer: inout Buffer,
+            finalElement: consuming HTTPFields?
+        ) async throws(WriteFailure) where Buffer.Element: ~Copyable {
+            self.buffer.array.append(moving: buffer.startIndex..<buffer.endIndex, from: &buffer)
+            self.buffer.trailers = finalElement
         }
     }
 
     public struct ResponseBodyReader: AsyncReader, ~Copyable {
-        let reader: ReadableStreamDefaultReader
-        var buffer = [UInt8]()
-        var curIndex = 0
+        public typealias ReadElement = UInt8
+        public typealias ReadFailure = any Error
+        public typealias Buffer = UniqueArray<UInt8>
+        public typealias FinalElement = HTTPFields?
 
-        public mutating func read<Return, Failure>(
-            maximumCount: Int?,
-            body: nonisolated(nonsending) (consuming Span<UInt8>) async throws(Failure) -> Return
+        let reader: ReadableStreamDefaultReader
+        var buffer = UniqueArray<UInt8>()
+        var trailersDelivered: Bool = false
+
+        public mutating func read<Return: ~Copyable, Failure>(
+            body: nonisolated(nonsending) (inout UniqueArray<UInt8>, consuming HTTPFields??) async throws(Failure) -> Return
         ) async throws(AsyncStreaming.EitherError<any Error, Failure>) -> Return where Failure: Error {
-            if buffer.isEmpty {
-                // Read more data in from JS
+            var finalElement: HTTPFields?? = nil
+
+            if !self.trailersDelivered {
                 let chunk: Chunk
                 do {
-                    chunk = try await reader.read()
+                    chunk = try await self.reader.read()
                 } catch {
                     throw .first(error)
                 }
-                if chunk.done {
-                    do {
-                        return try await body(Span())
-                    } catch {
-                        throw .second(error)
+                if !chunk.done {
+                    guard let bytes = chunk.value, !bytes.isEmpty else {
+                        throw .first(FetchError.BadAssumptionJS)
                     }
+                    self.buffer.reserveCapacity(bytes.count)
+                    for b in bytes {
+                        self.buffer.append(b)
+                    }
+                } else {
+                    // The fetch API does not surface trailers, so signal end of body
+                    // with no trailers.
+                    self.trailersDelivered = true
+                    finalElement = .some(nil)
                 }
-                guard let bytes = chunk.value, !bytes.isEmpty else {
-                    // If not done, there must be bytes that can be read
-                    throw .first(FetchError.BadAssumptionJS)
-                }
-
-                buffer = bytes
             }
 
-            let range: Range<Int>
-            let numRemainingElements = buffer.count - curIndex
-            if let maximumCount, numRemainingElements > maximumCount {
-                // There is more data in this buffer than the user wants.
-                // Give them a smaller span, update the index
-                let endIndex = curIndex + maximumCount
-                range = curIndex..<endIndex
-                curIndex = endIndex
-            } else {
-                // Return the rest of the buffer, reset the index
-                range = curIndex..<buffer.count
-                curIndex = 0
-            }
-
-            let result: Return
             do {
-                result = try await body(buffer[range].span)
+                return try await body(&self.buffer, finalElement)
             } catch {
                 throw .second(error)
             }
-
-            if range.endIndex == buffer.count {
-                // We've read the entire buffer. Clear it out
-                buffer.removeAll()
-            }
-
-            return result
         }
     }
 }

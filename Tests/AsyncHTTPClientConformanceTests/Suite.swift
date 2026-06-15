@@ -17,14 +17,14 @@ import HTTPClientConformance
 import Testing
 
 @Suite struct AsyncHTTPClientTests {
-    @available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+    @available(anyAppleOS 26.0, *)
     @Test func conformance() async throws {
         var config = HTTPClient.Configuration()
         config.connectionPool.concurrentHTTP1ConnectionsPerHostSoftLimit = 1
         config.httpVersion = .automatic
         config.decompression = .enabled(limit: .none)
         let httpClient = HTTPClient(eventLoopGroup: .singletonMultiThreadedEventLoopGroup, configuration: config)
-        defer { Task { try await httpClient.shutdown() } }
+        defer { try! await httpClient.shutdown() }
 
         try await runConformanceTests(excluding: [
             // TODO: AHC does not support cookies

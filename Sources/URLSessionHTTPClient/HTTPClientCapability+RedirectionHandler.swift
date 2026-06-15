@@ -11,7 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 extension HTTPClientCapability {
     /// A protocol for HTTP request options that support custom redirection handling.
     public protocol RedirectionHandler: RequestOptions {
@@ -21,18 +21,22 @@ extension HTTPClientCapability {
     }
 
     struct ClosureHTTPClientRedirectionHandler: HTTPClientRedirectionHandler {
-        var closure: (HTTPResponse, HTTPRequest) async throws -> HTTPClientRedirectionAction
+        var closure:
+            @Sendable (
+                HTTPResponse,
+                HTTPRequest
+            ) async throws -> HTTPClientRedirectionAction
         func handleRedirection(response: HTTPResponse, newRequest: HTTPRequest) async throws -> HTTPClientRedirectionAction {
             try await closure(response, newRequest)
         }
     }
 }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 extension HTTPClientCapability.RedirectionHandler {
     /// The redirection handler closure to be invoked when a 3xx response is received and
     /// a redirection is about to be taken.
-    public var redirectionHandlerClosure: ((HTTPResponse, HTTPRequest) async throws -> HTTPClientRedirectionAction)? {
+    public var redirectionHandlerClosure: (@Sendable (HTTPResponse, HTTPRequest) async throws -> HTTPClientRedirectionAction)? {
         get {
             if let redirectionHandler = self.redirectionHandler {
                 // Crash if it's not our built-in handler

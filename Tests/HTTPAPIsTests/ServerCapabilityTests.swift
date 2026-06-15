@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift HTTP API Proposal open source project
 //
-// Copyright (c) 2025 Apple Inc. and the Swift HTTP API Proposal project authors
+// Copyright (c) 2026 Apple Inc. and the Swift HTTP API Proposal project authors
 // Licensed under Apache License v2.0
 //
 // See LICENSE.txt for license information
@@ -17,24 +17,37 @@ import HTTPAPIs
 import Testing
 
 @available(anyAppleOS 26.0, *)
+extension HTTPServerCapability {
+    protocol ConnectionInfo: RequestContext {
+        var remoteAddress: String? { get }
+        var localAddress: String? { get }
+    }
+}
+
+@available(anyAppleOS 26.0, *)
+extension TestClientAndServer.HTTPRequestContext: HTTPServerCapability.ConnectionInfo {}
+
+@available(anyAppleOS 26.0, *)
 extension TestClientAndServer {
-    func echo() async throws {
+    func serveWithContextAssertions() async throws {
         try await self.serve { request, requestContext, reader, responseSender in
-            let writer = try await responseSender.send(.init(status: .ok))
-            try await reader.pipe(into: writer)
+            #expect(requestContext.remoteAddress == "127.0.0.1:54321")
+            #expect(requestContext.localAddress == "0.0.0.0:8080")
+
+            try await responseSender.sendAndFinish(.init(status: .ok))
         }
     }
 }
 
-@Suite("HTTP Client and Server Tests")
-struct HTTPClientAndServerTests {
-    @Test("Simple echo test")
+@Suite("Server Capability Tests")
+struct ServerCapabilityTests {
+    @Test("RequestContext values flow through to handler")
     @available(anyAppleOS 26.0, *)
-    func simpleEcho() async throws {
+    func connectionInfoCapability() async throws {
         let clientAndServer = TestClientAndServer()
         try await withThrowingTaskGroup { group in
             group.addTask {
-                try await clientAndServer.echo()
+                try await clientAndServer.serveWithContextAssertions()
             }
 
             let request = HTTPRequest(
@@ -46,20 +59,10 @@ struct HTTPClientAndServerTests {
             var client = clientAndServer
             try await client.perform(
                 request: request,
-                body: .restartable { writer in
-                    var body = UniqueArray<UInt8>.init(copying: "Hello".utf8)
-                    try await writer.finish(
-                        buffer: &body,
-                        finalElement: [.date: "test"]
-                    )
-                }
-            ) { (response: HTTPResponse, reader: consuming TestClientAndServer.AsyncChannelBodyReader) in
+                body: nil
+            ) { response, reader in
                 #expect(response.status == .ok)
-                var responseBody = UniqueArray<UInt8>(minimumCapacity: 100)
-                let trailer = try await reader.collect(into: &responseBody)
-                let isEqual = responseBody == UniqueArray(copying: "Hello".utf8)
-                #expect(isEqual)
-                #expect(trailer == [.date: "test"])
+                _ = try await reader.collect(upTo: 100) { _ in }
             }
 
             group.cancelAll()

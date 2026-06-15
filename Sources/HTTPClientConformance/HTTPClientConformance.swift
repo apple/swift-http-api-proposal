@@ -11,6 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import BasicContainers
+import ContainersPreview
 import Foundation
 public import HTTPClient
 import HTTPTypes
@@ -71,7 +73,7 @@ public enum ConformanceTestCase: Sendable, Hashable, CaseIterable {
 
 // Runs an HTTP client through all the conformance tests,
 // except the ones specified in `excluding`.
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 public func runConformanceTests<Client: HTTPClient & ~Copyable>(
     excluding: [ConformanceTestCase] = [],
     _ clientFactory: @escaping () async throws -> Client
@@ -102,7 +104,7 @@ public func runConformanceTests<Client: HTTPClient & ~Copyable>(
     }
 }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
     let testServerPort: Int
     let rawServerPort: Int
@@ -210,10 +212,10 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
             request: request
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .noContent)
-            let (_, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                let isEmpty = span.isEmpty
-                #expect(isEmpty)
-            }
+            var array = UniqueArray<UInt8>(minimumCapacity: 1024)
+            _ = try await responseBodyAndTrailers.collect(into: &array)
+            let isEmpty = array.isEmpty
+            #expect(isEmpty)
         }
     }
 
@@ -229,10 +231,10 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
             request: request
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .notModified)
-            let (_, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                let isEmpty = span.isEmpty
-                #expect(isEmpty)
-            }
+            var array = UniqueArray<UInt8>(minimumCapacity: 1024)
+            _ = try await responseBodyAndTrailers.collect(into: &array)
+            let isEmpty = array.isEmpty
+            #expect(isEmpty)
         }
     }
 
@@ -251,10 +253,10 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
                 request: request
             ) { response, responseBodyAndTrailers in
                 #expect(response.status == .ok)
-                let (_, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                    let isEmpty = span.isEmpty
-                    #expect(isEmpty)
-                }
+                var array = UniqueArray<UInt8>(minimumCapacity: 1024)
+                _ = try await responseBodyAndTrailers.collect(into: &array)
+                let isEmpty = array.isEmpty
+                #expect(isEmpty)
             }
         }
     }
@@ -274,10 +276,10 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
                 request: request
             ) { response, responseBodyAndTrailers in
                 #expect(response.status == .ok)
-                let (_, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                    let isEmpty = span.isEmpty
-                    #expect(isEmpty)
-                }
+                var array = UniqueArray<UInt8>(minimumCapacity: 1024)
+                _ = try await responseBodyAndTrailers.collect(into: &array)
+                let isEmpty = array.isEmpty
+                #expect(isEmpty)
             }
         }
     }
@@ -295,9 +297,9 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
             request: request
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            let (body, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                return String(copying: try UTF8Span(validating: span))
-            }
+            var array = UniqueArray<UInt8>(minimumCapacity: 1024)
+            _ = try await responseBodyAndTrailers.collect(into: &array)
+            let body = String(copying: try UTF8Span(validating: array.span))
             #expect(body == "1234")
         }
     }
@@ -316,9 +318,9 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
                 request: request,
             ) { response, responseBodyAndTrailers in
                 #expect(response.status == .ok)
-                let (body, trailers) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                    return String(copying: try UTF8Span(validating: span))
-                }
+                var array = UniqueArray<UInt8>(minimumCapacity: 1024)
+                let trailers = try await responseBodyAndTrailers.collect(into: &array)
+                let body = String(copying: try UTF8Span(validating: array.span))
                 #expect(body.isEmpty)
                 #expect(trailers == nil)
             }
@@ -335,18 +337,16 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         )
         try await client.perform(
             request: request,
-            body: .restartable(knownLength: 0) { writer in
-                var writer = writer
-                try await writer.write(Span())
-                return nil
+            body: .restartable(knownLength: 0) { sender in
+                try await sender.finish()
             }
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            let (jsonRequest, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                let body = String(copying: try UTF8Span(validating: span))
-                let data = body.data(using: .utf8)!
-                return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
-            }
+            var array = UniqueArray<UInt8>(minimumCapacity: 1024)
+            _ = try await responseBodyAndTrailers.collect(into: &array)
+            let body = String(copying: try UTF8Span(validating: array.span))
+            let data = body.data(using: .utf8)!
+            let jsonRequest = try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
             #expect(jsonRequest.body.isEmpty)
         }
     }
@@ -361,18 +361,15 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         )
         try await client.perform(
             request: request,
-            body: .restartable { writer in
-                var writer = writer
-                let body = "Hello World"
-                try await writer.write(body.utf8Span.span)
-                return nil
+            body: .restartable { sender in
+                var body = UniqueArray<UInt8>.init(copying: "Hello World".utf8)
+                try await sender.finish(buffer: &body, finalElement: nil)
             }
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            let (body, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                let body = String(copying: try UTF8Span(validating: span))
-                return body
-            }
+            var array = UniqueArray<UInt8>(minimumCapacity: 1024)
+            _ = try await responseBodyAndTrailers.collect(into: &array)
+            let body = String(copying: try UTF8Span(validating: array.span))
 
             // Check that the request body was in the response
             #expect(body == "Hello World")
@@ -401,9 +398,9 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
                 contentEncoding == nil || contentEncoding == "identity"
             }
 
-            let (body, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                return String(copying: try UTF8Span(validating: span))
-            }
+            var array = UniqueArray<UInt8>(minimumCapacity: 1024)
+            _ = try await responseBodyAndTrailers.collect(into: &array)
+            let body = String(copying: try UTF8Span(validating: array.span))
             #expect(body == "TEST\n")
         }
     }
@@ -430,9 +427,9 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
                 contentEncoding == nil || contentEncoding == "identity"
             }
 
-            let (body, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                return String(copying: try UTF8Span(validating: span))
-            }
+            var array = UniqueArray<UInt8>(minimumCapacity: 1024)
+            _ = try await responseBodyAndTrailers.collect(into: &array)
+            let body = String(copying: try UTF8Span(validating: array.span))
             #expect(body == "TEST\n")
         }
     }
@@ -459,9 +456,9 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
                 contentEncoding == nil || contentEncoding == "identity"
             }
 
-            let (body, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                return String(copying: try UTF8Span(validating: span))
-            }
+            var array = UniqueArray<UInt8>(minimumCapacity: 1024)
+            _ = try await responseBodyAndTrailers.collect(into: &array)
+            let body = String(copying: try UTF8Span(validating: array.span))
             #expect(body == "TEST\n")
         }
     }
@@ -480,9 +477,9 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
             #expect(response.status == .ok)
             let contentEncoding = response.headerFields[.contentEncoding]
             #expect(contentEncoding == nil || contentEncoding == "identity")
-            let (body, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                return String(copying: try UTF8Span(validating: span))
-            }
+            var array = UniqueArray<UInt8>(minimumCapacity: 1024)
+            _ = try await responseBodyAndTrailers.collect(into: &array)
+            let body = String(copying: try UTF8Span(validating: array.span))
             #expect(body == "TEST\n")
         }
     }
@@ -494,23 +491,22 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
             scheme: "http",
             authority: "127.0.0.1:\(testServerPort)",
             path: "/request",
-            headerFields: HTTPFields([HTTPField(name: .init("X-Foo")!, value: "BARbaz")])
+            headerFields: [.init("X-Foo")!: "BARbaz"]
         )
 
         try await client.perform(
             request: request,
-            body: .restartable { writer in
-                var writer = writer
-                try await writer.write("Hello World".utf8.span)
-                return nil
+            body: .restartable { sender in
+                var body = UniqueArray<UInt8>.init(copying: "Hello World".utf8)
+                try await sender.finish(buffer: &body, finalElement: nil)
             }
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            let (jsonRequest, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                let body = String(copying: try UTF8Span(validating: span))
-                let data = body.data(using: .utf8)!
-                return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
-            }
+            var array = UniqueArray<UInt8>(minimumCapacity: 1024)
+            _ = try await responseBodyAndTrailers.collect(into: &array)
+            let body = String(copying: try UTF8Span(validating: array.span))
+            let data = body.data(using: .utf8)!
+            let jsonRequest = try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
             #expect(jsonRequest.headers["X-Foo"] == ["BARbaz"])
         }
     }
@@ -531,11 +527,11 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
                 request: request,
             ) { response, responseBodyAndTrailers in
                 #expect(response.status == .ok)
-                let (jsonRequest, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                    let body = String(copying: try UTF8Span(validating: span))
-                    let data = body.data(using: .utf8)!
-                    return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
-                }
+                var array = UniqueArray<UInt8>(minimumCapacity: 1024)
+                _ = try await responseBodyAndTrailers.collect(into: &array)
+                let body = String(copying: try UTF8Span(validating: array.span))
+                let data = body.data(using: .utf8)!
+                let jsonRequest = try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
                 #expect(jsonRequest.method == "GET")
                 #expect(jsonRequest.body.isEmpty)
             }
@@ -573,10 +569,10 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
             request: request,
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .notFound)
-            let (_, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                let isEmpty = span.isEmpty
-                #expect(isEmpty)
-            }
+            var array = UniqueArray<UInt8>(minimumCapacity: 1024)
+            _ = try await responseBodyAndTrailers.collect(into: &array)
+            let isEmpty = array.isEmpty
+            #expect(isEmpty)
         }
     }
 
@@ -593,10 +589,10 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
             request: request,
         ) { response, responseBodyAndTrailers in
             #expect(response.status == 999)
-            let (_, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                let isEmpty = span.isEmpty
-                #expect(isEmpty)
-            }
+            var array = UniqueArray<UInt8>(minimumCapacity: 1024)
+            _ = try await responseBodyAndTrailers.collect(into: &array)
+            let isEmpty = array.isEmpty
+            #expect(isEmpty)
         }
     }
 
@@ -616,10 +612,10 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
                         request: request,
                     ) { response, responseBodyAndTrailers in
                         #expect(response.status == .ok)
-                        let _ = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                            let isEmpty = span.isEmpty
-                            #expect(!isEmpty)
-                        }
+                        var array = UniqueArray<UInt8>(minimumCapacity: 1024)
+                        _ = try await responseBodyAndTrailers.collect(into: &array)
+                        let isEmpty = array.isEmpty
+                        #expect(!isEmpty)
                     }
                 }
             }
@@ -647,32 +643,36 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
 
         try await client.perform(
             request: request,
-            body: .restartable { writer in
-                var writer = writer
-
+            body: .restartable { sender in
+                var writer = sender
                 for _ in 0..<1000 {
+                    var buffer = UniqueArray.init(repeating: UInt8(ascii: "A"), count: 1)
                     // Write a 1-byte chunk
-                    try await writer.write("A".utf8.span)
+                    try await writer.write(buffer: &buffer)
 
                     // Only proceed once the client receives the echo.
                     await writerWaiting.first(where: { true })
                 }
-                return nil
+                try await writer.finish(trailer: nil)
             }
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            let _ = try await responseBodyAndTrailers.consumeAndConclude { reader in
-                var numberOfChunks = 0
-                try await reader.forEach { span in
-                    numberOfChunks += 1
-                    #expect(span.count == 1)
-                    #expect(span[0] == UInt8(ascii: "A"))
+            let reader = responseBodyAndTrailers
+            var numberOfChunks = 0
+            _ = try await reader.forEachBuffer { buffer in
+                // The terminal read carries an empty buffer alongside the EOS marker;
+                // skip it so the per-chunk assertions only run for data chunks.
+                guard buffer.count > 0 else { return }
+                numberOfChunks += 1
+                #expect(buffer.count == 1)
+                var consumer = buffer.consumeAll()
+                let first = consumer.next()
+                #expect(first == UInt8(ascii: "A"))
 
-                    // Unblock the writer
-                    continuation.yield()
-                }
-                #expect(numberOfChunks == 1000)
+                // Unblock the writer
+                continuation.yield()
             }
+            #expect(numberOfChunks == 1000)
         }
     }
 
@@ -692,11 +692,11 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
             request: request,
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            let (jsonRequest, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                let body = String(copying: try UTF8Span(validating: span))
-                let data = body.data(using: .utf8)!
-                return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
-            }
+            var array = UniqueArray<UInt8>(minimumCapacity: 1024)
+            _ = try await responseBodyAndTrailers.collect(into: &array)
+            let body = String(copying: try UTF8Span(validating: array.span))
+            let data = body.data(using: .utf8)!
+            let jsonRequest = try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
 
             #expect(jsonRequest.headers["X-Test"] == [""])
         }
@@ -716,32 +716,38 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
 
         try await client.perform(
             request: request,
-            body: .restartable { writer in
-                var writer = writer
+            body: .restartable { sender in
+                var writer = sender
                 var iterator = stream.makeAsyncIterator()
 
                 // Wait for a chunk from the server
                 while let chunk = await iterator.next() {
                     // Write it back to the server
-                    try await writer.write(chunk.utf8.span)
+                    var buffer = UniqueArray<UInt8>(copying: chunk.utf8Span.span)
+                    try await writer.write(buffer: &buffer)
                 }
-                return nil
+                try await writer.finish(trailer: nil)
             }
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            let _ = try await responseBodyAndTrailers.consumeAndConclude { reader in
-                // Read all chunks from server
-                try await reader.forEach { span in
-                    let chunk = String(copying: try UTF8Span(validating: span))
-                    #expect(chunk == "A")
+            let reader = responseBodyAndTrailers
+            // Read all chunks from server
+            _ = try await reader.forEachBuffer { buffer in
+                // The terminal read carries an empty buffer alongside the EOS marker;
+                // skip it so the per-chunk assertion only runs for data chunks.
+                guard buffer.count > 0 else { return }
+                var bytes = [UInt8]()
+                var consumer = buffer.consumeAll()
+                while let b = consumer.next() { bytes.append(b) }
+                let chunk = String(copying: try UTF8Span(validating: bytes.span))
+                #expect(chunk == "A")
 
-                    // Give chunk to the writer to echo back
-                    continuation.yield(chunk)
-                }
-
-                // No more chunks from server. Stop writing as well.
-                continuation.finish()
+                // Give chunk to the writer to echo back
+                continuation.yield(chunk)
             }
+
+            // No more chunks from server. Stop writing as well.
+            continuation.finish()
         }
     }
 
@@ -803,20 +809,18 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
                     request: request,
                 ) { response, responseBodyAndTrailers in
                     #expect(response.status == .ok)
-                    let _ = try await responseBodyAndTrailers.consumeAndConclude { reader in
-                        var reader = reader
+                    let reader = responseBodyAndTrailers
 
-                        // Now trigger the task group cancellation.
-                        continuation.yield()
+                    // Now trigger the task group cancellation.
+                    continuation.yield()
 
-                        // The client may choose to return however much of the body it already
-                        // has downloaded, but eventually it must throw an exception because
-                        // the response is incomplete and the task has been cancelled.
-                        while true {
-                            try await reader.collect(upTo: .max) {
-                                #expect($0.count > 0)
-                            }
-                        }
+                    // The client may choose to return however much of the body it already
+                    // has downloaded, but eventually it must throw an exception because
+                    // the response is incomplete and the task has been cancelled.
+                    _ = try await reader.forEachBuffer { buffer in
+                        #expect(buffer.count > 0)
+                        var consumer = buffer.consumeAll()
+                        while consumer.next() != nil {}
                     }
                 }
             }
@@ -870,18 +874,16 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
 
         try await client.perform(
             request: request,
-            body: .restartable(knownLength: 1_000_000) { writer in
+            body: .restartable(knownLength: 1_000_000) { sender in
                 // Write out 1Mb of "A"
-                var writer = writer
-                let data = String(repeating: "A", count: 1_000_000).data(using: .ascii)!
-                try await writer.write(data.span)
-                return nil
+                var body = UniqueArray<UInt8>.init(copying: String(repeating: "A", count: 1_000_000).data(using: .ascii)!)
+                try await sender.finish(buffer: &body, finalElement: nil)
             }
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            let (echo, _) = try await responseBodyAndTrailers.collect(upTo: 2_000_000) { span in
-                return String(copying: try UTF8Span(validating: span))
-            }
+            var array = UniqueArray<UInt8>(minimumCapacity: 2_000_000)
+            _ = try await responseBodyAndTrailers.collect(into: &array)
+            let echo = String(copying: try UTF8Span(validating: array.span))
             #expect(echo == String(repeating: "A", count: 1_000_000))
         }
     }
@@ -896,14 +898,26 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         )
 
         // Read only a single byte from the body. We do not care about the rest of the 1Mb.
+        // The upstream `collect(upTo:)` now throws `AsyncReaderLeftOverElementsError`
+        // when the reader produces more elements than the limit, so we tolerate it.
         try await client.perform(
             request: request,
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            let (character, _) = try await responseBodyAndTrailers.collect(upTo: 1) { span in
-                return String(copying: try UTF8Span(validating: span))
+            var reader = responseBodyAndTrailers
+            var firstByte: UInt8? = nil
+            do {
+                try await reader.read { (buffer: inout _, _) in
+                    var consumer = buffer.consumeAll()
+                    firstByte = consumer.next()
+                    // Discard the rest of this chunk.
+                    while consumer.next() != nil {}
+                }
+            } catch {
+                // It is acceptable for the read to fail (e.g., connection
+                // tear-down) once we stop draining the body.
             }
-            #expect(character == "A")
+            #expect(firstByte == UInt8(ascii: "A"))
         }
     }
 
@@ -922,22 +936,12 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
 
-            let (result, _) = try await responseBodyAndTrailers.consumeAndConclude { reader in
-                var result = [UInt8]()
-                var reader = reader
-                var breakTheLoop = false
-                while !breakTheLoop {
-                    breakTheLoop = try await reader.read(maximumCount: 1) { bytes in
-                        guard bytes.isEmpty else {
-                            precondition(bytes.count == 1)
-                            result.append(bytes[0])
-                            return false
-                        }
-                        return true
-                    }
-                }
+            let reader = responseBodyAndTrailers
+            var result = [UInt8]()
 
-                return result
+            _ = try await reader.forEachBuffer { buffer in
+                var consumer = buffer.consumeAll()
+                while let b = consumer.next() { result.append(b) }
             }
             #expect(result == [UInt8](repeating: UInt8(ascii: "A"), count: 1_000_000))
         }
@@ -955,9 +959,9 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
             request: request,
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            let (body, trailers) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                return String(copying: try UTF8Span(validating: span))
-            }
+            var array = UniqueArray<UInt8>(minimumCapacity: 1024)
+            let trailers = try await responseBodyAndTrailers.collect(into: &array)
+            let body = String(copying: try UTF8Span(validating: array.span))
             #expect(body.isEmpty)
             #expect(trailers == nil)
         }
@@ -1003,11 +1007,11 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         try await client.perform(
             request: request,
         ) { response, responseBodyAndTrailers in
-            let (jsonRequest, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                let body = String(copying: try UTF8Span(validating: span))
-                let data = body.data(using: .utf8)!
-                return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
-            }
+            var array = UniqueArray<UInt8>(minimumCapacity: 1024)
+            _ = try await responseBodyAndTrailers.collect(into: &array)
+            let body = String(copying: try UTF8Span(validating: array.span))
+            let data = body.data(using: .utf8)!
+            let jsonRequest = try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
 
             let values = jsonRequest.headers["X-Test"]!
 
@@ -1050,11 +1054,11 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         )
         let clientCookie = try await client.perform(request: request2) { response, responseBodyAndTrailers in
             // The server gave us the request back. Check that the cookie was in the request.
-            let (jsonRequest, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                let body = String(copying: try UTF8Span(validating: span))
-                let data = body.data(using: .utf8)!
-                return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
-            }
+            var array = UniqueArray<UInt8>(minimumCapacity: 1024)
+            _ = try await responseBodyAndTrailers.collect(into: &array)
+            let body = String(copying: try UTF8Span(validating: array.span))
+            let data = body.data(using: .utf8)!
+            let jsonRequest = try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
 
             // Parse the cookie
             let values = jsonRequest.headers["Cookie"] ?? []
@@ -1116,9 +1120,9 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
                         // Second attempt, Cached == true
                         #expect(response.headerFields[.cached] == "true")
                     }
-                    let (response, _) = try await responseBodyAndTrailers.collect(upTo: 5) { span in
-                        return String(copying: try UTF8Span(validating: span))
-                    }
+                    var array = UniqueArray<UInt8>(minimumCapacity: 1024)
+                    _ = try await responseBodyAndTrailers.collect(into: &array)
+                    let response = String(copying: try UTF8Span(validating: array.span))
                     #expect(response == expectedResponse)
                 }
             }
@@ -1139,11 +1143,11 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         try await client.perform(
             request: request,
         ) { response, responseBodyAndTrailers in
-            let (jsonRequest, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                let body = String(copying: try UTF8Span(validating: span))
-                let data = body.data(using: .utf8)!
-                return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
-            }
+            var array = UniqueArray<UInt8>(minimumCapacity: 1024)
+            _ = try await responseBodyAndTrailers.collect(into: &array)
+            let body = String(copying: try UTF8Span(validating: array.span))
+            let data = body.data(using: .utf8)!
+            let jsonRequest = try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
 
             #expect(
                 jsonRequest.params == [
@@ -1168,9 +1172,9 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
             request: request
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            let (body, trailers) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                return String(copying: try UTF8Span(validating: span))
-            }
+            var array = UniqueArray<UInt8>(minimumCapacity: 1024)
+            let trailers = try await responseBodyAndTrailers.collect(into: &array)
+            let body = String(copying: try UTF8Span(validating: array.span))
 
             // Verify the body
             #expect(body == "Response body")
@@ -1195,21 +1199,23 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         )
         try await client.perform(
             request: request,
-            body: .restartable { writer in
-                var writer = writer
-                try await writer.write("Hello World".utf8.span)
-                return [
-                    .init("X-Request-Trailer-One")!: "first-trailer-value",
-                    .init("X-Request-Trailer-Two")!: "second-trailer-value",
-                ]
+            body: .restartable { sender in
+                var body = UniqueArray<UInt8>.init(copying: "Hello World".utf8)
+                try await sender.finish(
+                    buffer: &body,
+                    finalElement: [
+                        .init("X-Request-Trailer-One")!: "first-trailer-value",
+                        .init("X-Request-Trailer-Two")!: "second-trailer-value",
+                    ]
+                )
             }
         ) { response, responseBodyAndTrailers in
             #expect(response.status == .ok)
-            let (jsonRequest, _) = try await responseBodyAndTrailers.collect(upTo: 1024) { span in
-                let body = String(copying: try UTF8Span(validating: span))
-                let data = body.data(using: .utf8)!
-                return try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
-            }
+            var array = UniqueArray<UInt8>(minimumCapacity: 1024)
+            _ = try await responseBodyAndTrailers.collect(into: &array)
+            let body = String(copying: try UTF8Span(validating: array.span))
+            let data = body.data(using: .utf8)!
+            let jsonRequest = try JSONDecoder().decode(JSONHTTPRequest.self, from: data)
             #expect(jsonRequest.body == "Hello World")
             #expect(jsonRequest.trailers["X-Request-Trailer-One"] == ["first-trailer-value"])
             #expect(jsonRequest.trailers["X-Request-Trailer-Two"] == ["second-trailer-value"])

@@ -43,7 +43,7 @@ public struct MiddlewareBuilder {
     /// - Returns: A middleware chain containing the single component.
     public static func buildPartialBlock<M: Middleware>(
         first middleware: M
-    ) -> M {
+    ) -> M where M.Input: ~Copyable & ~Escapable, M.NextInput: ~Copyable & ~Escapable {
         middleware
     }
 
@@ -56,12 +56,21 @@ public struct MiddlewareBuilder {
     ///   - accumulated: The first middleware in the chain.
     ///   - next: The second middleware in the chain, which accepts the output of the first.
     /// - Returns: A new middleware chain that represents the composition of both middlewares.
-    public static func buildPartialBlock<Input: ~Copyable, MiddleInput: ~Copyable, NextInput: ~Copyable>(
-        accumulated: some Middleware<Input, MiddleInput>,
-        next: some Middleware<MiddleInput, NextInput>
-    ) -> some Middleware<Input, NextInput> {
-        let chained = ChainedMiddleware(first: accumulated, second: next)
-        return ClosureMiddleware(middlewareFunc: chained.intercept)
+    public static func buildPartialBlock<
+        First: Middleware,
+        Second: Middleware
+    >(
+        accumulated: First,
+        next: Second
+    ) -> ChainedMiddleware<First, Second>
+    where
+        First.Input: ~Copyable & ~Escapable,
+        First.NextInput: ~Copyable & ~Escapable,
+        Second.Input: ~Copyable & ~Escapable,
+        Second.NextInput: ~Copyable,
+        First.NextInput == Second.Input
+    {
+        return ChainedMiddleware(first: accumulated, second: next)
     }
 
     /// Converts a middleware expression to a middleware chain.
@@ -72,7 +81,7 @@ public struct MiddlewareBuilder {
     /// - Returns: A middleware chain wrapping the input middleware.
     public static func buildExpression<M: Middleware>(
         _ middleware: M
-    ) -> M {
+    ) -> M where M.Input: ~Copyable & ~Escapable, M.NextInput: ~Copyable & ~Escapable {
         middleware
     }
 }

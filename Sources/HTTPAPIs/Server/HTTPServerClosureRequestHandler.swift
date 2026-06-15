@@ -11,6 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+public import AsyncStreaming
+
 /// A closure-based implementation of ``HTTPServerRequestHandler``.
 ///
 /// ``HTTPServerClosureRequestHandler`` provides a convenient way to create an HTTP request handler
@@ -19,79 +21,65 @@
 ///
 /// - Example:
 /// ```swift
-/// let echoHandler = HTTPServerClosureRequestHandler { request, context, bodyReader, responseSender in
-///     // Read the entire request body
-///     let (bodyData, _) = try await bodyReader.consumeAndConclude { reader in
-///         // ... body reading code ...
-///     }
-///
-///     // Create and send response
-///     var response = HTTPResponse(status: .ok)
-///     let responseWriter = try await responseSender.send(response)
-///     try await responseWriter.produceAndConclude { writer in
-///         try await writer.write(bodyData.span)
-///         return ((), nil)
-///     }
+/// let echoHandler = HTTPServerClosureRequestHandler { request, context, reader, responseSender in
+///     let writer = try await responseSender.send(.init(status: .ok))
+///     try await reader.pipe(into: writer)
 /// }
 /// ```
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
+@available(anyAppleOS 26.0, *)
 public struct HTTPServerClosureRequestHandler<
-    RequestReader: ConcludingAsyncReader & ~Copyable,
-    ResponseWriter: ConcludingAsyncWriter & ~Copyable,
+    RequestContext: HTTPServerCapability.RequestContext & ~Copyable,
+    Reader: AsyncReader & ~Copyable,
+    ResponseSender: HTTPResponseSender & ~Copyable,
 >: HTTPServerRequestHandler
 where
-    RequestReader.Underlying.ReadElement == UInt8,
-    ResponseWriter.Underlying.WriteElement == UInt8,
-    RequestReader.FinalElement == HTTPFields?,
-    ResponseWriter.FinalElement == HTTPFields?
+    Reader.ReadElement == UInt8,
+    Reader.FinalElement == HTTPFields?,
+    ResponseSender.Writer: ~Copyable
 {
     /// The underlying closure that handles HTTP requests.
     private let _handler:
         @Sendable (
             HTTPRequest,
-            HTTPRequestContext,
-            consuming sending RequestReader,
-            consuming sending HTTPResponseSender<ResponseWriter>
+            consuming RequestContext,
+            consuming sending Reader,
+            consuming sending ResponseSender
         ) async throws -> Void
 
     /// Creates a new closure-based HTTP request handler.
-    ///
-    /// - Parameter handler: A closure that will be called to handle each incoming HTTP request.
-    ///   The closure takes the same parameters as the
-    ///   ``HTTPServerRequestHandler/handle(request:requestContext:requestBodyAndTrailers:responseSender:)`` method.
     public init(
         handler:
             @Sendable @escaping (
                 HTTPRequest,
-                HTTPRequestContext,
-                consuming sending RequestReader,
-                consuming sending HTTPResponseSender<ResponseWriter>
+                consuming RequestContext,
+                consuming sending Reader,
+                consuming sending ResponseSender
             ) async throws -> Void
     ) {
         self._handler = handler
     }
 
     /// Handles an incoming HTTP request by delegating to the closure provided at initialization.
-    ///
-    /// This method simply forwards all parameters to the handler closure.
-    ///
-    /// - Parameters:
-    ///   - request: The HTTP request headers and metadata.
-    ///   - requestContext: A ``HTTPRequestContext``.
-    ///   - requestBodyAndTrailers: A reader for accessing the request body data and trailing headers.
-    ///   - responseSender: An ``HTTPResponseSender`` to send the HTTP response.
     public func handle(
         request: HTTPRequest,
-        requestContext: HTTPRequestContext,
-        requestBodyAndTrailers: consuming sending RequestReader,
-        responseSender: consuming sending HTTPResponseSender<ResponseWriter>
+        requestContext: consuming RequestContext,
+        reader: consuming sending Reader,
+        responseSender: consuming sending ResponseSender
     ) async throws {
-        try await self._handler(request, requestContext, requestBodyAndTrailers, responseSender)
+        try await self._handler(request, requestContext, reader, responseSender)
     }
 }
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-extension HTTPServer where Self: ~Copyable, Self: ~Escapable {
+@available(anyAppleOS 26.0, *)
+extension HTTPServer
+where
+    Self: ~Copyable,
+    Self: ~Escapable,
+    RequestContext: ~Copyable,
+    Reader: ~Copyable,
+    ResponseSender: ~Copyable,
+    ResponseSender.Writer: ~Copyable
+{
     /// Starts an HTTP server with a closure-based request handler.
     ///
     /// This method provides a convenient way to start an HTTP server using a closure to handle incoming requests.
@@ -99,30 +87,27 @@ extension HTTPServer where Self: ~Copyable, Self: ~Escapable {
     /// - Parameters:
     ///   - handler: An async closure that processes HTTP requests. The closure receives:
     ///     - `HTTPRequest`: The incoming HTTP request with headers and metadata.
-    ///     - ``HTTPRequestContext``: The request's context.
-    ///     - ``HTTPRequestConcludingAsyncReader``: An async reader for consuming the request body and trailers.
-    ///     - ``HTTPResponseSender``: A non-copyable wrapper for a function that accepts an `HTTPResponse` and provides access to an ``HTTPResponseConcludingAsyncWriter``.
+    ///     - `RequestContext`: The request context provided by the server.
+    ///     - ``AsyncStreaming/AsyncReader``: A reader for the request body and trailing fields.
+    ///     - ``HTTPResponseSender``: A wrapper that accepts an `HTTPResponse` and returns a
+    ///       ``AsyncStreaming/CallerAsyncWriter`` for streaming the response body and trailing fields.
     ///
     /// ## Example
     ///
     /// ```swift
-    /// try await server.serve { request, bodyReader, responseSender in
-    ///     // Process the request
-    ///     let response = HTTPResponse(status: .ok)
-    ///     let writer = try await responseSender.send(response)
-    ///     try await writer.produceAndConclude { writer in
-    ///         try await writer.write("Hello, World!".utf8)
-    ///         return ((), nil)
-    ///     }
+    /// try await server.serve { request, requestContext, reader, responseSender in
+    ///     let writer = try await responseSender.send(.init(status: .ok))
+    ///     var buffer = UniqueArray<UInt8>(copying: "Hello, World!".utf8)
+    ///     try await writer.finish(buffer: &buffer, finalElement: nil)
     /// }
     /// ```
     public func serve(
         handler:
             @Sendable @escaping (
                 _ request: HTTPRequest,
-                _ requestContext: HTTPRequestContext,
-                _ requestBodyAndTrailers: consuming sending RequestConcludingReader,
-                _ responseSender: consuming sending HTTPResponseSender<ResponseConcludingWriter>
+                _ requestContext: consuming RequestContext,
+                _ reader: consuming sending Reader,
+                _ responseSender: consuming sending ResponseSender
             ) async throws -> Void
     ) async throws {
         try await self.serve(

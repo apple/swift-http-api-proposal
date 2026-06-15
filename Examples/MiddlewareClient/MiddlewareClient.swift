@@ -11,21 +11,24 @@
 //
 //===----------------------------------------------------------------------===//
 
-import HTTPAPIs
+import ExampleMiddleware
+import Foundation
+import HTTPClient
+import Logging
+import Middleware
 
-/// This examples shows an HTTP echo server.
+/// This example shows how to use middleware together with an HTTP client.
 @available(anyAppleOS 26.0, *)
 @main
-struct EchoServer {
+struct MiddlewareClient {
     static func main() async throws {
-        // TODO: Call echo once we have a concrete server implementation
-        fatalError("Waiting for a concrete HTTP server implementation")
-    }
-
-    static func echo<Server: HTTPServer>(server: Server) async throws {
-        try await server.serve { request, requestContext, reader, responseSender in
-            let writer = try await responseSender.send(.init(status: .ok))
-            try await reader.pipe(into: writer)
+        var client = ExampleMiddlewareClient(
+            client: DefaultHTTPClient.shared
+        ) { request in
+            request
+                .forwarding()
         }
+        let (_, responseBody) = try await client.get(url: URL(string: "https://httpbin.org/get")!, collectUpTo: 1024)
+        print("Received \(String(data: responseBody, encoding: .utf8)!)")
     }
 }

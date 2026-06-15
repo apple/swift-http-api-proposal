@@ -11,6 +11,9 @@
 //
 //===----------------------------------------------------------------------===//
 
+import AsyncStreaming
+import BasicContainers
+
 #if canImport(FoundationEssentials)
 public import struct FoundationEssentials.URL
 public import struct FoundationEssentials.Data
@@ -19,8 +22,13 @@ public import struct Foundation.URL
 public import struct Foundation.Data
 #endif
 
-@available(macOS 26.2, iOS 26.2, watchOS 26.2, tvOS 26.2, visionOS 26.2, *)
-extension HTTPClient where Self: ~Copyable & ~Escapable {
+@available(anyAppleOS 26.0, *)
+extension HTTPClient
+where
+    Self: ~Copyable & ~Escapable,
+    Reader: ~Copyable,
+    Writer: ~Copyable
+{
     /// Performs an HTTP request and processes the response.
     ///
     /// This convenience method provides default values for `body` and `options` arguments,
@@ -36,14 +44,11 @@ extension HTTPClient where Self: ~Copyable & ~Escapable {
     /// - Returns: The value returned by the response handler closure.
     ///
     /// - Throws: An error if the request fails or if the response handler throws.
-    #if compiler(<6.3)
-    @_lifetime(&self)
-    #endif
     public mutating func perform<Return: ~Copyable>(
         request: HTTPRequest,
-        body: consuming HTTPClientRequestBody<RequestWriter>? = nil,
+        body: consuming HTTPClientRequestBody<Writer>? = nil,
         options: RequestOptions? = nil,
-        responseHandler: (HTTPResponse, consuming ResponseConcludingReader) async throws -> Return,
+        responseHandler: (HTTPResponse, consuming Reader) async throws -> Return,
     ) async throws -> Return {
         let options = options ?? self.defaultRequestOptions
         return try await self.perform(request: request, body: body, options: options, responseHandler: responseHandler)
@@ -63,9 +68,6 @@ extension HTTPClient where Self: ~Copyable & ~Escapable {
     /// - Returns: A tuple containing the HTTP response header and the collected response body data.
     ///
     /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
-    #if compiler(<6.3)
-    @_lifetime(&self)
-    #endif
     public mutating func get(
         url: URL,
         headerFields: HTTPFields = [:],
@@ -74,10 +76,10 @@ extension HTTPClient where Self: ~Copyable & ~Escapable {
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
         let request = HTTPRequest(url: url, headerFields: headerFields)
         let options = options ?? self.defaultRequestOptions
-        return try await self.perform(request: request, body: nil, options: options) { response, body in
+        return try await self.perform(request: request, body: nil, options: options) { response, reader in
             (
                 response,
-                try await Self.collectBody(body, upTo: limit)
+                try await Self.collectBody(reader, upTo: limit)
             )
         }
     }
@@ -97,9 +99,6 @@ extension HTTPClient where Self: ~Copyable & ~Escapable {
     /// - Returns: A tuple containing the HTTP response header and the collected response body data.
     ///
     /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
-    #if compiler(<6.3)
-    @_lifetime(&self)
-    #endif
     public mutating func post(
         url: URL,
         headerFields: HTTPFields = [:],
@@ -109,10 +108,10 @@ extension HTTPClient where Self: ~Copyable & ~Escapable {
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
         let request = HTTPRequest(method: .post, url: url, headerFields: headerFields)
         let options = options ?? self.defaultRequestOptions
-        return try await self.perform(request: request, body: .data(bodyData), options: options) { response, body in
+        return try await self.perform(request: request, body: .data(bodyData), options: options) { response, reader in
             (
                 response,
-                try await Self.collectBody(body, upTo: limit)
+                try await Self.collectBody(reader, upTo: limit)
             )
         }
     }
@@ -132,9 +131,6 @@ extension HTTPClient where Self: ~Copyable & ~Escapable {
     /// - Returns: A tuple containing the HTTP response header and the collected response body data.
     ///
     /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
-    #if compiler(<6.3)
-    @_lifetime(&self)
-    #endif
     public mutating func put(
         url: URL,
         headerFields: HTTPFields = [:],
@@ -144,10 +140,10 @@ extension HTTPClient where Self: ~Copyable & ~Escapable {
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
         let request = HTTPRequest(method: .put, url: url, headerFields: headerFields)
         let options = options ?? self.defaultRequestOptions
-        return try await self.perform(request: request, body: .data(bodyData), options: options) { response, body in
+        return try await self.perform(request: request, body: .data(bodyData), options: options) { response, reader in
             (
                 response,
-                try await Self.collectBody(body, upTo: limit)
+                try await Self.collectBody(reader, upTo: limit)
             )
         }
     }
@@ -167,9 +163,6 @@ extension HTTPClient where Self: ~Copyable & ~Escapable {
     /// - Returns: A tuple containing the HTTP response header and the collected response body data.
     ///
     /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
-    #if compiler(<6.3)
-    @_lifetime(&self)
-    #endif
     public mutating func delete(
         url: URL,
         headerFields: HTTPFields = [:],
@@ -179,10 +172,10 @@ extension HTTPClient where Self: ~Copyable & ~Escapable {
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
         let request = HTTPRequest(method: .delete, url: url, headerFields: headerFields)
         let options = options ?? self.defaultRequestOptions
-        return try await self.perform(request: request, body: bodyData.map { .data($0) }, options: options) { response, body in
+        return try await self.perform(request: request, body: bodyData.map { .data($0) }, options: options) { response, reader in
             (
                 response,
-                try await Self.collectBody(body, upTo: limit)
+                try await Self.collectBody(reader, upTo: limit)
             )
         }
     }
@@ -202,9 +195,6 @@ extension HTTPClient where Self: ~Copyable & ~Escapable {
     /// - Returns: A tuple containing the HTTP response header and the collected response body data.
     ///
     /// - Throws: An error if the request fails, if the response body exceeds the limit, or if collection fails.
-    #if compiler(<6.3)
-    @_lifetime(&self)
-    #endif
     public mutating func patch(
         url: URL,
         headerFields: HTTPFields = [:],
@@ -214,22 +204,52 @@ extension HTTPClient where Self: ~Copyable & ~Escapable {
     ) async throws -> (response: HTTPResponse, bodyData: Data) {
         let request = HTTPRequest(method: .patch, url: url, headerFields: headerFields)
         let options = options ?? self.defaultRequestOptions
-        return try await self.perform(request: request, body: .data(bodyData), options: options) { response, body in
+        return try await self.perform(request: request, body: .data(bodyData), options: options) { response, reader in
             (
                 response,
-                try await Self.collectBody(body, upTo: limit)
+                try await Self.collectBody(reader, upTo: limit)
             )
         }
     }
 
-    private static func collectBody<Reader: ConcludingAsyncReader>(_ body: consuming Reader, upTo limit: Int) async throws -> Data
-    where Reader: ~Copyable, Reader.Underlying.ReadElement == UInt8 {
-        try await body.collect(upTo: limit == .max ? .max : limit + 1) {
-            if $0.count > limit {
+    private static func collectBody<R: AsyncReader & ~Copyable>(
+        _ reader: consuming R,
+        upTo limit: Int
+    ) async throws -> Data
+    where R.ReadElement == UInt8, R.FinalElement == HTTPFields? {
+        // Read iteratively into a growable buffer rather than pre-allocating
+        // `limit` bytes (which can be Int.max). Check the cap after each chunk.
+        // TODO: This should be replaced once we have a collect(into:) in AsyncStreaming
+        var buffer = Data()
+        var reader = reader
+        var done = false
+        while !done {
+            try await reader.read { (chunk: inout R.Buffer, finalElement: HTTPFields??) in
+                if finalElement != nil {
+                    done = true
+                }
+                if chunk.count == 0 {
+                    if finalElement == nil {
+                        done = true
+                    }
+                    return
+                }
+                var consumer = chunk.consumeAll()
+                while true {
+                    var span = consumer.drainNext()
+                    if span.isEmpty {
+                        break
+                    }
+                    unsafe span.withUnsafeMutableBufferPointer { pointer, initializedCount in
+                        unsafe buffer.append(contentsOf: pointer)
+                    }
+                }
+            }
+            if buffer.count > limit {
                 throw LengthLimitExceededError()
             }
-            return unsafe $0.withUnsafeBytes { unsafe Data($0) }
-        }.0
+        }
+        return buffer
     }
 }
 
