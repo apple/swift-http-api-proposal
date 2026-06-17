@@ -118,7 +118,6 @@ let package = Package(
                 "HTTPClient",
                 // These dependencies are needed by the `swift-http-server` that
                 // we borrowed.
-                .product(name: "AsyncStreaming", package: "swift-async-algorithms"),
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "BasicContainers", package: "swift-collections"),
                 .product(name: "X509", package: "swift-certificates"),
