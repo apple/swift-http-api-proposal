@@ -34,11 +34,9 @@ package boundaries.
 
 We're exploring several interconnected pieces:
 
-- **AsyncStreaming** - Modern streaming primitives that integrate with the latest Swift concepts such as `~Copyable`, `~Escapable` and structured concurrency. Checkout the [module's README](Sources/AsyncStreaming/README.md) for more details.
 - **NetworkTypes** - Basic cross-platform network configuration types.
 - **HTTPAPIs** - Protocol definitions for HTTP clients and servers.
 - **HTTPClient** - A default platform HTTP client.
-- **HTTPServer** - A default platform HTTP server.
 - **Middleware** - A composable middleware system for processing requests
 
 The general idea is that `AsyncStreaming` provides the foundation for streaming
@@ -49,7 +47,7 @@ can be integrated with server and client implementations.
 ## Usage
 
 The APIs are designed around streaming HTTP bodies using the `AsyncReader`
-and `AsyncWriter` protocols. Both client and server support full bidirectional
+and `CallerAsyncWriter` protocols. Both client and server support full bidirectional
 streaming with optional trailers. We are still exploring adding more convenience
 APIs to make simple things easier.
 
@@ -69,18 +67,18 @@ let request = HTTPRequest(
 
 try await HTTP.perform(
     request: request,
-) { response, responseBodyAndTrailers in
+) { response, responseReader in
     print("Status: \(response.status)")
 
     // Collect the response body.
-    let (_, trailers) = try await responseBodyAndTrailers.collect(upTo: 1024 * 1024) { span in
+    let (_, trailer) = try await responseReader.collect(upTo: 1024 * 1024) { span in
         // Process the response body
         print("Received \(span.count) bytes")
     }
 
-    // Check if there are response trailers
-    if let trailers = trailers {
-        print("Trailers: \(trailers)")
+    // Check if there are response trailer fields
+    if let trailer {
+        print("Trailer: \(trailer)")
     }
 }
 ```
@@ -90,25 +88,13 @@ try await HTTP.perform(
 Starting a simple echo HTTP server:
 
 ```swift
-import HTTPServer
+import NIOHTTPServer // from swift-http-server
 
-try await httpServer.serve { request, requestContext, requestBodyAndTrailers, responseSender in
+try await httpServer.serve { request, requestContext, requestReader, responseHeaderWriter in
     print("Received request \(request) with context \(requestContext)")
-    
-    // Needed since we are lacking call-once closures
-    var responseSender = Optional(responseSender)
 
-    _ = try await requestBodyAndTrailers.consumeAndConclude { reader in
-        // Needed since we are lacking call-once closures
-        var reader = Optional(reader)
-
-        let responseBodyAndTrailers = try await responseSender.take()!.send(.init(status: .ok))
-        try await responseBodyAndTrailers.produceAndConclude { responseBody in
-            var responseBody = responseBody
-            try await responseBody.write(reader.take()!)
-            return nil
-        }
-    }
+    let responseWriter = try await responseHeaderWriter.send(.init(status: .ok))
+    try await requestReader.pipe(into: responseWriter)
 }
 ```
 
