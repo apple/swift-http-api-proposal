@@ -13,8 +13,8 @@ jobs:
     uses: swiftlang/github-workflows/.github/workflows/soundness.yml@main
     with:
       license_header_check_project_name: "Swift HTTP API Proposal"
-      api_breakage_check_container_image: "swiftlang/swift:nightly-main-noble"
-      format_check_container_image: "swiftlang/swift:nightly-main-noble"  # Needed due to https://github.com/swiftlang/swift-format/issues/1081
+      api_breakage_check_container_image: "swiftlang/swift:nightly-6.4.x-noble"
+      format_check_container_image: "swiftlang/swift:nightly-6.4.x-noble"
 
   unit-tests:
     name: Unit tests
