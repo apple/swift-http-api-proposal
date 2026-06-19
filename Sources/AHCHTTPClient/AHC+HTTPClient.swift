@@ -101,7 +101,7 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
         var buffer = UniqueArray<UInt8>()
         var trailersDelivered: Bool = false
 
-        init(body: HTTPClientResponse.Body) {
+        public init(body: HTTPClientResponse.Body) {
             self.body = body
             self.underlying = body.makeAsyncIterator()
         }
