@@ -4,11 +4,8 @@ import PackageDescription
 
 let extraSettings: [SwiftSetting] = [
     .strictMemorySafety(),
-    .enableExperimentalFeature("SuppressedAssociatedTypesWithDefaults"),
-    .enableExperimentalFeature("LifetimeDependence"),
     .enableExperimentalFeature("Lifetimes"),
     .enableExperimentalFeature("Extern"),
-    .enableUpcomingFeature("LifetimeDependence"),
     .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
     .enableUpcomingFeature("InferIsolatedConformances"),
     .enableUpcomingFeature("ExistentialAny"),
@@ -39,7 +36,7 @@ let package = Package(
         .default(enabledTraits: ["Configuration"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-collections.git", from: "1.5.1"),
+        .package(url: "https://github.com/apple/swift-collections.git", from: "1.6.0"),
         .package(
             url: "https://github.com/apple/swift-async-algorithms.git",
             revision: "8ee3d2be1961950f94b6fa758477e3a0c5486aa9",
@@ -47,7 +44,7 @@ let package = Package(
         ),
         .package(url: "https://github.com/apple/swift-http-types.git", from: "1.6.0"),
         .package(url: "https://github.com/apple/swift-certificates.git", from: "1.19.1"),
-        .package(url: "https://github.com/apple/swift-log.git", from: "1.13.1"),
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.13.2"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.100.0"),
         .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.37.0"),
         .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.34.1"),
