@@ -39,7 +39,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-collections.git", from: "1.6.0"),
         .package(
             url: "https://github.com/apple/swift-async-algorithms.git",
-            revision: "8ee3d2be1961950f94b6fa758477e3a0c5486aa9",
+            exact: "1.1.5",
             traits: ["UnstableAsyncStreaming"]
         ),
         .package(url: "https://github.com/apple/swift-http-types.git", from: "1.6.0"),
@@ -51,8 +51,9 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-nio-http2.git", from: "1.44.0"),
         .package(url: "https://github.com/apple/swift-configuration.git", from: "1.2.0"),
         .package(
-            url: "https://github.com/swift-server/async-http-client.git",
-            revision: "a0ab90739bc856e7a097da8a4e71794aaaec651f"
+            url: "https://github.com/guoye-zhang/async-http-client.git",
+            revision: "ea8eccfb2cef417914ad50feec4814a14e7bbab5",
+            traits: ["ExperimentalHTTPAPIsSupport"]
         ),
     ],
     targets: [

@@ -11,7 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_spi(ExperimentalHTTPAPIsSupport) public import AsyncHTTPClient
+public import AsyncHTTPClient
 public import BasicContainers
 import Foundation
 @_exported public import HTTPAPIs
