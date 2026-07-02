@@ -898,8 +898,6 @@ struct ConformanceTestSuite<Client: HTTPClient & ~Copyable> {
         )
 
         // Read only a single byte from the body. We do not care about the rest of the 1Mb.
-        // The upstream `collect(upTo:)` now throws `AsyncReaderLeftOverElementsError`
-        // when the reader produces more elements than the limit, so we tolerate it.
         try await client.perform(
             request: request,
         ) { response, responseBodyAndTrailers in

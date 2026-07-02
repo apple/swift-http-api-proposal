@@ -62,7 +62,8 @@ struct ServerCapabilityTests {
                 body: nil
             ) { response, reader in
                 #expect(response.status == .ok)
-                _ = try await reader.collect(upTo: 100) { _ in }
+                var buffer = UniqueArray<UInt8>(minimumCapacity: 100)
+                _ = try await reader.collect(into: &buffer)
             }
 
             group.cancelAll()
