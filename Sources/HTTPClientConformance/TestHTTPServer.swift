@@ -134,9 +134,9 @@ func serve(server: NIOHTTPServer) async throws {
             }
 
             // Parse the body as a UTF8 string and capture trailers
-            let (body, requestTrailers) = try await requestReader.collect(upTo: 1_000_000) { span in
-                String(copying: try UTF8Span(validating: span.span))
-            }
+            var bodyBuffer = UniqueArray<UInt8>(minimumCapacity: 1_000_000)
+            let requestTrailers = try await requestReader.collect(into: &bodyBuffer)
+            let body = String(copying: try UTF8Span(validating: bodyBuffer.span))
 
             // Collect the trailers that were sent in with the request
             var trailers: [String: [String]] = [:]
