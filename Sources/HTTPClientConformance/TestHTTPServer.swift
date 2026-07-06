@@ -326,7 +326,7 @@ func serve(server: NIOHTTPServer) async throws {
             // Bad method
             if request.method != .post {
                 var bodyBuffer = UniqueArray<UInt8>(minimumCapacity: 1)
-            _ = try await requestReader.collect(into: &bodyBuffer)
+                _ = try await requestReader.collect(into: &bodyBuffer)
                 var body = UniqueArray<UInt8>(copying: "Incorrect method".utf8)
                 try await responseSender.sendAndFinish(
                     HTTPResponse(status: .methodNotAllowed),
@@ -364,7 +364,7 @@ func serve(server: NIOHTTPServer) async throws {
         case "/stall":
             do {
                 var bodyBuffer = UniqueArray<UInt8>(minimumCapacity: 1)
-            _ = try await requestReader.collect(into: &bodyBuffer)
+                _ = try await requestReader.collect(into: &bodyBuffer)
                 // Wait for an hour (effectively never giving an answer)
                 try await Task.sleep(for: .seconds(60 * 60))
                 assertionFailure("Not expected to complete hour-long wait")
@@ -374,7 +374,7 @@ func serve(server: NIOHTTPServer) async throws {
         case "/stall_body":
             do {
                 var bodyBuffer = UniqueArray<UInt8>(minimumCapacity: 1)
-            _ = try await requestReader.collect(into: &bodyBuffer)
+                _ = try await requestReader.collect(into: &bodyBuffer)
                 var writer = try await responseSender.send(.init(status: .ok))
                 var buffer = UniqueArray<UInt8>(copying: [UInt8](repeating: UInt8(ascii: "A"), count: 1000))
                 try await writer.write(buffer: &buffer)
