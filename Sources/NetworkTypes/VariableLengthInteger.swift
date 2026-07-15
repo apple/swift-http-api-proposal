@@ -84,8 +84,10 @@ public enum VariableLengthInteger {
         /// The decoded value.
         public let value: UInt64
 
-        /// Bytes used for the encoding. This might differ from `encodedByteCount(value)`
-        /// since it is not required that values are encoded using the minimum number of bytes.
+        /// Number of bytes used for the encoding.
+        ///
+        /// This might differ from `encodedByteCount(value)` since it is not
+        /// required that values are encoded using the minimum number of bytes.
         public let byteCount: Int
     }
 

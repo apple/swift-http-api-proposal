@@ -15,7 +15,9 @@
 ///
 /// Capsule types occupy an open 62-bit IANA registry.
 public struct CapsuleType: Sendable, Hashable {
-    /// The numeric type code. Must be in the range `0 ... 2^62 - 1`.
+    /// The numeric type code.
+    ///
+    /// Must be in the range `0 ... 2^62 - 1`.
     public var code: UInt64
 
     /// Creates a capsule type from its numeric code.
@@ -57,7 +59,7 @@ public struct Capsule: ~Escapable {
     /// The capsule type code.
     public var type: CapsuleType
 
-    /// The value is an opaque byte sequence. Its meaning is defined by ``type``.
+    /// The value is an opaque byte sequence.
     public var value: Span<UInt8>
 
     /// Creates a capsule from a type and a borrowed value.
@@ -80,11 +82,12 @@ public struct Capsule: ~Escapable {
     }
 
     /// Decodes a capsule's header (type and length) from the front of
-    /// `input`, without requiring the value bytes to be present. Mutates
-    /// the span to start with the value.
+    /// `input`.
     ///
-    /// This lets a caller inspect the header (e.g., to reject an
-    /// oversized value) before consuming the value.
+    /// This does not require the value bytes to be present. Mutates
+    /// the span to start with the value. This lets a caller inspect the
+    /// header (e.g., to reject an oversized value) before consuming
+    /// the value.
     ///
     /// - Returns: The `HeaderInformation` for capsule type or
     ///   `nil` if `input` does not yet contain a complete type and
@@ -98,11 +101,11 @@ public struct Capsule: ~Escapable {
     }
 
     /// Decodes a capsule's header (type and length) from the front of
-    /// `input`, without requiring the value bytes to be present. This
-    /// does not mutate the span.
+    /// `input`.
     ///
-    /// This lets a caller inspect the header (e.g., to reject an
-    /// oversized value) before consuming the value.
+    /// This does not require the value bytes to be present. This
+    /// does not mutate the span. This lets a caller inspect the header
+    /// (e.g., to reject an oversized value) before consuming the value.
     ///
     /// - Returns: The `HeaderInformation` for capsule type or
     ///   `nil` if `input` does not yet contain a complete type and
