@@ -35,18 +35,23 @@ struct VariableLengthIntegerTests {
     @Test
     @available(anyAppleOS 26.0, *)
     func encodedByteCount() throws {
+        // 0 to 6 bits fit into 1 byte.
         #expect(try VariableLengthInteger.encodedByteCount(0) == 1)
         #expect(try VariableLengthInteger.encodedByteCount(0x3F) == 1)
 
+        // 7 to 14 bits fit into 2 bytes.
         #expect(try VariableLengthInteger.encodedByteCount(0x3F + 1) == 2)
         #expect(try VariableLengthInteger.encodedByteCount(0x3FFF) == 2)
 
+        // 15 to 30 bits fit into 4 bytes.
         #expect(try VariableLengthInteger.encodedByteCount(0x3FFF + 1) == 4)
         #expect(try VariableLengthInteger.encodedByteCount(0x3FFF_FFFF) == 4)
 
+        // 31 to 62 bits fit into 8 bytes.
         #expect(try VariableLengthInteger.encodedByteCount(0x3FFF_FFFF + 1) == 8)
         #expect(try VariableLengthInteger.encodedByteCount(VariableLengthInteger.max) == 8)
 
+        // Larger values cannot be encoded.
         #expect(throws: NetworkTypeError.exceedsMaximumValue.self) {
             try VariableLengthInteger.encodedByteCount(VariableLengthInteger.max + 1)
         }

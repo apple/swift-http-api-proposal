@@ -22,8 +22,8 @@ public struct CapsuleType: Sendable, Hashable {
     ///
     /// - Precondition: `code` is less than or equal to ``VariableLengthInteger/max``.
     public init(_ code: UInt64) {
-        // This cannot be triggered remotely since we parse these from a `VariableLengthInteger`
-        // where the upper bits are part of the decoder.
+        // This cannot be hit remotely when decoding capsules since
+        // the `VariableLengthInteger` decoder interprets those bits.
         assert(code <= VariableLengthInteger.max, "capsule type \(code) exceeds the variable-length integer maximum")
         self.code = code
     }
@@ -51,16 +51,9 @@ extension CapsuleType: ExpressibleByIntegerLiteral {
 /// A single capsule containing a type code and its opaque value, per RFC 9297, Section 3.2.
 ///
 /// ``value`` is a borrowed view into the bytes the capsule was decoded from.
-/// As a result, `Capsule` is non-escapable.  The value's internal structure is defined by
-/// ``type``.
+/// The value's internal structure is defined by ``type``.
 @available(anyAppleOS 26.0, *)
 public struct Capsule: ~Escapable {
-
-    public enum CodingError: Swift::Error {
-        case insufficientBytes
-        case insufficientCapacity
-    }
-
     /// The capsule type code.
     public var type: CapsuleType
 
@@ -75,9 +68,6 @@ public struct Capsule: ~Escapable {
     }
 
     /// Header information for a Capsule.
-    ///
-    /// Returned by ``decodeHeader(from:)`` when the input contains enough
-    /// bytes to parse the header.
     public struct HeaderInformation {
         /// The capsule type code.
         public let type: CapsuleType
@@ -94,9 +84,7 @@ public struct Capsule: ~Escapable {
     /// the span to start with the value.
     ///
     /// This lets a caller inspect the header (e.g., to reject an
-    /// oversized value) before consuming the value. Large
-    /// values can be parsed separately after consuming the
-    /// header.
+    /// oversized value) before consuming the value.
     ///
     /// - Returns: The `HeaderInformation` for capsule type or
     ///   `nil` if `input` does not yet contain a complete type and

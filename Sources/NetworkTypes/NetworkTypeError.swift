@@ -11,8 +11,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+/// Errors returned from other network types.
 @nonexhaustive
 public enum NetworkTypeError: Error {
+    /// A input value exceeds the maximum by the specification.
     case exceedsMaximumValue
+
+    /// A value cannot be written to a buffer because the buffer
+    /// does not have sufficient capacity to hold it.
     case insufficientCapacity
 }
