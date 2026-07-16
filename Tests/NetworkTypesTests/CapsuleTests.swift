@@ -124,7 +124,7 @@ struct CapsuleTests {
     @available(anyAppleOS 26.0, *)
     func encodedByteCountMatchesLayout() throws {
         let payload: [UInt8] = [0xde, 0xad, 0xbe, 0xef]
-        let capsule = Capsule(type: .datagram, value: payload.span)
+        let capsule = Capsule(type: .datagram, value: payload)
         #expect(try capsule.encodedByteCount == 6)  // 1 (type) + 1 (length) + 4 (value)
     }
 
@@ -132,9 +132,9 @@ struct CapsuleTests {
     @available(anyAppleOS 26.0, *)
     func encodesDatagramToWireBytes() throws {
         let payload: [UInt8] = [0xde, 0xad, 0xbe, 0xef]
-        let count = try Capsule(type: .datagram, value: payload.span).encodedByteCount
+        let count = try Capsule(type: .datagram, value: payload).encodedByteCount
         let encoded = try [UInt8](capacity: count) { output in
-            try Capsule(type: .datagram, value: payload.span).encode(into: &output)
+            try Capsule(type: .datagram, value: payload).encode(into: &output)
         }
         #expect(encoded == [0x00, 0x04, 0xde, 0xad, 0xbe, 0xef])
     }
@@ -152,9 +152,9 @@ struct CapsuleTests {
     @available(anyAppleOS 26.0, *)
     func roundTripsThroughEncodeAndDecode() throws {
         let payload: [UInt8] = [0x01, 0x02, 0x03]
-        let count = try Capsule(type: CapsuleType(0x1234), value: payload.span).encodedByteCount
+        let count = try Capsule(type: CapsuleType(0x1234), value: payload).encodedByteCount
         let encoded = try [UInt8](capacity: count) { output in
-            try Capsule(type: CapsuleType(0x1234), value: payload.span).encode(into: &output)
+            try Capsule(type: CapsuleType(0x1234), value: payload).encode(into: &output)
         }
         var rest = encoded.span
         if let decoded = Capsule.decode(from: &rest) {

@@ -15,16 +15,15 @@
 ///
 /// ``value`` is a borrowed view into the bytes the capsule was decoded from.
 /// The value's internal structure is defined by ``type``.
-public struct Capsule: ~Escapable {
+public struct Capsule {
     /// The capsule type.
     public var type: CapsuleType
 
     /// The value is an opaque byte sequence.
-    public var value: Span<UInt8>
+    public var value: Array<UInt8>
 
     /// Creates a capsule from a type and a borrowed value.
-    @_lifetime(copy value)
-    public init(type: CapsuleType, value: Span<UInt8>) {
+    public init(type: CapsuleType, value: Array<UInt8>) {
         self.type = type
         self.value = value
     }
@@ -90,7 +89,6 @@ public struct Capsule: ~Escapable {
     ///
     /// - Returns: The decoded capsule, or `nil` if `input` does not yet contain a
     ///   complete capsule. When `nil` is returned, `input` is left unchanged.
-    @_lifetime(copy input)
     public static func decode(from input: inout Span<UInt8>) -> Capsule? {
         guard let header = Self.peekHeader(from: input) else {
             return nil
@@ -100,7 +98,15 @@ public struct Capsule: ~Escapable {
             return nil
         }
 
-        let value = input.extracting(droppingFirst: header.headerByteCount)
+        // Copy the value.
+        let valueSpan = input.extracting(droppingFirst: header.headerByteCount)
+        let value = Array<UInt8>(capacity: valueSpan.count) { outputSpan in
+            for index in 0..<valueSpan.count {
+                outputSpan.append(valueSpan[index])
+            }
+        }
+
+        // Create the capulse.
         let capsule = Capsule(type: header.type, value: value)
 
         // Drop consumed bytes from span.
