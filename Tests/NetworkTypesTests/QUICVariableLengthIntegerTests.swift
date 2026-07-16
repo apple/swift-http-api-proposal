@@ -15,12 +15,12 @@ import NetworkTypes
 import Testing
 
 @Suite
-struct VariableLengthIntegerTests {
+struct QUICVariableLengthIntegerTests {
     /// Encodes `value` into a fresh byte array via the OutputSpan initializer.
     @available(anyAppleOS 26.0, *)
     static func encoded(_ value: UInt64) throws -> [UInt8] {
         try [UInt8](capacity: 8) { output in
-            try VariableLengthInteger.encode(value, into: &output)
+            try QUICVariableLengthInteger.encode(value, into: &output)
         }
     }
 
@@ -28,7 +28,7 @@ struct VariableLengthIntegerTests {
     @available(anyAppleOS 26.0, *)
     static func encoded(_ value: UInt64, intoBufferWithCapacity capacity: Int) throws -> [UInt8] {
         try [UInt8](capacity: capacity) { output in
-            try VariableLengthInteger.encode(value, into: &output)
+            try QUICVariableLengthInteger.encode(value, into: &output)
         }
     }
 
@@ -36,24 +36,24 @@ struct VariableLengthIntegerTests {
     @available(anyAppleOS 26.0, *)
     func encodedByteCount() throws {
         // 0 to 6 bits fit into 1 byte.
-        #expect(try VariableLengthInteger.encodedByteCount(0) == 1)
-        #expect(try VariableLengthInteger.encodedByteCount(0x3F) == 1)
+        #expect(try QUICVariableLengthInteger.encodedByteCount(0) == 1)
+        #expect(try QUICVariableLengthInteger.encodedByteCount(0x3F) == 1)
 
         // 7 to 14 bits fit into 2 bytes.
-        #expect(try VariableLengthInteger.encodedByteCount(0x3F + 1) == 2)
-        #expect(try VariableLengthInteger.encodedByteCount(0x3FFF) == 2)
+        #expect(try QUICVariableLengthInteger.encodedByteCount(0x3F + 1) == 2)
+        #expect(try QUICVariableLengthInteger.encodedByteCount(0x3FFF) == 2)
 
         // 15 to 30 bits fit into 4 bytes.
-        #expect(try VariableLengthInteger.encodedByteCount(0x3FFF + 1) == 4)
-        #expect(try VariableLengthInteger.encodedByteCount(0x3FFF_FFFF) == 4)
+        #expect(try QUICVariableLengthInteger.encodedByteCount(0x3FFF + 1) == 4)
+        #expect(try QUICVariableLengthInteger.encodedByteCount(0x3FFF_FFFF) == 4)
 
         // 31 to 62 bits fit into 8 bytes.
-        #expect(try VariableLengthInteger.encodedByteCount(0x3FFF_FFFF + 1) == 8)
-        #expect(try VariableLengthInteger.encodedByteCount(VariableLengthInteger.max) == 8)
+        #expect(try QUICVariableLengthInteger.encodedByteCount(0x3FFF_FFFF + 1) == 8)
+        #expect(try QUICVariableLengthInteger.encodedByteCount(QUICVariableLengthInteger.max) == 8)
 
         // Larger values cannot be encoded.
         #expect(throws: NetworkTypeError.exceedsMaximumValue.self) {
-            try VariableLengthInteger.encodedByteCount(VariableLengthInteger.max + 1)
+            try QUICVariableLengthInteger.encodedByteCount(QUICVariableLengthInteger.max + 1)
         }
     }
 
@@ -61,13 +61,13 @@ struct VariableLengthIntegerTests {
     @available(anyAppleOS 26.0, *)
     func decodesRFC9000Vectors() {
         let eightByte: [UInt8] = [0xc2, 0x19, 0x7c, 0x5e, 0xff, 0x14, 0xe8, 0x8c]
-        #expect(VariableLengthInteger.decode(from: eightByte.span)?.value == 151_288_809_941_952_652)
+        #expect(QUICVariableLengthInteger.decode(from: eightByte.span)?.value == 151_288_809_941_952_652)
         let fourByte: [UInt8] = [0x9d, 0x7f, 0x3e, 0x7d]
-        #expect(VariableLengthInteger.decode(from: fourByte.span)?.value == 494_878_333)
+        #expect(QUICVariableLengthInteger.decode(from: fourByte.span)?.value == 494_878_333)
         let twoByte: [UInt8] = [0x7b, 0xbd]
-        #expect(VariableLengthInteger.decode(from: twoByte.span)?.value == 15_293)
+        #expect(QUICVariableLengthInteger.decode(from: twoByte.span)?.value == 15_293)
         let oneByte: [UInt8] = [0x25]
-        #expect(VariableLengthInteger.decode(from: oneByte.span)?.value == 37)
+        #expect(QUICVariableLengthInteger.decode(from: oneByte.span)?.value == 37)
     }
 
     @Test
@@ -75,7 +75,7 @@ struct VariableLengthIntegerTests {
     func decodesNonMinimalEncoding() {
         // 37 encoded in two bytes instead of one; legal to receive (RFC 9297 §1.1).
         let bytes: [UInt8] = [0x40, 0x25]
-        let result = VariableLengthInteger.decode(from: bytes.span)
+        let result = QUICVariableLengthInteger.decode(from: bytes.span)
         #expect(result?.value == 37)
         #expect(result?.byteCount == 2)
     }
@@ -85,9 +85,9 @@ struct VariableLengthIntegerTests {
     func decodeReturnsNilWhenTruncated() {
         // First byte announces a 4-byte integer, only 2 bytes present.
         let truncated: [UInt8] = [0x9d, 0x7f]
-        #expect(VariableLengthInteger.decode(from: truncated.span) == nil)
+        #expect(QUICVariableLengthInteger.decode(from: truncated.span) == nil)
         let empty: [UInt8] = []
-        #expect(VariableLengthInteger.decode(from: empty.span) == nil)
+        #expect(QUICVariableLengthInteger.decode(from: empty.span) == nil)
     }
 
     @Test
@@ -115,7 +115,7 @@ struct VariableLengthIntegerTests {
     @available(anyAppleOS 26.0, *)
     func roundTripsAllBoundaries(value: UInt64) throws {
         let bytes = try Self.encoded(value)
-        let decoded = VariableLengthInteger.decode(from: bytes.span)
+        let decoded = QUICVariableLengthInteger.decode(from: bytes.span)
         #expect(decoded?.value == value)
         #expect(decoded?.byteCount == bytes.count)
     }

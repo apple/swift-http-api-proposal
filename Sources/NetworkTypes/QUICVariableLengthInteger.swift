@@ -16,7 +16,7 @@
 /// The two most significant bits of the first byte select the encoded length
 /// (1, 2, 4, or 8 bytes); the remaining bits hold the value in network byte
 /// order.
-public enum VariableLengthInteger {
+public enum QUICVariableLengthInteger {
     /// The largest representable value, `2^62 - 1`.
     public static var max: UInt64 { 0x3FFF_FFFF_FFFF_FFFF }
 
@@ -35,21 +35,6 @@ public enum VariableLengthInteger {
         }
     }
 
-    /// Write`value` into `output` in network byte order.
-    ///
-    /// - Precondition: `output` has enough capcity to write `value`.
-    private static func write<T: BinaryInteger & FixedWidthInteger>(_ value: T, into output: inout OutputSpan<UInt8>) {
-        let numBytes = MemoryLayout<T>.size
-        assert(output.capacity >= numBytes)
-        let valueBigEndian = value.bigEndian
-
-        withUnsafeBytes(of: valueBigEndian) { bufferPointer in
-            for unsafe value in unsafe bufferPointer {
-                output.append(value)
-            }
-        }
-    }
-
     /// Encodes `value` into `output` using the minimal number of bytes.
     ///
     /// - throws: ``NetworkTypeError.exceedsMaximumValue`` if `value` is greater than ``max``.
@@ -63,16 +48,16 @@ public enum VariableLengthInteger {
         switch byteCount {
         case 1:
             let value = UInt8(truncatingIfNeeded: value)
-            Self.write(value, into: &output)
+            output.write(value)
         case 2:
             let value = UInt16(truncatingIfNeeded: value | 0x4000)
-            Self.write(value, into: &output)
+            output.write(value)
         case 4:
             let value = UInt32(truncatingIfNeeded: value | 0x8000_0000)
-            Self.write(value, into: &output)
+            output.write(value)
         case 8:
             let value = UInt64(truncatingIfNeeded: value | 0xC000_0000_0000_0000)
-            Self.write(value, into: &output)
+            output.write(value)
         default:
             throw .exceedsMaximumValue
         }
@@ -112,4 +97,22 @@ public enum VariableLengthInteger {
         }
         return .init(value: value, byteCount: byteCount)
     }
+}
+
+extension OutputSpan<UInt8> {
+    /// Write`value` into `output` in network byte order.
+    ///
+    /// - Precondition: `output` has enough capcity to write `value`.
+    mutating func write<T: BinaryInteger & FixedWidthInteger>(_ value: T) {
+        let numBytes = MemoryLayout<T>.size
+        assert(self.capacity >= numBytes)
+        let valueBigEndian = value.bigEndian
+
+        withUnsafeBytes(of: valueBigEndian) { bufferPointer in
+            for unsafe value in unsafe bufferPointer {
+                self.append(value)
+            }
+        }
+    }
+
 }

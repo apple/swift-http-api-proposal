@@ -116,7 +116,7 @@ struct CapsuleTests {
     func peekAllFCapsuleTypeHeader() {
         let bytes: [UInt8] = [0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x00]
         let header = Capsule.peekHeader(from: bytes.span)
-        #expect(header?.type == CapsuleType(VariableLengthInteger.max))
+        #expect(header?.type == CapsuleType(QUICVariableLengthInteger.max))
         #expect(header?.valueByteCount == 0)
     }
 

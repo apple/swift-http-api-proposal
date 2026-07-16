@@ -29,15 +29,23 @@ public struct Capsule {
     }
 
     /// Header information for a Capsule.
-    public struct HeaderInformation {
+    public struct HeaderInformation: Sendable, Hashable {
+
+        /// Initialize new HeaderInformation.
+        public init(type: CapsuleType, valueByteCount: Int, headerByteCount: Int) {
+            self.type = type
+            self.valueByteCount = valueByteCount
+            self.headerByteCount = headerByteCount
+        }
+
         /// The capsule type.
-        public let type: CapsuleType
+        public var type: CapsuleType
 
         /// Length of the capsule's value following the header.
-        public let valueByteCount: Int
+        public var valueByteCount: Int
 
         /// Number of bytes used to encode the capsule type and value length.
-        public let headerByteCount: Int
+        public var headerByteCount: Int
     }
 
     /// Decodes a capsule's header (type and length) from the front of
@@ -70,11 +78,11 @@ public struct Capsule {
     ///   `nil` if `input` does not yet contain a complete type and
     ///   length.
     public static func peekHeader(from input: Span<UInt8>) -> HeaderInformation? {
-        guard let decodedType = VariableLengthInteger.decode(from: input) else {
+        guard let decodedType = QUICVariableLengthInteger.decode(from: input) else {
             return nil
         }
         let remainingBytes = input.extracting(droppingFirst: decodedType.byteCount)
-        guard let decodedLength = VariableLengthInteger.decode(from: remainingBytes) else {
+        guard let decodedLength = QUICVariableLengthInteger.decode(from: remainingBytes) else {
             return nil
         }
         return HeaderInformation(
@@ -124,8 +132,8 @@ extension Capsule {
     ///   maximum length of ``VariableLengthInteger``.
     public var encodedByteCount: Int {
         get throws(NetworkTypeError) {
-            try VariableLengthInteger.encodedByteCount(self.type.rawValue)
-                + VariableLengthInteger.encodedByteCount(UInt64(self.value.count))
+            try QUICVariableLengthInteger.encodedByteCount(self.type.rawValue)
+                + QUICVariableLengthInteger.encodedByteCount(UInt64(self.value.count))
                 + self.value.count
         }
     }
@@ -140,8 +148,8 @@ extension Capsule {
         }
 
         // First the type and value length ...
-        try VariableLengthInteger.encode(self.type.rawValue, into: &output)
-        try VariableLengthInteger.encode(UInt64(self.value.count), into: &output)
+        try QUICVariableLengthInteger.encode(self.type.rawValue, into: &output)
+        try QUICVariableLengthInteger.encode(UInt64(self.value.count), into: &output)
 
         // ... followed by the value itself.
         for index in 0..<self.value.count {
@@ -157,7 +165,7 @@ extension Capsule {
     /// - throws: ``NetworkTypeError`` if `output` has does not
     ///   have at least ``encodedByteCount`` bytes of remaining capacity
     public static func encodeHeader(type: CapsuleType, valueByteCount: Int, into output: inout OutputSpan<UInt8>) throws(NetworkTypeError) {
-        try VariableLengthInteger.encode(type.rawValue, into: &output)
-        try VariableLengthInteger.encode(UInt64(valueByteCount), into: &output)
+        try QUICVariableLengthInteger.encode(type.rawValue, into: &output)
+        try QUICVariableLengthInteger.encode(UInt64(valueByteCount), into: &output)
     }
 }

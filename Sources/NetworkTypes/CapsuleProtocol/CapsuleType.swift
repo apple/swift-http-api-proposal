@@ -24,7 +24,11 @@ public struct CapsuleType: Sendable, Hashable {
     /// The numeric type rawValue.
     ///
     /// Must be in the range `0 ... 2^62 - 1`.
-    public var rawValue: UInt64
+    public var rawValue: UInt64 {
+        didSet {
+            precondition(rawValue <= QUICVariableLengthInteger.max, "capsule type \(rawValue) exceeds the allowed maximum value")
+        }
+    }
 
     /// Creates a capsule type from its numeric rawValue.
     ///
@@ -32,7 +36,7 @@ public struct CapsuleType: Sendable, Hashable {
     public init(_ rawValue: UInt64) {
         // This cannot be hit remotely when decoding capsules since
         // the `VariableLengthInteger` decoder interprets those bits.
-        assert(rawValue <= VariableLengthInteger.max, "capsule type \(rawValue) exceeds the variable-length integer maximum")
+        assert(rawValue <= QUICVariableLengthInteger.max, "capsule type \(rawValue) exceeds the variable-length integer maximum")
         self.rawValue = rawValue
     }
 
