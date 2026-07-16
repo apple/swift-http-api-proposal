@@ -11,52 +11,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// A capsule type code, as defined in RFC 9297, Section 3.2.
-///
-/// Capsule types occupy an open 62-bit IANA registry.
-public struct CapsuleType: Sendable, Hashable {
-    /// The numeric type code.
-    ///
-    /// Must be in the range `0 ... 2^62 - 1`.
-    public var code: UInt64
-
-    /// Creates a capsule type from its numeric code.
-    ///
-    /// - Precondition: `code` is less than or equal to ``VariableLengthInteger/max``.
-    public init(_ code: UInt64) {
-        // This cannot be hit remotely when decoding capsules since
-        // the `VariableLengthInteger` decoder interprets those bits.
-        assert(code <= VariableLengthInteger.max, "capsule type \(code) exceeds the variable-length integer maximum")
-        self.code = code
-    }
-
-    /// The `DATAGRAM` capsule type (RFC 9297, Section 3.5).
-    public static var datagram: CapsuleType { 0x00 }
-
-    /// The `ADDRESS_ASSIGN` capusle type (RFC 9484, Section 4.7.1).
-    public static var addressAssign: CapsuleType { 0x01 }
-
-    /// The `ADDRESS_REQUEST` capusle type (RFC 9484, Section 4.7.2).
-    public static var addressRequest: CapsuleType { 0x02 }
-
-    /// The `ROUTE_ADVERTISEMENT` capsule type (RFC 9484, Section 4.7.3).
-    public static var routeAdvertisement: CapsuleType { 0x03 }
-}
-
-// Enable direct initialization from integer literals
-extension CapsuleType: ExpressibleByIntegerLiteral {
-    public init(integerLiteral value: UInt64) {
-        self.init(value)
-    }
-}
-
 /// A single capsule containing a type code and its opaque value, per RFC 9297, Section 3.2.
 ///
 /// ``value`` is a borrowed view into the bytes the capsule was decoded from.
 /// The value's internal structure is defined by ``type``.
-@available(anyAppleOS 26.0, *)
 public struct Capsule: ~Escapable {
-    /// The capsule type code.
+    /// The capsule type.
     public var type: CapsuleType
 
     /// The value is an opaque byte sequence.
@@ -71,7 +31,7 @@ public struct Capsule: ~Escapable {
 
     /// Header information for a Capsule.
     public struct HeaderInformation {
-        /// The capsule type code.
+        /// The capsule type.
         public let type: CapsuleType
 
         /// Length of the capsule's value following the header.
@@ -119,7 +79,7 @@ public struct Capsule: ~Escapable {
             return nil
         }
         return HeaderInformation(
-            type: CapsuleType(decodedType.value),
+            type: .init(decodedType.value),
             valueByteCount: Int(decodedLength.value),
             headerByteCount: decodedType.byteCount + decodedLength.byteCount
         )
@@ -158,7 +118,7 @@ extension Capsule {
     ///   maximum length of ``VariableLengthInteger``.
     public var encodedByteCount: Int {
         get throws(NetworkTypeError) {
-            try VariableLengthInteger.encodedByteCount(self.type.code)
+            try VariableLengthInteger.encodedByteCount(self.type.rawValue)
                 + VariableLengthInteger.encodedByteCount(UInt64(self.value.count))
                 + self.value.count
         }
@@ -174,7 +134,7 @@ extension Capsule {
         }
 
         // First the type and value length ...
-        try VariableLengthInteger.encode(self.type.code, into: &output)
+        try VariableLengthInteger.encode(self.type.rawValue, into: &output)
         try VariableLengthInteger.encode(UInt64(self.value.count), into: &output)
 
         // ... followed by the value itself.
@@ -191,7 +151,7 @@ extension Capsule {
     /// - throws: ``NetworkTypeError`` if `output` has does not
     ///   have at least ``encodedByteCount`` bytes of remaining capacity
     public static func encodeHeader(type: CapsuleType, valueByteCount: Int, into output: inout OutputSpan<UInt8>) throws(NetworkTypeError) {
-        try VariableLengthInteger.encode(type.code, into: &output)
+        try VariableLengthInteger.encode(type.rawValue, into: &output)
         try VariableLengthInteger.encode(UInt64(valueByteCount), into: &output)
     }
 }

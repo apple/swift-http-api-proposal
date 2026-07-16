@@ -54,7 +54,6 @@ public enum VariableLengthInteger {
     ///
     /// - throws: ``NetworkTypeError.exceedsMaximumValue`` if `value` is greater than ``max``.
     /// - throws: ``NetworkTypeError.insufficientCapacity`` if `output` does not have enough capacity to encode `value`.
-    @available(anyAppleOS 26.0, *)
     public static func encode(_ value: UInt64, into output: inout OutputSpan<UInt8>) throws(NetworkTypeError) {
         let byteCount = try Self.encodedByteCount(value)
         guard output.capacity >= byteCount else {
@@ -95,7 +94,6 @@ public enum VariableLengthInteger {
     ///
     /// - Returns: The decoded value and the number of bytes it occupied, or
     ///   `nil` if `input` holds fewer bytes than its length prefix requires.
-    @available(anyAppleOS 26.0, *)
     public static func decode(from input: Span<UInt8>) -> DecodeResult? {
         guard input.count > 0 else {
             return nil

@@ -18,7 +18,7 @@ import Testing
 struct CapsuleTests {
     @Test
     func datagramTypeIsZero() {
-        #expect(CapsuleType.datagram.code == 0)
+        #expect(CapsuleType.datagram.rawValue == 0)
         #expect(CapsuleType.datagram == 0)
     }
 
