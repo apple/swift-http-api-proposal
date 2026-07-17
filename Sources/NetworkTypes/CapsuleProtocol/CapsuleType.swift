@@ -18,15 +18,18 @@
 /// of an HTTP datagram with meaning left to the application. In contrast, an `ADDRESS_ASSIGN`
 /// capsule (0x01, RFC 9484) defines the structure of the value and the inforamtion it carries.
 ///
-/// The named capsule types defined here are not exhaustive as new standards can define new capsule
-/// types.
+/// The capsule types defined here are not exhaustive. New standards can define new ones.
 public struct CapsuleType: Sendable, Hashable {
+
+    /// The largest representable value, `2^62 - 1`.
+    static var maxRawValue: UInt64 { 0x3FFF_FFFF_FFFF_FFFF }
+
     /// The numeric type rawValue.
     ///
     /// Must be in the range `0 ... 2^62 - 1`.
     public var rawValue: UInt64 {
         didSet {
-            precondition(rawValue <= QUICVariableLengthInteger.max, "capsule type \(rawValue) exceeds the allowed maximum value")
+            precondition(rawValue <= Self.maxRawValue, "capsule type \(rawValue) exceeds the allowed maximum value")
         }
     }
 
@@ -34,12 +37,19 @@ public struct CapsuleType: Sendable, Hashable {
     ///
     /// - Precondition: `rawValue` is less than or equal to ``VariableLengthInteger/max``.
     public init(_ rawValue: UInt64) {
-        // This cannot be hit remotely when decoding capsules since
-        // the `VariableLengthInteger` decoder interprets those bits.
-        assert(rawValue <= QUICVariableLengthInteger.max, "capsule type \(rawValue) exceeds the variable-length integer maximum")
+        precondition(rawValue <= Self.maxRawValue, "capsule type \(rawValue) exceeds the variable-length integer maximum")
         self.rawValue = rawValue
     }
+}
 
+// Enable direct initialization from integer literals
+extension CapsuleType: ExpressibleByIntegerLiteral {
+    public init(integerLiteral value: UInt64) {
+        self.init(value)
+    }
+}
+
+extension CapsuleType {
     /// The `DATAGRAM` capsule type (RFC 9297, Section 3.5).
     public static var datagram: Self { 0x00 }
 
@@ -51,11 +61,4 @@ public struct CapsuleType: Sendable, Hashable {
 
     /// The `ROUTE_ADVERTISEMENT` capsule type (RFC 9484, Section 4.7.3).
     public static var routeAdvertisement: Self { 0x03 }
-}
-
-// Enable direct initialization from integer literals
-extension CapsuleType: ExpressibleByIntegerLiteral {
-    public init(integerLiteral value: UInt64) {
-        self.init(value)
-    }
 }
