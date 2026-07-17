@@ -17,7 +17,7 @@
 /// endpoints must agree to use it, e.g., using Extended CONNECT in H2 and H3.
 ///
 /// A capsule is a TLV type. `value` contains opaque bytes, with a meaning defined
-/// by `type`. The length is `value.count`. 
+/// by `type`. The length is `value.count`.
 public struct Capsule: Sendable {
     /// The capsule type.
     public var type: CapsuleType
