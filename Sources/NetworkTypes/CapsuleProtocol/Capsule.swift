@@ -20,10 +20,10 @@ public struct Capsule {
     public var type: CapsuleType
 
     /// The value is an opaque byte sequence.
-    public var value: Array<UInt8>
+    public var value: [UInt8]
 
     /// Creates a capsule from a type and a borrowed value.
-    public init(type: CapsuleType, value: Array<UInt8>) {
+    public init(type: CapsuleType, value: [UInt8]) {
         self.type = type
         self.value = value
     }
@@ -108,7 +108,7 @@ public struct Capsule {
 
         // Copy the value.
         let valueSpan = input.extracting(droppingFirst: header.headerByteCount)
-        let value = Array<UInt8>(capacity: valueSpan.count) { outputSpan in
+        let value = [UInt8](capacity: valueSpan.count) { outputSpan in
             for index in 0..<valueSpan.count {
                 outputSpan.append(valueSpan[index])
             }
