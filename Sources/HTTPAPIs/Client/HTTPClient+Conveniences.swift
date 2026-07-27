@@ -11,6 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if !hasFeature(Embedded)
 import AsyncStreaming
 import BasicContainers
 
@@ -21,6 +22,7 @@ public import struct FoundationEssentials.Data
 public import struct Foundation.URL
 public import struct Foundation.Data
 #endif
+#endif  // !hasFeature(Embedded)
 
 @available(anyAppleOS 26.0, *)
 extension HTTPClient
@@ -53,7 +55,16 @@ where
         let options = options ?? self.defaultRequestOptions
         return try await self.perform(request: request, body: body, options: options, responseHandler: responseHandler)
     }
+}
 
+#if !hasFeature(Embedded)
+@available(anyAppleOS 26.0, *)
+extension HTTPClient
+where
+    Self: ~Copyable & ~Escapable,
+    Reader: ~Copyable,
+    Writer: ~Copyable
+{
     /// Performs an HTTP GET request and collects the response body.
     ///
     /// This convenience method executes a GET request to the specified URL and collects
@@ -254,3 +265,4 @@ where
 }
 
 struct LengthLimitExceededError: Error {}
+#endif  // !hasFeature(Embedded)

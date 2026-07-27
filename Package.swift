@@ -257,7 +257,7 @@ if enableWasm {
     ]
 
     package.dependencies.append(
-        .package(url: "https://github.com/swiftwasm/JavaScriptKit.git", from: "0.53.0")
+        .package(url: "https://github.com/swiftwasm/JavaScriptKit.git", from: "0.56.1")
     )
     package.products.append(
         .library(name: "FetchHTTPClient", targets: ["FetchHTTPClient"])
@@ -291,6 +291,9 @@ if enableWasm {
             ],
             path: "Examples/WasmClient",
             swiftSettings: wasmExtraSettings,
+            linkerSettings: [
+                .linkedLibrary("swiftUnicodeDataTables", .when(platforms: [.wasi]))
+            ],
             plugins: [
                 .plugin(name: "BridgeJS", package: "JavaScriptKit")
             ],
