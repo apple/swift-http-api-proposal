@@ -45,7 +45,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-http-types.git", from: "1.6.0"),
         .package(url: "https://github.com/apple/swift-certificates.git", from: "1.19.1"),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.13.2"),
-        .package(url: "https://github.com/apple/swift-nio.git", from: "2.100.0"),
+        .package(url: "https://github.com/apple/swift-nio.git", from: "2.101.3"),
         .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.37.0"),
         .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.34.1"),
         .package(url: "https://github.com/apple/swift-nio-http2.git", from: "1.44.0"),
@@ -116,11 +116,9 @@ let package = Package(
                 "HTTPClient",
                 // These dependencies are needed by the `swift-http-server` that
                 // we borrowed.
-                .product(name: "AsyncStreaming", package: "swift-async-algorithms"),
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "BasicContainers", package: "swift-collections"),
                 .product(name: "X509", package: "swift-certificates"),
-                .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOPosix", package: "swift-nio"),
                 .product(name: "NIOHTTP1", package: "swift-nio"),
@@ -135,6 +133,7 @@ let package = Package(
                     package: "swift-configuration",
                     condition: .when(traits: ["Configuration"])
                 ),
+                .product(name: "NIOExtras", package: "swift-nio-extras"),
             ],
             swiftSettings: extraSettings
         ),
