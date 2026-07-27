@@ -11,6 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if !hasFeature(Embedded)
 import BasicContainers
 
 #if canImport(FoundationEssentials)
@@ -34,3 +35,4 @@ extension HTTPClientRequestBody where Writer: ~Copyable {
         }
     }
 }
+#endif  // !hasFeature(Embedded)
