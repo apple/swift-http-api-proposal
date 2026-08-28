@@ -30,7 +30,7 @@ public import AsyncStreaming
 /// ```swift
 /// struct EchoHandler<
 ///     Context: HTTPServerCapability.RequestContext & ~Copyable,
-///     Reader: AsyncReader & ~Copyable,
+///     Reader: AsyncReader & ~Copyable & ~Escapable,
 ///     ResponseSender: HTTPResponseSender & ~Copyable
 /// >: HTTPServerRequestHandler
 /// where
@@ -55,8 +55,7 @@ public protocol HTTPServerRequestHandler<RequestContext, Reader, ResponseSender>
     associatedtype RequestContext: HTTPServerCapability.RequestContext, ~Copyable
 
     /// The body reader type used to stream request body bytes and trailers.
-    // TODO: Check if we should allow ~Escapable readers https://github.com/apple/swift-http-api-proposal/issues/13
-    associatedtype Reader: AsyncReader, ~Copyable
+    associatedtype Reader: AsyncReader, ~Copyable, ~Escapable
     where Reader.ReadElement == UInt8, Reader.FinalElement == HTTPFields?
 
     /// The type used to write response head, body, and trailing fields.
