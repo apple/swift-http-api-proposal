@@ -36,7 +36,7 @@ let package = Package(
         .default(enabledTraits: ["Configuration"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-collections.git", from: "1.6.0"),
+        .package(url: "https://github.com/apple/swift-collections.git", exact: "1.6.0", traits: ["UnstableContainersPreview"]),
         .package(
             url: "https://github.com/apple/swift-async-algorithms.git",
             exact: "1.1.5",
