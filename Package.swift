@@ -43,16 +43,21 @@ let package = Package(
             traits: ["UnstableAsyncStreaming"]
         ),
         .package(url: "https://github.com/apple/swift-http-types.git", from: "1.6.0"),
-        .package(url: "https://github.com/apple/swift-certificates.git", from: "1.19.1"),
+        // TODO: Temporarily pointing at a fork while `SecKey.makeWithPrivateKey(_:)` is upstreamed.
+        .package(url: "https://github.com/guoye-zhang/swift-certificates.git", branch: "private-key-to-seckey"),
+        .package(url: "https://github.com/apple/swift-asn1.git", from: "1.7.2"),
+        .package(url: "https://github.com/apple/swift-crypto.git", from: "4.5.2"),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.13.2"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.101.3"),
         .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.37.0"),
         .package(url: "https://github.com/apple/swift-nio-extras.git", from: "1.34.1"),
         .package(url: "https://github.com/apple/swift-nio-http2.git", from: "1.44.0"),
         .package(url: "https://github.com/apple/swift-configuration.git", from: "1.2.0", traits: []),
+        // TODO: Temporarily pointing at a fork while the per-request TLS hooks
+        // (`HTTPClientRequest._tlsVerificationHandler` and `_tlsClientCertificateHandler`) are upstreamed.
         .package(
-            url: "https://github.com/swift-server/async-http-client.git",
-            exact: "1.35.0",
+            url: "https://github.com/guoye-zhang/async-http-client.git",
+            branch: "per-request-tls-verification",
             traits: ["UnstableHTTPAPIsSupport"]
         ),
     ],
@@ -64,6 +69,7 @@ let package = Package(
                 .product(name: "AsyncStreaming", package: "swift-async-algorithms"),
                 "NetworkTypes",
                 .product(name: "HTTPTypes", package: "swift-http-types"),
+                .product(name: "X509", package: "swift-certificates"),
             ],
             swiftSettings: extraSettings
         ),
@@ -93,6 +99,9 @@ let package = Package(
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "AsyncHTTPClient", package: "async-http-client"),
                 .product(name: "NIOHTTP1", package: "swift-nio"),
+                .product(name: "NIOSSL", package: "swift-nio-ssl"),
+                .product(name: "X509", package: "swift-certificates"),
+                .product(name: "SwiftASN1", package: "swift-asn1"),
             ],
             swiftSettings: extraSettings
         ),
@@ -104,6 +113,8 @@ let package = Package(
                 "NetworkTypes",
                 .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "HTTPTypesFoundation", package: "swift-http-types"),
+                .product(name: "X509", package: "swift-certificates"),
+                .product(name: "SwiftASN1", package: "swift-asn1"),
             ],
             swiftSettings: extraSettings
         ),
@@ -119,6 +130,8 @@ let package = Package(
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "BasicContainers", package: "swift-collections"),
                 .product(name: "X509", package: "swift-certificates"),
+                .product(name: "SwiftASN1", package: "swift-asn1"),
+                .product(name: "Crypto", package: "swift-crypto"),
                 .product(name: "NIOCore", package: "swift-nio"),
                 .product(name: "NIOPosix", package: "swift-nio"),
                 .product(name: "NIOHTTP1", package: "swift-nio"),
@@ -168,7 +181,11 @@ let package = Package(
             name: "HTTPClientTests",
             dependencies: [
                 "HTTPClient",
+                "AHCHTTPClient",
+                "URLSessionHTTPClient",
                 "HTTPClientConformance",
+                .product(name: "AsyncHTTPClient", package: "async-http-client"),
+                .product(name: "X509", package: "swift-certificates"),
             ],
             swiftSettings: extraSettings
         ),

@@ -11,13 +11,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if canImport(Darwin)
 /// An enumeration that represents the action to take when evaluating server trust during TLS handshake.
 ///
 /// ``TrustEvaluationResult`` specifies whether to use the system's default trust evaluation,
 /// explicitly allow the connection, or explicitly deny it.
 @available(anyAppleOS 26.0, *)
-public enum TrustEvaluationResult {
+public enum TrustEvaluationResult: Hashable, Sendable {
     /// Uses the system's default trust evaluation for the server certificate.
     ///
     /// The system evaluates the server's certificate chain using standard trust policies
@@ -38,4 +37,3 @@ public enum TrustEvaluationResult {
     /// enforce additional security policies beyond system defaults.
     case deny
 }
-#endif

@@ -11,12 +11,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if canImport(Darwin)
-public import Security
+public import X509
 
 /// A protocol that defines the interface for evaluating server trust during TLS handshake.
 ///
 /// The `Identifiable` conformance allows a Hashable identifier for guiding connection reuse.
+/// Two requests whose handlers have equal identifiers may share a connection, so the identifier
+/// must capture everything that makes two handlers reach different decisions. The identifier is
+/// `Sendable` because client implementations carry it across concurrency domains to key their
+/// connection pools.
 ///
 /// - Important: Be careful when overriding default trust evaluation. Allowing invalid
 ///   certificates can expose users to security risks. Only bypass validation for
@@ -25,23 +28,22 @@ public import Security
 ///
 /// - SeeAlso: ``TrustEvaluationResult``
 @available(anyAppleOS 26.0, *)
-public protocol HTTPClientServerTrustHandler: Identifiable, Sendable {
-    /// Evaluates the server's trust and determines whether to allow the connection.
+public protocol HTTPClientServerTrustHandler: Identifiable, Sendable where ID: Sendable {
+    /// Evaluates the server's certificate chain and determines whether to allow the connection.
     ///
     /// This method is called during the TLS handshake when the server presents its
     /// certificate. You can inspect the certificate chain and apply custom validation
     /// logic to determine whether the connection should proceed.
     ///
-    /// - Parameter trust: The `SecTrust` object containing the server's certificate chain
-    ///   and trust evaluation information. You can use Security framework APIs to inspect
-    ///   the certificates and perform custom validation.
+    /// - Parameter certificateChain: The certificates presented by the server, starting with
+    ///   the leaf certificate. These are the certificates exactly as the peer presented them:
+    ///   they have not been validated, and the chain may be incomplete or contain unrelated
+    ///   certificates.
     ///
     /// - Returns: A ``TrustEvaluationResult`` that specifies whether to use default
     ///   validation, explicitly allow the connection, or explicitly deny it.
     ///
     /// - Throws: An error if trust evaluation fails. Throwing an error denies the connection
     ///   and propagates the error to the caller.
-    func evaluateServerTrust(_ trust: SecTrust) async throws -> TrustEvaluationResult
+    func evaluateServerTrust(certificateChain: [Certificate]) async throws -> TrustEvaluationResult
 }
-
-#endif

@@ -15,7 +15,9 @@
 import HTTPAPIs
 import Foundation
 import HTTPTypesFoundation
+import Security
 import Synchronization
+import X509
 
 @available(anyAppleOS 26.0, *)
 final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionTaskDelegate {
@@ -378,33 +380,48 @@ final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionTaskDele
                 do {
                     switch challenge.protectionSpace.authenticationMethod {
                     case NSURLAuthenticationMethodServerTrust:
-                        if let serverTrustHandler = options.serverTrustHandler,
-                            let trust = challenge.protectionSpace.serverTrust
-                        {
-                            switch try await serverTrustHandler.evaluateServerTrust(trust) {
-                            case .default:
-                                completionHandler(.performDefaultHandling, nil)
-                            case .allow:
-                                completionHandler(.useCredential, URLCredential(trust: trust))
-                            case .deny:
-                                completionHandler(.cancelAuthenticationChallenge, nil)
-                            }
-                        } else {
+                        guard let trust = challenge.protectionSpace.serverTrust else {
                             completionHandler(.performDefaultHandling, nil)
+                            break
+                        }
+
+                        guard let serverTrustHandler = options.serverTrustHandler else {
+                            completionHandler(.performDefaultHandling, nil)
+                            break
+                        }
+
+                        let certificateChain = try trust.certificateChain()
+                        switch try await serverTrustHandler.evaluateServerTrust(certificateChain: certificateChain) {
+                        case .default:
+                            completionHandler(.performDefaultHandling, nil)
+                        case .allow:
+                            completionHandler(.useCredential, URLCredential(trust: trust))
+                        case .deny:
+                            completionHandler(.cancelAuthenticationChallenge, nil)
                         }
                     case NSURLAuthenticationMethodClientCertificate:
-                        if let clientCertificateHandler = options.clientCertificateHandler {
-                            let distinguishedNames = challenge.protectionSpace.distinguishedNames ?? []
-                            if let (identity, certificates) = try await clientCertificateHandler.handleClientCertificateChallenge(
-                                distinguishedNames: distinguishedNames
-                            ) {
-                                completionHandler(.useCredential, URLCredential(identity: identity, certificates: certificates, persistence: .none))
-                            } else {
-                                completionHandler(.useCredential, nil)
-                            }
-                        } else {
+                        guard let clientCertificateHandler = options.clientCertificateHandler else {
                             completionHandler(.performDefaultHandling, nil)
+                            break
                         }
+                        let distinguishedNames = DistinguishedName.decoding(
+                            derEncoded: challenge.protectionSpace.distinguishedNames ?? []
+                        )
+                        guard
+                            let (privateKey, certificateChain) =
+                                try await clientCertificateHandler.handleClientCertificateChallenge(
+                                    distinguishedNames: distinguishedNames
+                                )
+                        else {
+                            // No suitable certificate. Continue without one and let the server
+                            // decide whether that is acceptable.
+                            completionHandler(.useCredential, nil)
+                            break
+                        }
+                        completionHandler(
+                            .useCredential,
+                            try URLCredential(privateKey: privateKey, certificateChain: certificateChain)
+                        )
                     default:
                         completionHandler(.performDefaultHandling, nil)
                     }

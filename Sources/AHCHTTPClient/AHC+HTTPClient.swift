@@ -22,10 +22,6 @@ import Synchronization
 
 @available(anyAppleOS 26.0, *)
 extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
-    public struct RequestOptions: HTTPClientCapability.RequestOptions {
-
-    }
-
     public struct Writer: CallerAsyncWriter, ~Copyable {
         public typealias WriteElement = UInt8
         public typealias WriteFailure = any Error
@@ -171,7 +167,6 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
                 let sequence = request.headerFields.lazy.map({ ($0.name.rawName, $0.value) })
                 ahcRequest.headers.add(contentsOf: sequence)
             }
-
             if let body, body.knownLength != 0 {
                 let (asyncStream, startUploadContinuation) = AsyncStream.makeStream(of: HTTPClientRequest.Body.RequestWriter.self)
 
@@ -196,6 +191,8 @@ extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
             }
 
             do {
+                options.apply(to: &ahcRequest, serverHostname: url.host(percentEncoded: false))
+
                 let ahcResponse = try await self.execute(ahcRequest, timeout: .seconds(30))
 
                 var responseFields = HTTPFields()
