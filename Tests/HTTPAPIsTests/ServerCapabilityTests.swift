@@ -14,6 +14,7 @@
 import BasicContainers
 import Foundation
 import HTTPAPIs
+import NetworkTypes
 import Testing
 
 @available(anyAppleOS 26.0, *)
@@ -28,11 +29,15 @@ extension HTTPServerCapability {
 extension TestClientAndServer.HTTPRequestContext: HTTPServerCapability.ConnectionInfo {}
 
 @available(anyAppleOS 26.0, *)
+extension TestClientAndServer.HTTPRequestContext: HTTPServerCapability.HTTPVersionInfo {}
+
+@available(anyAppleOS 26.0, *)
 extension TestClientAndServer {
     func serveWithContextAssertions() async throws {
         try await self.serve { request, requestContext, reader, responseSender in
             #expect(requestContext.remoteAddress == "127.0.0.1:54321")
             #expect(requestContext.localAddress == "0.0.0.0:8080")
+            #expect(requestContext.httpVersion == .http2)
 
             try await responseSender.sendAndFinish(.init(status: .ok))
         }

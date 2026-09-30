@@ -17,6 +17,7 @@ import ContainersPreview
 import DequeModule
 import HTTPAPIs
 import HTTPTypes
+import NetworkTypes
 import Synchronization
 import Testing
 
@@ -30,10 +31,16 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
     struct HTTPRequestContext: HTTPServerCapability.RequestContext {
         var remoteAddress: String?
         var localAddress: String?
+        var httpVersion: HTTPVersion
 
-        init(remoteAddress: String? = nil, localAddress: String? = nil) {
+        init(
+            remoteAddress: String? = nil,
+            localAddress: String? = nil,
+            httpVersion: HTTPVersion = .http1_1
+        ) {
             self.remoteAddress = remoteAddress
             self.localAddress = localAddress
+            self.httpVersion = httpVersion
         }
     }
 
@@ -333,7 +340,8 @@ final class TestClientAndServer: HTTPClient, HTTPServer {
                         request: httpRequest,
                         requestContext: HTTPRequestContext(
                             remoteAddress: "127.0.0.1:54321",
-                            localAddress: "0.0.0.0:8080"
+                            localAddress: "0.0.0.0:8080",
+                            httpVersion: .http2
                         ),
                         reader: requestReader,
                         responseSender: responseSender
