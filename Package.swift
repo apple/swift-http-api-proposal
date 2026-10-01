@@ -36,10 +36,10 @@ let package = Package(
         .default(enabledTraits: ["Configuration"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-collections.git", exact: "1.6.0", traits: ["UnstableContainersPreview"]),
+        .package(url: "https://github.com/apple/swift-collections.git", exact: "1.7.1", traits: ["UnstableContainersPreview"]),
         .package(
             url: "https://github.com/apple/swift-async-algorithms.git",
-            exact: "1.1.5",
+            exact: "1.1.7",
             traits: ["UnstableAsyncStreaming"]
         ),
         .package(url: "https://github.com/apple/swift-http-types.git", from: "1.6.0"),
