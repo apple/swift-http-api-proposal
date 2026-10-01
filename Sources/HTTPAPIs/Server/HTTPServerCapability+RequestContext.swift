@@ -40,7 +40,7 @@
 ///     }
 /// }
 /// ```
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 public enum HTTPServerCapability {
     /// A protocol that all server request contexts must conform to.
     ///

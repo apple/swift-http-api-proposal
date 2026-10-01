@@ -15,7 +15,7 @@
 public import NetworkTypes
 
 /// The options for the URLSession HTTP client implementation.
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 public struct URLSessionRequestOptions:
     HTTPClientCapability.RedirectionHandler,
     HTTPClientCapability.TLSSecurityHandler,

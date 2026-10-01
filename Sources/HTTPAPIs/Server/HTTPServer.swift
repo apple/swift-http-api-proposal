@@ -20,7 +20,7 @@ public import AsyncStreaming
 /// ``HTTPServerRequestHandler``. The body reader and response sender types are
 /// surfaced directly; there are no separate "request receiver" wrapper types.
 // TODO: We should revisit if this should be Sendable
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 public protocol HTTPServer<RequestContext, Reader, ResponseSender>: Sendable, ~Copyable, ~Escapable {
     /// The type of context provided to request handlers for each incoming request.
     ///

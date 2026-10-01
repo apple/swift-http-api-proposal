@@ -18,7 +18,7 @@ import Synchronization
 ///
 /// Every incoming request is proxied via an HTTP client. This supports full bi-directional streaming
 /// and trailers.
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 @main
 struct ProxyServer {
     static func main() async throws {

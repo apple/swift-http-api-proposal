@@ -14,7 +14,7 @@
 public import AsyncStreaming
 import BasicContainers
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 extension AsyncReader where Self: ~Copyable, Self: ~Escapable {
     /// Collects body bytes into the supplied buffer until end-of-stream, and
     /// returns the unwrapped trailing fields.

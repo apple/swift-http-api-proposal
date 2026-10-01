@@ -12,7 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 /// The namespace for all protocols defining HTTP client capabilities.
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 public enum HTTPClientCapability {
     /// The request options protocol.
     ///

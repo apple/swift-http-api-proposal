@@ -14,7 +14,7 @@
 #if canImport(Darwin)
 import Security
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 extension HTTPClientCapability {
     /// A protocol for HTTP request options that support custom TLS callbacks.
     public protocol TLSSecurityHandler: RequestOptions, DeclarativeTLS {
@@ -42,7 +42,7 @@ extension HTTPClientCapability {
     }
 }
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 extension HTTPClientCapability.TLSSecurityHandler {
     public var serverTrustPolicy: TrustEvaluationPolicy {
         get {

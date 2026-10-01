@@ -26,7 +26,7 @@ public import AsyncStreaming
 ///     try await reader.pipe(into: writer)
 /// }
 /// ```
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 public struct HTTPServerClosureRequestHandler<
     RequestContext: HTTPServerCapability.RequestContext & ~Copyable,
     Reader: AsyncReader & ~Copyable,
@@ -70,7 +70,7 @@ where
     }
 }
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 extension HTTPServer
 where
     Self: ~Copyable,

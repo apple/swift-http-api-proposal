@@ -17,7 +17,7 @@ public import Logging
 public import Middleware
 
 /// A middleware that logs HTTP server requests and responses.
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 public struct HTTPServerLoggingMiddleware<
     RequestContext: HTTPServerCapability.RequestContext & ~Copyable,
     Reader: AsyncReader & ~Copyable,
@@ -70,7 +70,7 @@ where
     }
 }
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 extension Middleware where Input: ~Copyable & ~Escapable, NextInput: ~Copyable & ~Escapable {
     /// Creates logging middleware for HTTP servers.
     public func logging<RequestContext, Reader, ResponseSender>(
@@ -89,7 +89,7 @@ extension Middleware where Input: ~Copyable & ~Escapable, NextInput: ~Copyable &
     }
 }
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 public struct LoggingReader<Base: AsyncReader & ~Copyable>: AsyncReader, ~Copyable
 where Base.ReadElement == UInt8, Base.FinalElement == HTTPFields? {
     public typealias ReadElement = UInt8
@@ -122,7 +122,7 @@ where Base.ReadElement == UInt8, Base.FinalElement == HTTPFields? {
     }
 }
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 public struct HTTPResponseLoggingSender<
     Base: HTTPResponseSender & ~Copyable
 >: HTTPResponseSender, ~Copyable

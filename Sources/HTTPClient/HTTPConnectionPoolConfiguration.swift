@@ -12,7 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 /// Configuration options for an HTTP connection pool.
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 public struct HTTPConnectionPoolConfiguration: Hashable, Sendable {
     /// The maximum number of concurrent HTTP/1.1 connections allowed per host.
     ///

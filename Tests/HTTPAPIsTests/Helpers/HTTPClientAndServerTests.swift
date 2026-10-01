@@ -25,7 +25,7 @@ import Testing
 /// This type hooks up a client to a server in-process using
 /// ``DuplexAsyncChannel`` for both directions: the client side writes the
 /// request body and reads the response body; the server side mirrors that.
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 final class TestClientAndServer: HTTPClient, HTTPServer {
     struct HTTPRequestContext: HTTPServerCapability.RequestContext {
         var remoteAddress: String?

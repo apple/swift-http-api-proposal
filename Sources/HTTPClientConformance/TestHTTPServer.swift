@@ -40,7 +40,7 @@ struct JSONHTTPRequest: Codable {
     let trailers: [String: [String]]
 }
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 public func withTestHTTPServer(perform: (Int) async throws -> Void) async throws {
     try await withThrowingTaskGroup {
         let logger = Logger(label: "TestHTTPServer")
@@ -60,7 +60,7 @@ public func withTestHTTPServer(perform: (Int) async throws -> Void) async throws
     }
 }
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 struct ETag: Sendable & ~Copyable {
     let eTag: Mutex<Int> = .init(0)
 
@@ -85,7 +85,7 @@ struct ETag: Sendable & ~Copyable {
     }
 }
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 func serve(server: NIOHTTPServer) async throws {
     let eTag = ETag()
     try await server.serve {

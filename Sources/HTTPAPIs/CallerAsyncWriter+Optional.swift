@@ -16,7 +16,7 @@ import BasicContainers
 public import ContainersPreview
 
 // TODO: This should be moved to the AsyncStreaming module
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 extension CallerAsyncWriter where Self: ~Copyable, Self: ~Escapable, WriteElement: ~Copyable {
     /// Concludes the writer with no remaining buffer and no payload, when the ``FinalElement`` is `Optional`.
     ///

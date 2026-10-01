@@ -16,7 +16,7 @@ import NIOCore
 import NIOHTTP1
 import NIOPosix
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 public func withRawHTTPServer(perform: (Int) async throws -> Void) async throws {
     try await withThrowingTaskGroup {
         let server = try await RawHTTPServer()
@@ -103,7 +103,7 @@ func handler(request: HTTPRequestHead) -> Data {
     }
 }
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 actor RawHTTPServer {
     let server_channel:
         NIOAsyncChannel<

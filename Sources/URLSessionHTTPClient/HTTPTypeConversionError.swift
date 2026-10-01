@@ -12,7 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #if canImport(Darwin)
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 enum HTTPTypeConversionError: Error {
     case unsupportedScheme
     case failedToConvertHTTPTypesToURLType

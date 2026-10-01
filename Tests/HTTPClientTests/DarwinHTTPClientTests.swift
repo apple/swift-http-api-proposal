@@ -26,7 +26,7 @@ let testsEnabled: Bool = {
 @Suite
 struct DarwinHTTPClientTests {
     @Test(.enabled(if: testsEnabled))
-    @available(anyAppleOS 26.0, *)
+    @available(anyAppleOS 27.0, *)
     func conformance() async throws {
         try await runConformanceTests(excluding: [
             // TODO: URLSession client does not correctly handle cached response updates during revalidation.
