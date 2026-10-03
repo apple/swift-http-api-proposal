@@ -12,13 +12,14 @@
 //===----------------------------------------------------------------------===//
 
 #if canImport(Darwin)
+public import HTTPAPIs
 public import NetworkTypes
 
 /// The options for the URLSession HTTP client implementation.
 @available(anyAppleOS 26.0, *)
 public struct URLSessionRequestOptions:
     HTTPClientCapability.RedirectionHandler,
-    HTTPClientCapability.TLSSecurityHandler,
+    HTTPClientCapability.TLSHandler,
     HTTPClientCapability.TLSVersionSelection
 {
     public var redirectionHandler: (any HTTPClientRedirectionHandler)? = nil
