@@ -27,13 +27,13 @@ extension URLCredential {
     ///   - certificateChain: The client certificate chain, starting with the leaf.
     convenience init(privateKey: Certificate.PrivateKey, certificateChain: [Certificate]) throws {
         guard let leaf = certificateChain.first else {
-            throw HTTPClientTLSError.couldNotSerializeClientCertificate
+            throw TLSHandlerError.couldNotSerializeClientCertificate
         }
         let secKey = try SecKey.makeWithPrivateKey(privateKey)
         let leafCertificate = try SecCertificate.makeWithCertificate(leaf)
         // Returns nil if the key does not match the certificate's public key.
         guard let identity = SecIdentityCreate(nil, leafCertificate, secKey) else {
-            throw HTTPClientTLSError.couldNotSerializeClientCertificate
+            throw TLSHandlerError.couldNotSerializeClientCertificate
         }
         // The leaf travels inside the identity, so only the intermediates go here.
         let intermediates = try certificateChain.dropFirst().map(SecCertificate.makeWithCertificate)

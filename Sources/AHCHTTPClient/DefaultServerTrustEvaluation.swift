@@ -38,7 +38,7 @@ enum DefaultServerTrustEvaluation {
         let secCertificates = try certificateChain.map { certificate -> SecCertificate in
             let derBytes = try certificate.serializeAsPEM().derBytes
             guard let secCertificate = SecCertificateCreateWithData(nil, Data(derBytes) as CFData) else {
-                throw HTTPClientTLSError.couldNotParseCertificateChain
+                throw TLSHandlerError.couldNotParseCertificateChain
             }
             return secCertificate
         }
@@ -47,7 +47,7 @@ enum DefaultServerTrustEvaluation {
         let policy = SecPolicyCreateSSL(true, serverHostname as CFString?)
         let status = unsafe SecTrustCreateWithCertificates(secCertificates as CFArray, policy, &trust)
         guard status == errSecSuccess, let trust else {
-            throw HTTPClientTLSError.couldNotParseCertificateChain
+            throw TLSHandlerError.couldNotParseCertificateChain
         }
         return SecTrustEvaluateWithError(trust, nil)
         #else

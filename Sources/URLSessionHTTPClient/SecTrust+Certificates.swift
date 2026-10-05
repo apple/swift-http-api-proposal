@@ -23,7 +23,7 @@ extension SecTrust {
     /// The certificates presented by the peer, in the order the peer presented them.
     func certificateChain() throws -> [Certificate] {
         guard let certificates = SecTrustCopyCertificateChain(self) as? [SecCertificate] else {
-            throw HTTPClientTLSError.couldNotParseCertificateChain
+            throw TLSHandlerError.couldNotParseCertificateChain
         }
         do {
             return try certificates.map { certificate in
@@ -31,7 +31,7 @@ extension SecTrust {
                 return try Certificate(derEncoded: Array(derBytes))
             }
         } catch {
-            throw HTTPClientTLSError.couldNotParseCertificateChain
+            throw TLSHandlerError.couldNotParseCertificateChain
         }
     }
 }

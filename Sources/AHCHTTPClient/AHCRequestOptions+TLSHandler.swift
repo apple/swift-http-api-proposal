@@ -161,15 +161,15 @@ extension _TLSClientCertificateHandler.Identity {
                     // Returns nil if the key does not match the certificate's public key.
                     let identity = SecIdentityCreate(nil, leaf, try SecKey.makeWithPrivateKey(privateKey))
                 else {
-                    throw HTTPClientTLSError.couldNotSerializeClientCertificate
+                    throw TLSHandlerError.couldNotSerializeClientCertificate
                 }
                 self.init(secIdentity: identity, certificateChain: certificates)
                 #else
-                throw HTTPClientTLSError.couldNotSerializeClientCertificate
+                throw TLSHandlerError.couldNotSerializeClientCertificate
                 #endif
             }
         } catch {
-            throw HTTPClientTLSError.couldNotSerializeClientCertificate
+            throw TLSHandlerError.couldNotSerializeClientCertificate
         }
     }
 }
