@@ -24,7 +24,7 @@ public import Security
 ///   policies like certificate pinning.
 ///
 /// - SeeAlso: ``TrustEvaluationResult``
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 public protocol HTTPClientServerTrustHandler: Identifiable, Sendable {
     /// Evaluates the server's trust and determines whether to allow the connection.
     ///

@@ -11,7 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 extension HTTPClientCapability {
     /// A protocol for HTTP request options that support TLS policies.
     public protocol DeclarativeTLS: RequestOptions {

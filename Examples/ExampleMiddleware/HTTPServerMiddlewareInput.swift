@@ -20,7 +20,7 @@ public import HTTPAPIs
 /// context, request body reader, and response sender. This boxing is necessary
 /// because some of these parameters are `~Copyable` types that cannot be
 /// stored in tuples.
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 public struct HTTPServerMiddlewareInput<
     RequestContext: HTTPServerCapability.RequestContext & ~Copyable,
     Reader: AsyncReader & ~Copyable,

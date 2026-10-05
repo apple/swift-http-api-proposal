@@ -31,7 +31,7 @@ import BasicContainers
 /// ``send(_:)``, but conformers are encouraged to override it when the
 /// underlying transport can coalesce the head, body, and trailing fields into
 /// a single frame.
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 public protocol HTTPResponseSender<Writer>: ~Copyable, ~Escapable {
     /// The body writer type used to stream response body bytes and signal end-of-body.
     ///
@@ -94,7 +94,7 @@ public protocol HTTPResponseSender<Writer>: ~Copyable, ~Escapable {
     ) async throws where Buffer.Element: ~Copyable
 }
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 extension HTTPResponseSender where Self: ~Copyable, Writer: ~Copyable {
     public consuming func sendAndFinish<Buffer: RangeReplaceableContainer<UInt8> & ~Copyable>(
         _ response: HTTPResponse,

@@ -16,7 +16,7 @@ import Foundation
 import HTTPAPIs
 import Testing
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 extension TestClientAndServer {
     func echo() async throws {
         try await self.serve { request, requestContext, reader, responseSender in
@@ -29,7 +29,7 @@ extension TestClientAndServer {
 @Suite("HTTP Client and Server Tests")
 struct HTTPClientAndServerTests {
     @Test("Simple echo test")
-    @available(anyAppleOS 26.0, *)
+    @available(anyAppleOS 27.0, *)
     func simpleEcho() async throws {
         let clientAndServer = TestClientAndServer()
         try await withThrowingTaskGroup { group in

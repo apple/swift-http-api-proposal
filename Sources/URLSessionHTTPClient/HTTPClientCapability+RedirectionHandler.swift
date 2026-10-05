@@ -11,7 +11,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 extension HTTPClientCapability {
     /// A protocol for HTTP request options that support custom redirection handling.
     public protocol RedirectionHandler: RequestOptions {
@@ -32,7 +32,7 @@ extension HTTPClientCapability {
     }
 }
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 extension HTTPClientCapability.RedirectionHandler {
     /// The redirection handler closure to be invoked when a 3xx response is received and
     /// a redirection is about to be taken.

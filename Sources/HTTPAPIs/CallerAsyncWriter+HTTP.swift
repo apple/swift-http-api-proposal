@@ -14,7 +14,7 @@
 public import AsyncStreaming
 import BasicContainers
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 extension CallerAsyncWriter
 where Self: ~Copyable, Self: ~Escapable, WriteElement == UInt8, FinalElement == HTTPFields? {
     /// Concludes an HTTP body writer with no remaining buffer and the supplied

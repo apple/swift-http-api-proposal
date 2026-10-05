@@ -21,7 +21,7 @@ public import HTTPAPIs
 /// middlewares can substitute a different `Writer` type for `NextInput` so
 /// the inner stage sees a wrapped body that intercepts the bytes the user
 /// wrote.
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 public struct HTTPClientMiddlewareInput<Writer: CallerAsyncWriter & ~Copyable & SendableMetatype>: ~Copyable
 where Writer.WriteElement == UInt8, Writer.FinalElement == HTTPFields? {
     public var request: HTTPRequest

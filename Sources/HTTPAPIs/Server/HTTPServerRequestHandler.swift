@@ -49,7 +49,7 @@ public import AsyncStreaming
 ///     }
 /// }
 /// ```
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 public protocol HTTPServerRequestHandler<RequestContext, Reader, ResponseSender>: Sendable {
     /// The type of the request context provided by the server.
     associatedtype RequestContext: HTTPServerCapability.RequestContext, ~Copyable

@@ -15,7 +15,7 @@
 import NetworkTypes
 import Security
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 extension TLSVersion {
     var tlsProtocolVersion: tls_protocol_version_t? {
         switch self {

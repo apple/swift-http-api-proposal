@@ -19,7 +19,7 @@ public import struct FoundationEssentials.Data
 public import struct Foundation.Data
 #endif
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 extension HTTPClientRequestBody where Writer: ~Copyable {
     /// Creates a seekable request body from `Data`.
     ///

@@ -17,7 +17,7 @@ import Foundation
 import HTTPTypesFoundation
 import Synchronization
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 final class URLSessionTaskDelegateBridge: NSObject, Sendable, URLSessionTaskDelegate {
     private enum Callback: Sendable {
         case response(URLResponse)

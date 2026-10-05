@@ -14,7 +14,7 @@
 import HTTPAPIs
 
 /// This examples shows an HTTP echo server.
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 @main
 struct EchoServer {
     static func main() async throws {

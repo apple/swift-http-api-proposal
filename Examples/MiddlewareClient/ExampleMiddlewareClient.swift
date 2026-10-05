@@ -17,7 +17,7 @@ import HTTPAPIs
 import HTTPTypes
 import Middleware
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 struct ExampleMiddlewareClient<
     Client: HTTPClient & ~Copyable,
     OutWriter: CallerAsyncWriter & ~Copyable & SendableMetatype,
@@ -71,7 +71,7 @@ where
     }
 }
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 struct BaseRequestMiddleware<Client: HTTPClient & ~Copyable>: Middleware, Sendable
 where Client.Writer: SendableMetatype {
     typealias Input = HTTPClientMiddlewareInput<Client.Writer>

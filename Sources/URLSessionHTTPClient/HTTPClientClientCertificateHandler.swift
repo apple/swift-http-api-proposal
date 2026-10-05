@@ -25,7 +25,7 @@ public import Security
 /// The `Identifiable` conformance allows a Hashable identifier for guiding connection reuse.
 ///
 /// - SeeAlso: ``HTTPClientServerTrustHandler``
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 public protocol HTTPClientClientCertificateHandler: Identifiable, Sendable {
     /// Handles a client certificate challenge from the server.
     ///

@@ -18,7 +18,7 @@ import Logging
 import Middleware
 
 /// This example shows how to use middleware together with an HTTP client.
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 @main
 struct MiddlewareClient {
     static func main() async throws {

@@ -16,7 +16,7 @@ public import HTTPAPIs
 public import Middleware
 
 /// A terminal middleware that echoes HTTP request bodies back as responses.
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 public struct HTTPServerRequestHandlerMiddleware<
     RequestContext: HTTPServerCapability.RequestContext & ~Copyable,
     Reader: AsyncReader & ~Copyable,
@@ -46,7 +46,7 @@ where
     }
 }
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 extension Middleware where Input: ~Copyable & ~Escapable, NextInput: ~Copyable & ~Escapable {
     /// Creates a request handler middleware that echoes the request body back as the response.
     public func requestHandler<RequestContext, Reader, ResponseSender>() -> HTTPServerRequestHandlerMiddleware<RequestContext, Reader, ResponseSender>

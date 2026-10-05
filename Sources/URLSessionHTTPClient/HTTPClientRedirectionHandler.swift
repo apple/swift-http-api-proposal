@@ -49,7 +49,7 @@
 /// ```
 ///
 /// - SeeAlso: ``HTTPClientRedirectionAction``
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 public protocol HTTPClientRedirectionHandler: Sendable {
     /// Handles an HTTP redirection and determines the action to take.
     ///

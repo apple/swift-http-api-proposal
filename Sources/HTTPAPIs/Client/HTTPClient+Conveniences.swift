@@ -22,7 +22,7 @@ public import struct Foundation.URL
 public import struct Foundation.Data
 #endif
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 extension HTTPClient
 where
     Self: ~Copyable & ~Escapable,

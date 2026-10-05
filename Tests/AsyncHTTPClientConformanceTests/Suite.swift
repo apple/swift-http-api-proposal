@@ -17,7 +17,7 @@ import HTTPClientConformance
 import Testing
 
 @Suite struct AsyncHTTPClientTests {
-    @available(anyAppleOS 26.0, *)
+    @available(anyAppleOS 27.0, *)
     @Test func conformance() async throws {
         var config = HTTPClient.Configuration()
         config.connectionPool.concurrentHTTP1ConnectionsPerHostSoftLimit = 1

@@ -16,7 +16,7 @@ import Foundation
 import HTTPAPIs
 import Testing
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 extension HTTPServerCapability {
     protocol ConnectionInfo: RequestContext {
         var remoteAddress: String? { get }
@@ -24,10 +24,10 @@ extension HTTPServerCapability {
     }
 }
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 extension TestClientAndServer.HTTPRequestContext: HTTPServerCapability.ConnectionInfo {}
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 extension TestClientAndServer {
     func serveWithContextAssertions() async throws {
         try await self.serve { request, requestContext, reader, responseSender in
@@ -42,7 +42,7 @@ extension TestClientAndServer {
 @Suite("Server Capability Tests")
 struct ServerCapabilityTests {
     @Test("RequestContext values flow through to handler")
-    @available(anyAppleOS 26.0, *)
+    @available(anyAppleOS 27.0, *)
     func connectionInfoCapability() async throws {
         let clientAndServer = TestClientAndServer()
         try await withThrowingTaskGroup { group in

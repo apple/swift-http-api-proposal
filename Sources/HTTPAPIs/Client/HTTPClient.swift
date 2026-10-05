@@ -18,7 +18,7 @@ public import AsyncStreaming
 /// ``HTTPClient`` provides asynchronous request execution with streaming request
 /// and response bodies. Implementations expose the body reader and writer types
 /// directly; there are no separate "receiver" or "request sender" wrapper types.
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 public protocol HTTPClient<RequestOptions>: Sendable, ~Copyable, ~Escapable {
     associatedtype RequestOptions: HTTPClientCapability.RequestOptions
 

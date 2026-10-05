@@ -12,7 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 /// The options for the default HTTP client implementation.
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 public struct HTTPRequestOptions: HTTPClientCapability.RequestOptions {
     public init() {}
 }

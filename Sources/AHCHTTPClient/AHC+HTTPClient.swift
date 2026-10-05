@@ -20,7 +20,7 @@ import NIOCore
 import NIOHTTP1
 import Synchronization
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 extension AsyncHTTPClient.HTTPClient: HTTPAPIs.HTTPClient {
     public struct RequestOptions: HTTPClientCapability.RequestOptions {
 

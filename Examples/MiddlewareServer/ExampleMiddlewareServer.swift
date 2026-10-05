@@ -17,7 +17,7 @@ import Logging
 import Middleware
 
 /// This is an example server that wraps an HTTP server inside a middleware.
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 struct ExampleMiddlewareServer<
     Server: HTTPServer,
     ServerMiddleware: Middleware & Sendable
@@ -63,7 +63,7 @@ where
     }
 }
 
-@available(anyAppleOS 26.0, *)
+@available(anyAppleOS 27.0, *)
 struct RequestMiddleware<Server: HTTPServer>: Middleware
 where
     Server.RequestContext: ~Copyable,
