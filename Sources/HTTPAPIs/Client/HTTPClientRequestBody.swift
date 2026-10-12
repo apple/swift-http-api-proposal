@@ -71,6 +71,19 @@ where Writer: SendableMetatype, Writer.WriteElement == UInt8, Writer.FinalElemen
     /// the `Content-Length` header field.
     public let knownLength: Int64?
 
+    /// Provides the start of the body, so that a client can send it along
+    /// with the request head before the connection is established, for
+    /// example in TLS early data (RFC 8470).
+    ///
+    /// Only seekable bodies have one. A client that sends the early data
+    /// continues with ``produce(offset:into:)`` from its byte count, unless
+    /// it's the whole body (``HTTPEarlyData/isComplete``). The closure
+    /// returns nil when no early data is available, and the client then
+    /// produces the body from the start. A client only asks for early data
+    /// when the request may be replayed, and may ask again each time it
+    /// sends the body.
+    public let earlyData: (@Sendable () async -> HTTPEarlyData?)?
+
     private enum WriteBody {
         case restartable(@Sendable (consuming Writer) async throws -> Void)
         case seekable(@Sendable (Int64, consuming Writer) async throws -> Void)
@@ -136,21 +149,30 @@ where Writer: SendableMetatype, Writer.WriteElement == UInt8, Writer.FinalElemen
     /// - Parameters:
     ///   - knownLength: The length of the body is known upfront and can be
     ///     specified in the `content-length` header field.
+    ///   - earlyData: Provides the start of the body, which a client may send
+    ///     along with the request head. See ``earlyData``.
     ///   - body: The closure that writes the request body using the provided
     ///     writer. The closure must call
     ///     ``CallerAsyncWriter/finish(buffer:finalElement:)`` to terminate the body.
     public static func seekable(
         knownLength: Int64? = nil,
+        earlyData: (@Sendable () async -> HTTPEarlyData?)? = nil,
         _ body: @escaping @Sendable (Int64, consuming Writer) async throws -> Void
     ) -> Self {
         Self.init(
             knownLength: knownLength,
+            earlyData: earlyData,
             writeBody: .seekable(body)
         )
     }
 
-    private init(knownLength: Int64?, writeBody: WriteBody) {
+    private init(
+        knownLength: Int64?,
+        earlyData: (@Sendable () async -> HTTPEarlyData?)? = nil,
+        writeBody: WriteBody
+    ) {
         self.knownLength = knownLength
+        self.earlyData = earlyData
         self.writeBody = writeBody
     }
 
@@ -161,6 +183,7 @@ where Writer: SendableMetatype, Writer.WriteElement == UInt8, Writer.FinalElemen
         transform: @escaping @Sendable (consuming Writer) -> OtherWriter
     ) where Writer: SendableMetatype {
         self.knownLength = other.knownLength
+        self.earlyData = other.earlyData
         self.writeBody =
             switch other.writeBody {
             case .restartable(let writeBody):
