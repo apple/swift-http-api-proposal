@@ -20,8 +20,11 @@ extension AsyncReader where Self: ~Copyable, Self: ~Escapable {
     /// returns the unwrapped trailing fields.
     ///
     /// Convenience for HTTP body readers (`FinalElement == HTTPFields?`).
-    /// The buffer's initial free capacity acts as a hard cap; surplus bytes
-    /// are read and discarded.
+    /// The buffer's initial free capacity is a hard cap: a body longer than
+    /// it throws `AsyncReaderLeftOverElementsError` (wrapped in an
+    /// `EitherError`, as AsyncStreaming's `collect(into:)` throws it), after
+    /// the bytes that fit were appended. Truncating silently would look like
+    /// a complete body without trailers.
     // TODO: This should be moved to the AsyncStreaming module
     public consuming func collect<Buffer: RangeReplaceableContainer<UInt8> & ~Copyable>(
         into buffer: inout Buffer
@@ -31,23 +34,20 @@ extension AsyncReader where Self: ~Copyable, Self: ~Escapable {
         var trailers: HTTPFields? = nil
         var done = false
         while !done {
-            try await reader.read { (chunk: inout Self.Buffer, finalElement: consuming HTTPFields??) in
+            try await reader.read { (chunk: inout Self.Buffer, finalElement: consuming HTTPFields??) throws(AsyncReaderLeftOverElementsError) in
                 if let finalElement {
                     trailers = finalElement
                     done = true
                 }
                 if chunk.count == 0 { return }
                 let remaining = buffer.freeCapacity
-                if chunk.count <= remaining {
-                    buffer.append(moving: chunk.startIndex..<chunk.endIndex, from: &chunk)
-                } else {
+                guard chunk.count <= remaining else {
                     let endIdx = chunk.index(chunk.startIndex, offsetBy: remaining)
                     buffer.append(moving: chunk.startIndex..<endIdx, from: &chunk)
-                    var consumer = chunk.consumeAll()
-                    while consumer.next() != nil {}
+                    throw AsyncReaderLeftOverElementsError()
                 }
+                buffer.append(moving: chunk.startIndex..<chunk.endIndex, from: &chunk)
             }
-            if buffer.freeCapacity == 0 { break }
         }
         return trailers
     }
