@@ -12,7 +12,6 @@
 //===----------------------------------------------------------------------===//
 
 public import BasicContainers
-import Foundation
 @_exported public import HTTPAPIs
 import JavaScriptEventLoop
 import JavaScriptKit
@@ -54,9 +53,10 @@ public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
         options: RequestOptions,
         responseHandler: nonisolated(nonsending) (HTTPTypes.HTTPResponse, consuming ResponseBodyReader) async throws -> Return
     ) async throws -> Return where Return: ~Copyable {
-        guard let url = request.url else {
+        guard let scheme = request.scheme, let authority = request.authority, let path = request.path else {
             throw FetchError.BadURL
         }
+        let urlString = "\(scheme)://\(authority)\(path)"
 
         var jsBody: JSObject? = nil
 
@@ -80,7 +80,7 @@ public final class FetchHTTPClient: HTTPAPIs.HTTPClient {
 
         // Perform the request
         let requestInit = RequestInit(body: jsBody, method: request.method.rawValue, headers: requestHeaders)
-        let response = try await fetch(url.absoluteString, requestInit)
+        let response = try await fetch(urlString, requestInit)
         let responseStatus = try response.status
         let responseStatusText = try response.statusText
         let stream = try response.body

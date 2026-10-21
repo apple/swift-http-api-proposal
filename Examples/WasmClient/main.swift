@@ -15,7 +15,6 @@ import AsyncStreaming
 import BasicContainers
 import ContainersPreview
 import FetchHTTPClient
-import Foundation
 import HTTPAPIs
 import JavaScriptEventLoop
 import JavaScriptKit
@@ -27,18 +26,30 @@ JavaScriptEventLoop.installGlobalExecutor()
 let client = FetchHTTPClient()
 let status = Status()
 
-// Ask the user for the URL string.
-let urlString = try prompt("URL:", "http://localhost:8000/").trimmingCharacters(in: .whitespacesAndNewlines)
-guard let url = URL(string: urlString) else {
-    status.set("❌ Not a valid URL")
+// This browser demo has no graceful recovery path, so bad input is reported on
+// the status line and then aborts.
+func fail(_ message: String) -> Never {
+    status.set(message)
     fatalError()
 }
 
-// Parse the method
-let methodString = try prompt("Method (GET, POST, etc.):", "GET").trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
+// Parse the user-entered URL with the host's WHATWG parser (imported via
+// BridgeJS). Invalid input throws.
+let urlString = try prompt("URL:", "http://localhost:8000/")
+let url: JSURL
+do {
+    url = try JSURL(urlString)
+} catch {
+    fail("❌ Not a valid URL")
+}
+
+let scheme = String(try url.`protocol`.dropLast())
+let authority = try url.host
+let path = try url.pathname + url.search
+
+let methodString = try prompt("Method (GET, POST, etc.):", "GET").uppercased()
 guard let method = HTTPRequest.Method(methodString) else {
-    status.set("❌ Not a valid method")
-    fatalError()
+    fail("❌ Not a valid method")
 }
 
 // Optionally accept a body
@@ -53,13 +64,15 @@ if method == .post || method == .put {
     }
 }
 
-status.set("⏳ Making \(method) request to \(url)")
+status.set("⏳ Making \(method) request to \(urlString)")
 
 do {
     try await client.perform(
         request: .init(
             method: method,
-            url: url,
+            scheme: scheme,
+            authority: authority,
+            path: path,
             headerFields: [
                 .init("Client")!: "Swift-Wasm"
             ]
@@ -105,5 +118,7 @@ do {
         }
     }
 } catch {
-    status.set("❌ Fetch failed: \(error)")
+    // Embedded Swift can't reflect over an existential `any Error`, so report a
+    // fixed message rather than interpolating `error`.
+    status.set("❌ Fetch failed")
 }
